@@ -1,6 +1,6 @@
 {
   "short_name": "Krealgram",
-  "name": "Krealgram - Социальная сеть",
+  "name": "Krealgram - Social Network",
   "icons": [
     {
       "src": "favicon.ico",
@@ -13,7 +13,7 @@
       "sizes": "192x192"
     }
   ],
-  "start_url": "/",
+  "start_url": ".",
   "scope": "/",
   "display": "standalone",
   "theme_color": "#405de6",
