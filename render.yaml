@@ -15,7 +15,7 @@ services:
         fromEnv: PORT
       - key: USE_CLOUDINARY
         fromEnv: USE_CLOUDINARY
-      - key. CLOUDINARY_CLOUD_NAME
+      - key: CLOUDINARY_CLOUD_NAME
         fromEnv: CLOUDINARY_CLOUD_NAME
       - key: CLOUDINARY_API_KEY
         fromEnv: CLOUDINARY_API_KEY
