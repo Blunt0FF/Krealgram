@@ -10,6 +10,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
     password: ''
   });
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -21,6 +22,9 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
     try {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -32,10 +36,20 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
         body: JSON.stringify(formData)
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        throw new Error('Server returned non-JSON response');
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'Ошибка входа');
+      }
+
+      if (!data.token || !data.user) {
+        throw new Error('Invalid server response');
       }
 
       localStorage.setItem('token', data.token);
@@ -43,15 +57,16 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       setIsAuthenticated(true);
       setUser(data.user);
       
-      // Загружаем счетчик уведомлений сразу после логина
       if (fetchUnreadCount) {
         fetchUnreadCount(data.token);
       }
       
       navigate('/feed');
     } catch (error) {
-      setError(error.message);
       console.error('Login error:', error);
+      setError(error.message || 'Произошла ошибка при входе. Пожалуйста, попробуйте снова.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -74,6 +89,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
                 value={formData.identifier}
                 onChange={handleChange}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="form-group">
@@ -84,9 +100,16 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                disabled={isLoading}
               />
             </div>
-            <button type="submit" className="auth-button">Log in</button>
+            <button 
+              type="submit" 
+              className="auth-button"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Loading...' : 'Log in'}
+            </button>
           </form>
           <div className="auth-or">
             <span>OR</span>
