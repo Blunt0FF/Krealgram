@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAvatarUrl } from '../utils/imageUtils';
+import { API_URL } from '../config';
 import './MobileNotificationsPage.css'; // Стили для этой страницы
-
-const API_URL = 'http://localhost:3000';
 
 // Утилита для форматирования времени (та же, что и в NotificationsPanel)
 const timeAgo = (date) => {

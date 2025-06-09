@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAvatarUrl } from '../../utils/imageUtils';
 // import { compressAvatar } from '../../utils/imageUtils'; // Сжатие будет либо удалено, либо изменено
+import { API_URL } from '../../config';
 import './EditProfile.css';
-
-const API_URL = 'http://localhost:3000';
 
 const EditProfile = ({ user, setUser }) => {
   const navigate = useNavigate();

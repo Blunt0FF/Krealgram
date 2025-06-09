@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAvatarUrl } from '../../utils/imageUtils';
+import { API_URL } from '../../config';
 import './LikesModal.css';
-
-const API_URL = 'http://localhost:3000';
 
 const LikesModal = ({ isOpen, onClose, postId }) => {
   const [likes, setLikes] = useState([]);

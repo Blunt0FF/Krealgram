@@ -4,9 +4,8 @@ import LikesModal from './LikesModal';
 import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { API_URL } from '../../config';
 import './Post.css';
-
-const API_URL = 'http://localhost:3000';
 
 const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
   const [isLiked, setIsLiked] = useState(() => {

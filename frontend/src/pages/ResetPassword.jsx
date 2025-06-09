@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { API_URL } from '../config';
 import '../components/Auth/Auth.css';
-
-const API_URL = 'http://localhost:3000';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();

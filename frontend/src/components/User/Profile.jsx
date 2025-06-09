@@ -4,10 +4,9 @@ import LikesModal from '../Post/LikesModal';
 import ShareModal from '../Post/ShareModal';
 import EditPostModal from '../Post/EditPostModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { API_URL } from '../../config';
 import './Profile.css';
 import '../Feed/PostModal.css';
-
-const API_URL = 'http://localhost:3000';
 
 // ВОССТАНАВЛИВАЕМ ЛОКАЛЬНЫЙ КОМПОНЕНТ PostModal
 const PostModal = ({ 
@@ -554,7 +553,7 @@ const FollowersModal = ({ isOpen, onClose, title, users, loading }) => {
   );
 };
 
-const Profile = ({ user: currentUser }) => {
+const Profile = ({ user: currentUserProp }) => {
   const { username } = useParams();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
@@ -635,7 +634,7 @@ const Profile = ({ user: currentUser }) => {
   };
 
   const handleDeletePost = async (postIdToDelete) => {
-    if (!currentUser || !isOwner) return;
+    if (!currentUserProp || !isOwner) return;
 
     try {
         const token = localStorage.getItem('token');
@@ -713,7 +712,7 @@ const Profile = ({ user: currentUser }) => {
   };
 
   const toggleFollow = async () => {
-    if (!currentUser || isOwner) return;
+    if (!currentUserProp || isOwner) return;
 
     const wasFollowing = followInfo.isFollowing;
     
@@ -788,11 +787,11 @@ const Profile = ({ user: currentUser }) => {
         
         const processedPosts = (data.user.posts || []).map(p => {
           // Проверяем, лайкнул ли текущий пользователь этот пост
-          const isLikedByCurrentUser = currentUser && p.likes ? 
+          const isLikedByCurrentUser = currentUserProp && p.likes ? 
             p.likes.some(like => 
-              like.user === currentUser._id || 
-              like.user?._id === currentUser._id || 
-              like === currentUser._id
+              like.user === currentUserProp._id || 
+              like.user?._id === currentUserProp._id || 
+              like === currentUserProp._id
             ) : false;
           
           // Обрабатываем лайки поста
@@ -815,7 +814,7 @@ const Profile = ({ user: currentUser }) => {
         
         // Проверяем владельца профиля - используем как currentUser, так и localStorage
         const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const userId = currentUser?._id || storedUser?._id;
+        const userId = currentUserProp?._id || storedUser?._id;
         if (userId) {
           setIsOwner(userId === data.user._id);
         }
@@ -830,7 +829,7 @@ const Profile = ({ user: currentUser }) => {
         setLoadingProfile(false);
         setProfile(null);
     });
-  }, [username, currentUser]);
+  }, [username, currentUserProp]);
 
   if (loadingProfile) {
     return <div className="profile-loading">Loading profile...</div>;
@@ -882,7 +881,7 @@ const Profile = ({ user: currentUser }) => {
                       Log out
                     </button>
                   </>
-                ) : currentUser ? (
+                ) : currentUserProp ? (
                   <>
                     <button 
                       className={`follow-btn ${followInfo.isFollowing ? 'following' : ''}`} 
@@ -951,7 +950,7 @@ const Profile = ({ user: currentUser }) => {
             isOpen={!!selectedPost}
             onClose={closeModal}
             post={selectedPost}
-            currentUser={currentUser}
+            currentUser={currentUserProp}
             onPostUpdate={handlePostUpdate}
             onDeletePost={handleDeletePost}
             onPrevious={goToPreviousPost}
@@ -989,7 +988,7 @@ const Profile = ({ user: currentUser }) => {
         )}
       </div>
       
-      <MobileBottomNav user={currentUser} />
+      <MobileBottomNav user={currentUserProp} />
     </>
   );
 };

@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getRecentUsers, addRecentUser } from '../utils/recentUsers';
 import { getAvatarUrl } from '../utils/imageUtils';
+import { API_URL } from '../config';
 import './SearchPage.css';
-
-const API_URL = 'http://localhost:3000';
 
 const SearchPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
