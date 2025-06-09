@@ -44,25 +44,26 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   credentials: true,
-  maxAge: 86400 // 24 часа
+  maxAge: 86400
 };
 
 app.use(cors(corsOptions));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Важно: middleware для парсинга JSON должен идти после CORS
-app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Добавляем обработку OPTIONS запросов
+app.options('*', cors(corsOptions));
+
+// Добавляем базовый маршрут для проверки работоспособности
+app.get('/', (req, res) => {
+  res.json({ message: 'API is working' });
+});
 
 // Раздача статических файлов из папки 'uploads'
 // __dirname в ES Modules не работает так, как в CommonJS, но так как package.json указывает "type": "commonjs" (по умолчанию для npm init -y)
 // то __dirname будет работать корректно.
 // Если бы мы использовали "type": "module", пришлось бы использовать import.meta.url
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Базовый маршрут для проверки
-app.get('/', (req, res) => {
-  res.send('Krealgram API is working!');
-});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

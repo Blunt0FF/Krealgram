@@ -12,6 +12,7 @@ export default defineConfig({
         target: 'https://krealgram-backend.onrender.com',
         changeOrigin: true,
         secure: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
