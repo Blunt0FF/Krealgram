@@ -6,6 +6,15 @@ const path = require('path'); // Добавим path для работы с пу
 const http = require('http');
 const { Server } = require('socket.io');
 const connectDB = require('./config/db'); // Мы создадим этот файл далее
+const authRoutes = require('./routes/authRoutes');
+const postRoutes = require('./routes/postRoutes');
+const userRoutes = require('./routes/userRoutes');
+const likeRoutes = require('./routes/likeRoutes');
+const commentRoutes = require('./routes/commentRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const followRoutes = require('./routes/followRoutes');
+const { setupSocketServer } = require('./socket');
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -22,7 +31,8 @@ const io = new Server(server, {
       "http://127.0.0.1:4000",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com"
+      "https://www.krealgram.com",
+      "https://krealgram-lmnau82av-kreals-projects-83af4312.vercel.app"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
@@ -38,7 +48,8 @@ const corsOptions = {
     'http://127.0.0.1:4000',
     'https://krealgram.vercel.app',
     'https://krealgram.com',
-    'https://www.krealgram.com'
+    'https://www.krealgram.com',
+    'https://krealgram-lmnau82av-kreals-projects-83af4312.vercel.app'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
@@ -74,24 +85,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// TODO: Подключить маршруты (routes)
-const authRoutes = require('./routes/authRoutes');
-const postRoutes = require('./routes/postRoutes');
-const userRoutes = require('./routes/userRoutes');
-const commentRoutes = require('./routes/commentRoutes');
-const searchRoutes = require('./routes/searchRoutes');
-const likeRoutes = require('./routes/likeRoutes');
-const conversationRoutes = require('./routes/conversationRoutes'); // Добавляем маршруты для диалогов
-const notificationRoutes = require('./routes/notificationRoutes'); // Импортируем маршруты уведомлений
-
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/comments', commentRoutes);
-app.use('/api/search', searchRoutes);
 app.use('/api/likes', likeRoutes);
-app.use('/api/conversations', conversationRoutes); // Подключаем маршруты для диалогов
-app.use('/api/notifications', notificationRoutes); // Подключаем маршруты для уведомлений
+app.use('/api/comments', commentRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/follow', followRoutes);
 
 // Настройка Socket.IO
 io.on('connection', (socket) => {
@@ -108,4 +110,21 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`)); 
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('Connected to MongoDB');
+    const server = app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+    setupSocketServer(server);
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+  });
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!', error: err.message });
+}); 
