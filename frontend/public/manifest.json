@@ -1,6 +1,6 @@
 {
   "short_name": "Krealgram",
-  "name": "Krealgram - Social Network",
+  "name": "Krealgram - Social Media Platform",
   "icons": [
     {
       "src": "favicon.ico",
@@ -8,15 +8,18 @@
       "type": "image/x-icon"
     },
     {
-      "src": "logo.png",
+      "src": "logo192.png",
       "type": "image/png",
-      "sizes": "192x192 512x512",
-      "purpose": "any maskable"
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ],
   "start_url": ".",
-  "scope": "/",
   "display": "standalone",
-  "theme_color": "#405de6",
-  "background_color": "#fafafa"
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
 }
