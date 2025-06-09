@@ -25,8 +25,10 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 

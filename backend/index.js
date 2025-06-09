@@ -17,16 +17,28 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:4000", "http://127.0.0.1:4000", "https://krealgram.vercel.app"],
-    methods: ["GET", "POST"]
+    origin: [
+      "http://localhost:4000",
+      "http://127.0.0.1:4000",
+      "https://krealgram.vercel.app",
+      "https://krealgram.com",
+      "https://www.krealgram.com"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    credentials: true
   }
 });
 
 app.set('io', io); // Сделаем io доступным в контроллерах
 
-// Middleware
-app.use(cors({
-  origin: ['http://localhost:4000', 'https://krealgram.vercel.app'],
+// Настройки CORS для Express
+const corsOptions = {
+  origin: [
+    "http://localhost:4000",
+    "https://krealgram.vercel.app",
+    "https://krealgram.com",
+    "https://www.krealgram.com"
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
@@ -39,7 +51,9 @@ app.use(cors({
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   preflightContinue: false,
   optionsSuccessStatus: 204
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Важно: middleware для парсинга JSON должен идти после CORS
 app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных

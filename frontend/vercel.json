@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "routes": [
     {
       "src": "/assets/(.*)",
@@ -25,11 +27,20 @@
       "continue": true
     },
     {
+      "src": "/logo.png",
+      "headers": {
+        "cache-control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
       "src": "/manifest.json",
       "headers": {
         "content-type": "application/manifest+json",
         "cache-control": "public, max-age=0, must-revalidate"
       }
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
