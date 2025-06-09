@@ -1,0 +1,658 @@
+/* Глобальные стили для PostModal, применяемые ВСЕГДА, независимо от размера экрана */
+.post-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.65); /* Затемнение: будет всегда */
+  display: flex;
+  align-items: center; /* Центрируем по вертикали */
+  justify-content: center; /* Центрируем по горизонтали */
+  z-index: 9999;
+  animation: fadeIn 0.3s ease-out;
+  /* Добавляем overflow: auto для прокрутки оверлея, если модалка меньше экрана */
+  overflow: auto; /* Позволит прокручивать, если модалка вдруг станет больше экрана */
+  -webkit-overflow-scrolling: touch; /* Улучшение прокрутки на iOS */
+}
+
+.post-modal-content {
+  background: white;
+  border-radius: 0 !important;
+  max-width: 90vw !important;
+  max-height: 95vh !important; /* Максимальная высота модалки */
+  /* width: 1200px !important; */
+  height: auto; /* Высота по содержимому. Сохраняем это */
+  width: auto;
+  display: flex;
+  /* flex-direction: row; */
+  /* position: relative; */
+  /* box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); */
+  overflow: hidden; /* Важно: скрывает все, что выходит за границы content */
+  animation: scaleIn 0.3s ease-out;
+  padding: 0;
+  margin: auto;
+  border: none;
+  box-sizing: border-box;
+  /* min-width: 320px; */
+  /* min-height: 300px; */
+}
+
+/* --- Остальные стили без изменений --- */
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  transition: all 0.3s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.post-modal-image {
+  flex: 1.2; /* Изображение занимает больше места */
+  min-height: 400px;
+  max-height: 95vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: none;
+  overflow: hidden;
+  position: relative;
+  border-radius: 0 !important;
+}
+
+.post-modal-image iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  aspect-ratio: 16/9;
+  border: none;
+  background: black;
+}
+
+.post-modal-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Или cover, в зависимости от желаемого поведения */
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: white;
+}
+
+.image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+  color: #8e8e8e;
+}
+
+.post-modal-sidebar {
+  width: 450px; /* Фиксированная ширина сайдбара */
+  min-width: 400px;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #efefef;
+  background: white;
+  height: auto; /* Высота по содержимому */
+  max-height: 95vh; /* Максимальная высота */
+  position: relative;
+  overflow: hidden; /* Для прокрутки содержимого, если оно не помещается */
+}
+
+.post-header {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #efefef;
+  flex-shrink: 0;
+  /* justify-content: space-between; */
+}
+
+.author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 12px;
+  object-fit: cover;
+}
+
+.author-username {
+  font-weight: 600;
+  font-size: 14px;
+  color: #262626;
+  text-decoration: none;
+}
+
+.author-username:hover {
+  text-decoration: underline;
+}
+
+.post-content {
+  padding: 0;
+  flex: 1; /* Позволяет заполнять доступное пространство */
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow-y: auto; /* Прокрутка содержимого */
+  overflow-x: hidden;
+  min-height: 0; /* Важно для flex item */
+  border: none;
+  background: white;
+}
+
+.post-caption {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 0;
+  padding: 8px 16px 0 16px;
+  border: none;
+  background: white;
+}
+
+.caption-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 12px;
+  object-fit: cover;
+}
+
+.caption-content {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.caption-author {
+  font-weight: 600;
+  font-size: 14px;
+  color: #262626;
+  margin-bottom: 3px;
+  text-decoration: none;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.caption-author:hover {
+  text-decoration: underline;
+}
+
+.caption-text {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #262626;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.caption-text.collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+  max-height: calc(1.3em * 3);
+}
+
+.caption-toggle {
+  background: none;
+  border: none;
+  color: #8e8e8e;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  font-weight: normal;
+  text-decoration: none;
+}
+
+.caption-toggle:hover {
+  color: #262626;
+}
+
+.comments-section {
+  flex: 1;
+  /* padding: 8px 0; */
+  /* overflow-y: auto; */
+  /* overflow-x: hidden; */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  position: relative;
+  padding: 0 16px;
+}
+
+.comment-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.comment-body {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.comment-author {
+  font-weight: 600;
+  font-size: 14px;
+  color: #262626;
+  text-decoration: none;
+  word-break: break-word;
+  margin-bottom: 2px;
+  max-width: 100%;
+}
+
+.comment-author:hover {
+  text-decoration: underline;
+}
+
+.comment-text {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #262626;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.delete-comment-btn {
+  background: none;
+  border: none;
+  color: #8e8e8e;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  position: absolute;
+  right: 8px;
+  top: 2px;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.delete-comment-btn:hover {
+  background: #f5f5f5;
+  color: #ed4956;
+}
+
+.show-more-comments,
+.show-less-comments {
+  background: none;
+  border: none;
+  color: #8e8e8e;
+  font-size: 12px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: color 0.2s;
+  margin-top: 8px;
+  font-weight: 500;
+  text-align: left;
+  width: 100%;
+}
+
+.show-more-comments:hover,
+.show-less-comments:hover {
+  color: #262626;
+}
+
+.post-actions {
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.post-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.likes-count-inline {
+  font-size: 14px;
+  font-weight: 600;
+  color: #262626;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.likes-count-inline:hover {
+  color: #8e8e8e;
+}
+
+.post-actions-right {
+  display: flex;
+  /* gap: 16px; */
+}
+
+.action-button {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  transition: transform 0.2s ease;
+}
+
+.action-button svg {
+  width: 24px;
+  height: 24px;
+  color: #262626;
+  fill: none;
+  transition: color 0.2s ease, fill 0.2s ease;
+}
+
+.action-button:hover {
+  transform: scale(1.1);
+}
+
+.action-button:hover svg {
+  color: #8e8e8e;
+}
+
+.action-button.liked svg {
+  fill: #ed4956 !important;
+  stroke: #ed4956 !important;
+  color: #ed4956 !important;
+}
+
+.action-button.liked:hover svg {
+  fill: #ed4956 !important;
+  stroke: #ed4956 !important;
+  color: #ed4956 !important;
+}
+
+.post-info {
+  padding: 2px 16px 4px 16px;
+  flex-shrink: 0;
+  border-bottom: 1px solid #efefef;
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+.post-likes {
+  margin-bottom: 8px;
+}
+
+.likes-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: #262626;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  transition: color 0.2s ease;
+}
+
+.likes-count.clickable {
+  cursor: pointer;
+}
+
+.likes-count.clickable:hover {
+  color: #8e8e8e;
+}
+
+.post-time {
+  font-size: 12px;
+  color: #8e8e8e;
+  padding: 8px 16px;
+  margin: 0;
+  border: none;
+  background: white;
+  border-bottom: 1px solid #efefef;
+}
+
+.comment-form {
+  border-top: 1px solid #efefef;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  flex-shrink: 0;
+}
+
+.comment-form-modal-bottom {
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  flex-shrink: 0;
+  border-top: 1px solid #efefef;
+}
+
+.comment-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  resize: none;
+  font-family: inherit;
+  color: #262626;
+  min-height: 18px;
+  max-height: 80px;
+  line-height: 18px;
+  overflow-y: auto;
+}
+
+.comment-input::placeholder {
+  color: #8e8e8e;
+}
+
+.comment-submit {
+  background: #0095f6;
+  border: none;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 8px 16px;
+  border-radius: 6px;
+  min-width: 60px;
+  text-shadow: none;
+}
+
+.comment-submit:disabled {
+  background: #c4c4c4;
+  opacity: 0.6;
+  cursor: not-allowed;
+  color: white;
+}
+
+.comment-submit:not(:disabled):hover {
+  background: #1877f2;
+  color: white;
+  opacity: 1;
+  transform: none;
+}
+
+.post-options {
+  position: relative;
+  margin-right: 48px;
+}
+
+.options-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+  color: #262626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.options-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.options-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #dbdbdb;
+  border-radius: 6px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  min-width: 120px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.option-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  color: #262626;
+  transition: background-color 0.2s;
+}
+
+.option-item:hover {
+  background-color: #f5f5f5;
+}
+
+.option-item.delete {
+  color: #ed4956;
+}
+
+.option-item.delete:hover {
+  background-color: rgba(237, 73, 86, 0.1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Навигационные кнопки и счетчик постов в модальном окне */
+.modal-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  color: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 10002;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.post-modal-image:hover .modal-nav-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-prev-btn {
+  left: 20px;
+}
+
+.modal-next-btn {
+  right: 20px;
+}
+
+.modal-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-50%) scale(1.2);
+}
+.author-details-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

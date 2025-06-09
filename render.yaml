@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: krealgram-backend
+    env: node
+    plan: free
+    region: frankfurt
+    buildCommand: "cd backend-2 && npm install"
+    startCommand: "cd backend-2 && node index.js"
+    envVars:
+      - key: MONGO_URI
+        fromEnv: MONGO_URI
+      - key: JWT_SECRET
+        fromEnv: JWT_SECRET
+      - key: PORT
+        fromEnv: PORT
+      - key: USE_CLOUDINARY
+        fromEnv: USE_CLOUDINARY
+      - key. CLOUDINARY_CLOUD_NAME
+        fromEnv: CLOUDINARY_CLOUD_NAME
+      - key: CLOUDINARY_API_KEY
+        fromEnv: CLOUDINARY_API_KEY
+      - key: CLOUDINARY_API_SECRET
+        fromEnv: CLOUDINARY_API_SECRET
+      - key: EMAIL_USER
+        fromEnv: EMAIL_USER
+      - key: EMAIL_PASSWORD
+        fromEnv: EMAIL_PASSWORD
+      - key: FRONTEND_URL
+        fromEnv: FRONTEND_URL 

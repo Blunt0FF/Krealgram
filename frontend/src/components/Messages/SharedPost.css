@@ -1,0 +1,65 @@
+.shared-post-container {
+  background-color: #efefef;
+  border-radius: 18px;
+  cursor: pointer;
+  min-width: 370px;
+  overflow: hidden;
+  transition: background-color 0.2s ease-in-out;
+  border: 1px solid #dbdbdb;
+}
+
+.message.sent .shared-post-container {
+    background-color: #efefef; /* Фон для отправленных */
+    border: 1px solid #e0e0e0;
+}
+  
+.message.received .shared-post-container {
+    background-color: #ffffff; /* Фон для полученных */
+    border: 1px solid #dbdbdb;
+}
+
+.shared-post-container:hover {
+  border-color: #c7c7c7;
+}
+
+.shared-post-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+}
+
+.shared-post-author-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.shared-post-author-username {
+  font-weight: 600;
+  font-size: 14px;
+  color: #262626;
+}
+
+.shared-post-image-wrapper {
+  width: 100%;
+  padding-top: 100%; /* Соотношение сторон 1:1 */
+  position: relative;
+  background-color: #fafafa;
+}
+
+.shared-post-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shared-post-container.missing {
+    padding: 20px;
+    text-align: center;
+    color: #8e8e8e;
+    font-size: 14px;
+} 

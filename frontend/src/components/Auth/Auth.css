@@ -1,0 +1,241 @@
+@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+
+.auth-main-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #FFFFFF;
+  padding: 20px;
+}
+
+.auth-image-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 40px;
+}
+
+.auth-side-image {
+  width: 350px;
+  max-width: 100%;
+  height: auto;
+  border-radius: 24px;
+  background: #fff;
+}
+
+.auth-form-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.krealgram-logo {
+  width: 178px;
+  height: auto;
+  margin-bottom: 24px;
+  object-fit: contain;
+}
+
+.auth-box {
+  background-color: white;
+  border: 1px solid #dbdbdb;
+  border-radius: 1px;
+  padding: 40px 40px 24px 40px;
+  width: 100%;
+  max-width: 350px;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.auth-box h2 {
+  margin-bottom: 20px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-group {
+  position: relative;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dbdbdb;
+  border-radius: 3px;
+  background-color: #fafafa;
+  font-size: 14px;
+  color: #262626;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #a8a8a8;
+}
+
+.auth-button {
+  background-color: #0095f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.2s;
+}
+
+.auth-button:hover {
+  background-color: #0086e6;
+}
+
+.auth-button:disabled {
+  background-color: #b2dffc;
+  cursor: not-allowed;
+}
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  margin: 18px 0 10px 0;
+  color: #8e8e8e;
+  font-size: 13px;
+}
+.auth-or span {
+  background: #fff;
+  padding: 0 16px;
+}
+.auth-or:before, .auth-or:after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #dbdbdb;
+}
+
+.auth-forgot {
+  margin-bottom: 8px;
+}
+.auth-forgot a {
+  color: #00376b;
+  font-size: 13px;
+  text-decoration: none;
+}
+.auth-forgot a:hover {
+  text-decoration: underline;
+}
+
+.auth-register-box {
+  background: #fff;
+  border: 1px solid #dbdbdb;
+  border-radius: 1px;
+  padding: 20px 40px;
+  width: 100%;
+  max-width: 350px;
+  text-align: center;
+  font-size: 15px;
+}
+.auth-register-box a {
+  color: #0095f6;
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 4px;
+}
+.auth-register-box a:hover {
+  text-decoration: underline;
+}
+
+.auth-error {
+  color: #ed4956;
+  font-size: 14px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.auth-switch {
+  margin-top: 20px;
+  font-size: 14px;
+  color: #262626;
+}
+
+.auth-switch a {
+  color: #0095f6;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.auth-switch a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .auth-main-container {
+    flex-direction: column;
+    padding: 20px 0;
+  }
+  .auth-image-col {
+    margin-right: 0;
+    margin-bottom: 32px;
+  }
+}
+
+@media (max-width: 450px) {
+  .auth-box, .auth-register-box {
+    padding: 20px 10px;
+  }
+  .auth-side-image {
+    width: 220px;
+  }
+  .krealgram-logo {
+    width: 140px;
+  }
+}
+
+.trouble-logging {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.trouble-icon {
+  font-size: 96px;
+  margin-bottom: 16px;
+}
+
+.trouble-logging h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #262626;
+  margin-bottom: 12px;
+}
+
+.trouble-logging p {
+  font-size: 14px;
+  color: #8e8e8e;
+  margin-bottom: 16px;
+  line-height: 1.4;
+  padding: 0 24px;
+}
+
+.auth-message {
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.auth-message.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.auth-message.error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+

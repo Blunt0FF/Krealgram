@@ -1,0 +1,190 @@
+/* EditPostModal.css */
+
+.edit-post-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px; /* Добавляем небольшой внутренний отступ, чтобы модалка не прилипала к краям */
+  overflow-y: auto; /* Позволяет прокручивать, если контент модалки выходит за пределы экрана */
+}
+
+.edit-post-modal {
+  background: white;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%; /* Добавлено: чтобы на маленьких экранах занимала всю доступную ширину до max-width */
+  max-height: 90vh;
+  height: auto; /* Добавлено: высота по содержимому */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Скрывает содержимое, выходящее за границы модалки */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+
+  /* Добавим медиа-запрос для мобильных устройств, чтобы ограничить ее размеры */
+  /* Предполагаем, что мобильная версия начинается где-то с 768px или меньше */
+  @media (max-width: 768px) {
+    width: 95%; /* Занимает 95% ширины экрана, оставляя небольшие отступы по краям */
+    max-width: 400px; /* Дополнительно ограничиваем максимальную ширину на мобильных */
+    max-height: 80vh; /* Ограничиваем высоту на мобильных, чтобы не занимать весь экран */
+    margin: auto; /* Центрируем модалку */
+    border-radius: 8px; /* Возможно, чуть меньше скругление для мобильных */
+  }
+
+  @media (max-width: 480px) {
+    width: 95%; /* Можно сделать еще немного уже, если нужно */
+    max-width: 350px;
+    max-height: 85vh; /* Еще немного больше места по высоте, если нужно */
+    border-radius: 4px;
+  }
+}
+
+.edit-post-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #dbdbdb;
+  background: white;
+}
+
+.edit-post-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #262626;
+}
+
+.edit-post-modal-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 8px;
+  color: #8e8e8e;
+}
+
+.edit-post-modal-body {
+  display: flex;
+  flex-direction: row; /* Для десктопа: изображение и форма рядом */
+  flex-grow: 1; /* Позволяет телу занимать все доступное пространство */
+  overflow-y: auto; /* Позволяет прокручивать тело модалки, если контент длинный */
+  padding: 20px;
+
+  /* На мобильных: изображение сверху, форма снизу */
+  @media (max-width: 768px) {
+    flex-direction: column;
+    padding: 16px; /* Чуть меньше отступы на мобильных */
+  }
+}
+
+.edit-post-preview {
+  flex: 0 0 50%; /* Занимает половину ширины на десктопе */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0; /* Цвет фона для предпросмотра */
+  border-radius: 8px;
+  overflow: hidden; /* Скрывает части изображения, выходящие за границы */
+  margin-right: 20px; /* Отступ от формы на десктопе */
+
+  @media (max-width: 768px) {
+    width: 100%; /* На мобильных занимает всю ширину */
+    flex: none; /* Убираем flex-grow */
+    height: 180px; /* Фиксированная высота для изображения на мобильных */
+    margin-right: 0;
+    margin-bottom: 16px; /* Отступ от формы на мобильных */
+  }
+}
+
+.edit-post-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Изображение будет вписано полностью */
+  display: block; /* Убирает лишние пробелы под изображением */
+}
+
+.edit-post-form {
+  flex: 1; /* Занимает оставшееся пространство */
+  display: flex;
+  flex-direction: column;
+  padding: 0; /* Убираем отступы, так как они есть у body */
+
+  @media (max-width: 768px) {
+    padding: 0;
+  }
+}
+
+.edit-post-textarea {
+  width: 100%;
+  flex-grow: 1; /* Растягивается по высоте */
+  border: 1px solid #dbdbdb;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  resize: vertical; /* Разрешаем только вертикальное изменение размера */
+  min-height: 120px;
+  max-height: 250px; /* Ограничиваем максимальную высоту для textarea */
+}
+
+.edit-post-textarea::placeholder {
+  color: #8e8e8e;
+}
+
+.edit-post-char-count {
+  font-size: 12px;
+  color: #8e8e8e;
+  text-align: right;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #efefef;
+}
+
+.edit-post-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #dbdbdb;
+  background: white;
+}
+
+.edit-post-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 80px;
+}
+
+.edit-post-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.edit-post-btn-cancel {
+  background: #f0f0f0;
+  color: #262626;
+}
+
+.edit-post-btn-cancel:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.edit-post-btn-save {
+  background: #0095f6;
+  color: white;
+}
+
+.edit-post-btn-save:hover:not(:disabled) {
+  background: #007acb;
+}
