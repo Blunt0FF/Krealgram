@@ -1,3 +1,5 @@
+import { API_URL } from '../config';
+
 /**
  * Сжимает изображение до указанного размера и качества
  * @param {File} file - файл изображения
@@ -241,8 +243,6 @@ export const isImageFile = (file) => {
 export const getFileSizeKB = (dataUrl) => {
   return Math.round(dataUrl.length / 1024);
 }; 
-
-const API_URL = 'http://localhost:3000';
 
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return null;

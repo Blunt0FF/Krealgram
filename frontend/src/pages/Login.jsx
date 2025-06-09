@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 import '../components/Auth/Auth.css';
-
-const API_URL = 'http://localhost:3000';
 
 const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
   const navigate = useNavigate();

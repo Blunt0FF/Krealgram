@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './NotificationsPanel.css';
 import { getAvatarUrl } from '../../utils/imageUtils';
-
-const API_URL = 'http://localhost:3000';
+import { API_URL } from '../../config';
 
 const timeAgo = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);

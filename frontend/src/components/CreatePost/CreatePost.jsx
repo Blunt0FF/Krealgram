@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { compressPostImage } from '../../utils/imageUtils';
+import { API_URL } from '../../config';
 import './CreatePost.css';
-
-const API_URL = 'http://localhost:3000';
 
 const CreatePost = () => {
   const navigate = useNavigate();

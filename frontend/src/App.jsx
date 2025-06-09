@@ -15,9 +15,8 @@ import Sidebar from './components/Sidebar/Sidebar';
 import MobileNavigation from './components/Navigation/MobileNavigation';
 import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
+import { API_URL } from './config';
 import './App.css';
-
-const API_URL = 'http://localhost:3000';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
   return !isAuthenticated ? children : <Navigate to="/feed" />;

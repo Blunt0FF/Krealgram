@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Post from './Post';
 import PostModal from '../Feed/PostModal';
+import { API_URL } from '../../config';
 import './PostPage.css';
-
-const API_URL = 'http://localhost:3000';
 
 const PostPage = () => {
   const { id } = useParams();

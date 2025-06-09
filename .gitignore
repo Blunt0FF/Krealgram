@@ -114,3 +114,4 @@ uploads/
 # Scripts
 fix-*.sh
 fix-*.js 
+.vercel

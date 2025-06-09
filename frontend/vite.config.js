@@ -8,6 +8,14 @@ export default defineConfig({
     port: 4000,
     strictPort: true,
     host: true,
+    proxy: {
+      '/api': {
+        target: 'https://krealgram-backend.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    },
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',

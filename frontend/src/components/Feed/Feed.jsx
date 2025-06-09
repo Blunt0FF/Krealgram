@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Post from '../Post/Post';
 import PostModal from './PostModal';
+import { API_URL } from '../../config';
 import './Feed.css';
-
-const API_URL = 'http://localhost:3000';
 
 const Feed = ({ user }) => {
   const [posts, setPosts] = useState([]);

@@ -6,8 +6,7 @@ import { getAvatarUrl } from '../../utils/imageUtils';
 import PostModal from '../Feed/PostModal';
 import SharedPost from './SharedPost';
 import './Messages.css';
-
-const API_URL = 'http://localhost:3000';
+import { API_URL } from '../../config';
 
 // Функция для проверки и извлечения YouTube ID
 const extractYouTubeId = (url) => {
