@@ -1079,4 +1079,18 @@
     transform: scale(1);
     opacity: 1;
   }
+}
+
+.responsive-message-img {
+  max-width: 400px;
+  max-height: 400px;
+  border-radius: 8px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .responsive-message-img {
+    max-width: 300px !important;
+  }
 } 

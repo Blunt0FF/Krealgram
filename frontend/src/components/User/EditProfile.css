@@ -189,6 +189,62 @@
   border: 1px solid #e1f3ff;
 }
 
+.bio-group {
+  position: relative;
+}
+
+.bio-input-container {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+}
+
+.emoji-button {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.emoji-button:hover {
+  opacity: 1;
+}
+
+.emoji-picker-container {
+  position: absolute;
+  top: -400px;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+textarea[name="bio"] {
+  padding-right: 40px; /* Место для кнопки emoji */
+}
+
+/* Добавляем стили для мобильных устройств */
+@media (max-width: 768px) {
+  .emoji-picker-container {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    z-index: 1000;
+  }
+  
+  .emoji-picker-react {
+    width: 100% !important;
+  }
+}
+
 /* СУПЕР ЦЕНТРИРОВАНИЕ ДЛЯ ВСЕХ ЭКРАНОВ */
 @media (max-width: 1500px) {
   .edit-profile-container {

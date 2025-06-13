@@ -21,59 +21,108 @@ const timeAgo = (date) => {
 };
 
 const NotificationItem = ({ notification, onClose, onDelete }) => {
+  const { sender, type, post, createdAt } = notification;
   const navigate = useNavigate();
+
+  if (!sender) {
+    return (
+      <div className="notification-item-link">
+        <div className="notification-item">
+          <div className="notification-content-wrapper">
+            <div className="notification-text">Notification from deleted user</div>
+            <div className="notification-time">{timeAgo(createdAt)}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  let content = null;
+  let linkTo = '#';
 
   const handleItemClickInternal = () => {
     onClose();
-    if (notification.post) {
-      navigate(`/post/${notification.post._id}`);
-    } else if (notification.type === 'follow' && notification.sender) {
-      navigate(`/profile/${notification.sender.username}`);
-    }
+    navigate(linkTo);
   };
 
-  const handleDeleteClick = (e) => {
+  const handleDelete = (e) => {
     e.preventDefault();
     e.stopPropagation();
     onDelete(notification._id);
   };
 
-  return (
-    <div className={`notification-item ${!notification.read ? 'unread' : ''}`} onClick={handleItemClickInternal}>
-      <Link 
-        to={`/profile/${notification.sender.username}`} 
-        className="notification-avatar-link"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <img
-          src={notification.sender.avatar || '/default-avatar.png'}
-          alt={notification.sender.username}
-          className="notification-avatar"
-        />
-      </Link>
-      <div className="notification-content-wrapper">
-        <div className="notification-text">
-          <Link 
-            to={`/profile/${notification.sender.username}`} 
-            className="notification-sender"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {notification.sender.username}
+  switch (type) {
+    case 'like':
+      content = (
+        <>
+          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+            {sender.username}
           </Link>
-          {notification.type === 'like' && ' liked your post.'}
-          {notification.type === 'comment' && ' commented on your post.'}
-          {notification.type === 'follow' && ' started following you.'}
-          <span className="notification-time">{timeAgo(new Date(notification.createdAt))}</span>
+          {` liked your post.`}
+        </>
+      );
+      if (post) linkTo = `/post/${post._id}`;
+      break;
+    case 'comment':
+      content = (
+        <>
+          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+            {sender.username}
+          </Link>
+          {` commented on your post${notification.comment?.text ? ": \"" + notification.comment.text.substring(0,30) + (notification.comment.text.length > 30 ? "...\"" : '"') : '.'}`}
+        </>
+      );
+      if (post) linkTo = `/post/${post._id}`;
+      break;
+    case 'follow':
+      content = (
+        <>
+          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+            {sender.username}
+          </Link>
+          {` started following you.`}
+        </>
+      );
+      linkTo = `/profile/${sender.username}`;
+      break;
+    default:
+      content = 'New notification.';
+  }
+
+  return (
+    <div 
+      className={`notification-item-link ${!post || (type !=='like' && type !=='comment') ? 'no-post-image' : ''}`} 
+      onClick={handleItemClickInternal}
+    >
+      <div className={`notification-item ${!notification.read ? 'unread' : ''}`}>
+        <Link to={`/profile/${sender.username}`} className="notification-avatar-link" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+          <img 
+            src={getAvatarUrl(sender.avatar)} 
+            alt={sender.username} 
+            className="notification-avatar"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/default-avatar.png';
+            }}
+          />
+        </Link>
+        <div className="notification-content-wrapper">
+          <div className="notification-text">
+            {content}
+            <span className="notification-time">{timeAgo(createdAt)}</span>
+          </div>
         </div>
+        {post && (post.image || post.imageUrl) && (type === 'like' || type === 'comment') && (
+          <Link to={linkTo} onClick={(e) => { e.stopPropagation(); onClose(); navigate(linkTo); }}>
+            <img 
+              src={post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`)} 
+              alt="Post thumbnail" 
+              className="notification-post-image" 
+            />
+          </Link>
+        )}
+        <button className="notification-delete-btn" onClick={handleDelete}>×</button>
       </div>
-      {notification.post && notification.post.image && (
-        <img
-          src={notification.post.image}
-          alt="Post"
-          className="notification-post-image"
-        />
-      )}
-      <button className="notification-delete-btn" onClick={handleDeleteClick}>×</button>
     </div>
   );
 };
@@ -174,21 +223,21 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
     };
   }, [isOpen]);
 
-  // const markAllAsRead = async () => {
-  //   try {
-  //     const token = localStorage.getItem('token');
-  //     const response = await fetch(`${API_URL}/api/notifications/mark-all-read`, {
-  //       method: 'POST',
-  //       headers: { Authorization: `Bearer ${token}` },
-  //     });
-  //     if (response.ok) {
-  //       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  //       setUnreadCount(0);
-  //     }
-  //   } catch (err) {
-  //     console.error('Error marking notifications as read:', err);
-  //   }
-  // };
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error('Error marking notifications as read:', err);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -215,7 +264,7 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
       <div className={`notifications-panel ${isOpen ? 'open' : ''}`} ref={panelRef}>
         <div className="notifications-panel-header">
           <h3>Notifications</h3>
-          {/* <button onClick={markAllAsRead} className="mark-all-read-btn">Mark all as read</button> */}
+          <button onClick={markAllAsRead} className="mark-all-read-btn">Mark all as read</button>
         </div>
         <div className="notifications-panel-body" onScroll={handleScroll}>
           {loading && notifications.length === 0 ? (

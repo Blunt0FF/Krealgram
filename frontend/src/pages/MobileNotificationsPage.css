@@ -56,6 +56,7 @@ body.mobile-notifications-page-active {
   font-size: 17px; /* Чуть меньше, чем у панели */
   font-weight: 600;
   color: #262626;
+  flex-grow: 1; /* Заставляем заголовок занимать доступное место */
 }
 
 .mobile-notifications-body {
@@ -216,4 +217,20 @@ body.mobile-notifications-page-active {
 
 .notification-delete-btn-mobile:hover {
   color: #333;
+}
+
+.mark-all-read-btn-mobile {
+  background: none;
+  border: none;
+  color: #0095f6;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 5px;
+  margin-left: 10px; /* Отступ от заголовка */
+}
+
+.mark-all-read-btn-mobile:disabled {
+  color: #b2dffc;
+  cursor: not-allowed;
 } 

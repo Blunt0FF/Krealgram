@@ -24,22 +24,6 @@ connectDB();
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: [
-      "http://localhost:4000",
-      "http://127.0.0.1:4000",
-      "https://krealgram.vercel.app",
-      "https://krealgram.com",
-      "https://www.krealgram.com",
-      "https://krealgram-lmnau82av-kreals-projects-83af4312.vercel.app"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    credentials: true
-  }
-});
-
-app.set('io', io); // Сделаем io доступным в контроллерах
 
 // CORS configuration
 const corsOptions = {
@@ -51,7 +35,9 @@ const corsOptions = {
       'https://krealgram.com',
       'https://www.krealgram.com',
       'https://krealgram-lmnau82av-kreals-projects-83af4312.vercel.app',
-      'https://krealgram-cd3wdc3ov-kreals-projects-83af4312.vercel.app'
+      'https://krealgram-cd3wdc3ov-kreals-projects-83af4312.vercel.app',
+      'https://krealgram-hvwz41uhu-kreals-projects-83af4312.vercel.app',
+      'https://krealgram-e9r3p66cd-kreals-projects-83af4312.vercel.app'
     ];
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
@@ -63,15 +49,26 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   credentials: true,
-  maxAge: 86400
+  maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
+// Настройка Socket.IO с теми же CORS настройками
+const io = new Server(server, {
+  cors: corsOptions
+});
+
+app.set('io', io); // Сделаем io доступным в контроллерах
+
+// Применяем CORS ко всем маршрутам
 app.use(cors(corsOptions));
+
+// Обработка OPTIONS запросов
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Добавляем обработку OPTIONS запросов
-app.options('*', cors(corsOptions));
 
 // Добавляем базовый маршрут для проверки работоспособности
 app.get('/', (req, res) => {

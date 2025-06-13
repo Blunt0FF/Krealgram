@@ -10,8 +10,7 @@
   align-items: center; /* Центрируем по вертикали */
   justify-content: center; /* Центрируем по горизонтали */
   z-index: 9999;
-  animation: fadeIn 0.3s ease-out;
-  /* Добавляем overflow: auto для прокрутки оверлея, если модалка меньше экрана */
+  transition: background-color 0.3s ease;
   overflow: auto; /* Позволит прокручивать, если модалка вдруг станет больше экрана */
   -webkit-overflow-scrolling: touch; /* Улучшение прокрутки на iOS */
 }
@@ -21,21 +20,19 @@
   border-radius: 0 !important;
   max-width: 90vw !important;
   max-height: 95vh !important; /* Максимальная высота модалки */
-  /* width: 1200px !important; */
   height: auto; /* Высота по содержимому. Сохраняем это */
   width: auto;
   display: flex;
-  /* flex-direction: row; */
-  /* position: relative; */
-  /* box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1); */
   overflow: hidden; /* Важно: скрывает все, что выходит за границы content */
-  animation: scaleIn 0.3s ease-out;
+  transition: transform 0.3s ease-out;
   padding: 0;
   margin: auto;
   border: none;
   box-sizing: border-box;
-  /* min-width: 320px; */
-  /* min-height: 300px; */
+}
+
+.post-modal-content.is-dragging {
+  transition: none;
 }
 
 /* --- Остальные стили без изменений --- */
@@ -78,15 +75,6 @@
   border-radius: 0 !important;
 }
 
-.post-modal-image iframe {
-  width: 100%;
-  height: 100%;
-  min-height: 500px;
-  aspect-ratio: 16/9;
-  border: none;
-  background: black;
-}
-
 .post-modal-image img {
   width: 100%;
   height: 100%;
@@ -96,6 +84,15 @@
   padding: 0;
   border: none;
   background: white;
+}
+
+.post-modal-image iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  aspect-ratio: 16/9;
+  border: none;
+  background: black;
 }
 
 .image-placeholder {
@@ -126,7 +123,6 @@
   padding: 16px;
   border-bottom: 1px solid #efefef;
   flex-shrink: 0;
-  /* justify-content: space-between; */
 }
 
 .author-avatar {
@@ -239,9 +235,6 @@
 
 .comments-section {
   flex: 1;
-  /* padding: 8px 0; */
-  /* overflow-y: auto; */
-  /* overflow-x: hidden; */
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -366,7 +359,6 @@
 
 .post-actions-right {
   display: flex;
-  /* gap: 16px; */
 }
 
 .action-button {
@@ -651,8 +643,28 @@
   background: rgba(255, 255, 255, 0.2);
   transform: translateY(-50%) scale(1.2);
 }
+
 .author-details-wrapper {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.comment-author.deleted-user {
+  color: #8e8e8e;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: default;
+}
+
+.comment-avatar-container {
+  margin-right: 12px;
+}
+
+.comments-and-form-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
 }

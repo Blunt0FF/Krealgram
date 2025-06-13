@@ -32,6 +32,23 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
   const [isLoadingLike, setIsLoadingLike] = useState(false);
 
   useEffect(() => {
+    // Scroll lock for modals
+    if (isEditModalVisible || isLikesModalVisible || isShareModalVisible) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '0';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '0';
+    };
+  }, [isEditModalVisible, isLikesModalVisible, isShareModalVisible]);
+
+  useEffect(() => {
     if (post) {
       const userLiked = post.likes?.includes(currentUser?._id) || post.isLikedByCurrentUser || false;
       setIsLiked(userLiked);
@@ -60,13 +77,14 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    const day = date.getDate();
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${day} ${month} ${year} г ${hours}:${minutes}`;
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
   };
 
   const handleLike = async () => {

@@ -257,7 +257,12 @@ export const getImageUrl = (imagePath) => {
     return imagePath;
   }
   
-  // Для локальных файлов добавляем префикс API_URL
+  // Если путь начинается с krealgram/, значит это путь к Cloudinary
+  if (imagePath.startsWith('krealgram/')) {
+    return `https://res.cloudinary.com/dibcwdwsd/image/upload/${imagePath}`;
+  }
+  
+  // Для остальных файлов используем локальный путь
   return `${API_URL}/uploads/${imagePath}`;
 };
 

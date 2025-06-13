@@ -156,7 +156,7 @@ const App = () => {
                 </main>
                 <MobileNavigation user={user} onLogout={handleLogout} unreadCount={unreadCount} />
               </div>
-            ) : <Navigate to="/" />
+            ) : <Navigate to="/" replace />
           } />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -81,13 +81,13 @@ const LikesModal = ({ isOpen, onClose, postId }) => {
               ) : (
                 likes.map((like) => (
                   <li 
-                    key={like._id || like.user._id} 
+                    key={like._id || (like.user && like.user._id)} 
                     className="likes-tooltip-user"
-                    onClick={() => handleUserClick(like.user.username)}
+                    onClick={() => like.user && handleUserClick(like.user.username)}
                   >
                     <img 
-                      src={getAvatarUrl(like.user.avatar)} 
-                      alt={like.user.username}
+                      src={like.user ? getAvatarUrl(like.user.avatar) : '/default-avatar.png'} 
+                      alt={like.user ? like.user.username : 'Deleted User'}
                       className="likes-tooltip-avatar"
                       onError={(e) => {
                         e.target.onerror = null;
@@ -95,7 +95,7 @@ const LikesModal = ({ isOpen, onClose, postId }) => {
                       }}
                     />
                     <span className="likes-tooltip-username">
-                      {like.user.username}
+                      {like.user ? like.user.username : 'DELETED USER'}
                     </span>
                   </li>
                 ))

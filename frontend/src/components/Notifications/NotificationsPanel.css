@@ -50,6 +50,20 @@ transition: all 0.2s ease;
   color: #262626;
 }
 
+.mark-all-read-btn {
+  background-color: transparent;
+  border: none;
+  color: #0095f6;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.mark-all-read-btn:disabled {
+  color: #b2dffc;
+  cursor: not-allowed;
+}
+
 .notifications-panel-close-btn {
   border: none;
   background: none;

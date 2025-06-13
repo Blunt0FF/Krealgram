@@ -40,7 +40,8 @@ const PostModal = ({
   onDeletePost,
   onPrevious,
   onNext,
-  currentIndex
+  canGoPrevious,
+  canGoNext
 }) => {
   const [postData, setPostData] = useState(initialPost);
   const [newComment, setNewComment] = useState('');
@@ -57,6 +58,11 @@ const PostModal = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
+  
+  const [touchStartY, setTouchStartY] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const modalContentRef = useRef(null);
+  const overlayRef = useRef(null);
   
   const commentsContainerRef = useRef(null);
   const commentsEndRef = useRef(null);
@@ -99,6 +105,13 @@ const PostModal = ({
         }
       }
 
+      if (commentInputRef.current && document.activeElement === commentInputRef.current) {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+        return;
+      }
+
       if (e.key === 'Escape') {
         onClose();
       }
@@ -115,18 +128,21 @@ const PostModal = ({
   }, [isOpen, onClose, onPrevious, onNext, showEditModal]);
 
   useEffect(() => {
-    if (isOpen) {
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    
+    if (isOpen || showEditModal) {
       document.body.style.overflow = 'hidden';
-      document.body.classList.add('modal-open');
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
     } else {
       document.body.style.overflow = 'auto';
-      document.body.classList.remove('modal-open');
+      document.body.style.paddingRight = '0px';
     }
+    
     return () => {
       document.body.style.overflow = 'auto';
-      document.body.classList.remove('modal-open');
+      document.body.style.paddingRight = '0px';
     };
-  }, [isOpen]);
+  }, [isOpen, showEditModal]);
 
   useLayoutEffect(() => {
     if (topCommentId && commentsContainerRef.current) {
@@ -142,6 +158,51 @@ const PostModal = ({
         setJustSubmittedComment(false);
     }
   }, [comments, topCommentId, justSubmittedComment]);
+
+  const handleTouchStart = (e) => {
+    if (e.target.closest('.post-modal-sidebar') || e.target.closest('.modal-nav-btn')) return;
+    setTouchStartY(e.targetTouches[0].clientY);
+    setIsDragging(true);
+    modalContentRef.current.classList.add('is-dragging');
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging || touchStartY === null) return;
+    const currentY = e.targetTouches[0].clientY;
+    const deltaY = currentY - touchStartY;
+
+    const backgroundOpacity = Math.max(1 - Math.abs(deltaY) / 1000, 0.5);
+    if(overlayRef.current) {
+      overlayRef.current.style.backgroundColor = `rgba(0, 0, 0, ${0.65 * backgroundOpacity})`;
+    }
+    if (modalContentRef.current) {
+      modalContentRef.current.style.transform = `translateY(${deltaY}px)`;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!isDragging || touchStartY === null) return;
+
+    const currentY = e.changedTouches[0].clientY;
+    const deltaY = currentY - touchStartY;
+    const closeThreshold = 150;
+
+    modalContentRef.current.classList.remove('is-dragging');
+
+    if (Math.abs(deltaY) > closeThreshold) {
+      onClose();
+    } else {
+      if (overlayRef.current) {
+        overlayRef.current.style.backgroundColor = '';
+      }
+      if (modalContentRef.current) {
+        modalContentRef.current.style.transform = 'translateY(0)';
+      }
+    }
+
+    setIsDragging(false);
+    setTouchStartY(null);
+  };
 
   if (!isOpen || !postData) return null;
 
@@ -163,13 +224,14 @@ const PostModal = ({
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    const day = date.getDate();
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${day} ${month} ${year} г ${hours}:${minutes}`;
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
   };
 
   const toggleLike = async () => {
@@ -381,8 +443,20 @@ const PostModal = ({
   };
 
   return (
-    <div className="post-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="post-modal-content">
+    <div
+      ref={overlayRef}
+      className="post-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div
+        ref={modalContentRef}
+        className="post-modal-content"
+      >
         <button className="modal-close-btn" onClick={onClose}>
           ✕
         </button>
@@ -408,14 +482,14 @@ const PostModal = ({
           )}
 
           {/* Навигационные кнопки */}
-          {onPrevious && !postData.youtubeData && (
+          {onPrevious && canGoPrevious && (
             <button className="modal-nav-btn modal-prev-btn" onClick={onPrevious}>
-              ‹
+              &#10094;
             </button>
           )}
-          {onNext && !postData.youtubeData && (
+          {onNext && canGoNext && (
             <button className="modal-nav-btn modal-next-btn" onClick={onNext}>
-              ›
+              &#10095;
             </button>
           )}
         </div>
@@ -531,77 +605,99 @@ const PostModal = ({
           <div className="post-info">
           </div>
 
-          <div className="post-content">
-            <div className="comments-section" ref={commentsContainerRef}>
-              <div className="comments-header">
-                Comments: {postData.commentsCount || comments.length}
-              </div>
-              
-              {(() => {
-                const sortedComments = [...(comments || [])].sort((a, b) =>
-                  new Date(a.createdAt || a.updatedAt || 0) - new Date(b.createdAt || b.updatedAt || 0)
-                );
-
-                const displayedComments = sortedComments.slice(Math.max(sortedComments.length - commentsToShow, 0));
+          <div className="comments-and-form-wrapper">
+            <div className="post-content">
+              <div className="comments-section" ref={commentsContainerRef}>
+                <div className="comments-header">
+                  Comments: {postData.commentsCount || comments.length}
+                </div>
                 
-                return (
-                  <>
-                    {(sortedComments.length > commentsToShow) && (
-                        <button onClick={loadMoreComments} className="show-more-comments">
-                            View previous comments
-                        </button>
-                    )}
-                    {displayedComments.map(comment => (
-                      <div key={comment._id} id={`comment-${comment._id}`} className="comment">
-                        <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)}>
-                          <img
-                            src={getAvatarUrl(comment.user.avatar)}
-                            alt={comment.user.username}
-                            className="comment-avatar"
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = '/default-avatar.png';
-                            }}
-                          />
-                        </Link>
-                        <div className="comment-body">
-                          <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)} className="comment-author">
-                            {comment.user.username}
-                          </Link>
-                          <span className="comment-text">{comment.text}</span>
-                        </div>
-                        {(currentUser && (comment.user?._id === currentUser._id || author?._id === currentUser._id)) && (
-                          <button
-                            className="delete-comment-btn"
-                            onClick={() => handleDeleteComment(comment._id)}
-                            title="Delete comment"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {comments && comments.length === 0 && (
-                        <p style={{ textAlign: 'center', color: '#8e8e8e', padding: '20px 0' }}>No comments yet.</p>
-                    )}
-                    <div ref={commentsEndRef} />
-                  </>
-                );
-              })()}
-            </div>
-          </div>
+                {(() => {
+                  if (!comments) return null;
+                  
+                  const sortedComments = [...comments].filter(comment => comment).sort((a, b) => {
+                    const dateA = new Date(a.createdAt || a.updatedAt || 0);
+                    const dateB = new Date(b.createdAt || b.updatedAt || 0);
+                    return dateA - dateB;
+                  });
 
-          <form onSubmit={handleCommentSubmit} className="comment-form comment-form-modal-bottom">
-            <input
-              type="text"
-              ref={commentInputRef}
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="comment-input"
-            />
-            <button type="submit" className="comment-submit" disabled={!newComment.trim()}>Post</button>
-          </form>
+                  const displayedComments = sortedComments.slice(Math.max(sortedComments.length - commentsToShow, 0));
+                  
+                  return (
+                    <>
+                      {(sortedComments.length > commentsToShow) && (
+                          <button onClick={loadMoreComments} className="show-more-comments">
+                              View previous comments
+                          </button>
+                      )}
+                      {displayedComments.map(comment => (
+                        <div key={comment._id} id={`comment-${comment._id}`} className="comment">
+                          <div className="comment-avatar-container">
+                            {comment.user ? (
+                              <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)}>
+                                <img
+                                  src={getAvatarUrl(comment.user.avatar)}
+                                  alt={comment.user.username}
+                                  className="comment-avatar"
+                                  onError={(e) => {
+                                    e.target.onerror = null;
+                                    e.target.src = '/default-avatar.png';
+                                  }}
+                                />
+                              </Link>
+                            ) : (
+                              <img
+                                src="/default-avatar.png"
+                                alt="Deleted User"
+                                className="comment-avatar"
+                              />
+                            )}
+                          </div>
+                          <div className="comment-body">
+                            {comment.user ? (
+                              <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)} className="comment-author">
+                                {comment.user.username}
+                              </Link>
+                            ) : (
+                              <span className="comment-author deleted-user">
+                                DELETED USER
+                              </span>
+                            )}
+                            <span className="comment-text">{comment.text}</span>
+                          </div>
+                          {(currentUser && ((comment.user && comment.user._id === currentUser._id) || author?._id === currentUser._id)) && (
+                            <button
+                              className="delete-comment-btn"
+                              onClick={() => handleDeleteComment(comment._id)}
+                              title="Delete comment"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {comments && comments.length === 0 && (
+                          <p style={{ textAlign: 'center', color: '#8e8e8e', padding: '20px 0' }}>No comments yet.</p>
+                      )}
+                      <div ref={commentsEndRef} />
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <form onSubmit={handleCommentSubmit} className="comment-form comment-form-modal-bottom">
+              <input
+                type="text"
+                ref={commentInputRef}
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="comment-input"
+              />
+              <button type="submit" className="comment-submit" disabled={!newComment.trim()}>Post</button>
+            </form>
+          </div>
         </div>
       </div>
       {showLikesTooltip && postId && likesCount > 0 && (

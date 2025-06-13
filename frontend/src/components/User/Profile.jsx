@@ -32,6 +32,11 @@ const PostModal = ({
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
   
+  const [touchStartY, setTouchStartY] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const modalContentRef = useRef(null);
+  const overlayRef = useRef(null);
+
   const commentsContainerRef = useRef(null);
   const commentsEndRef = useRef(null);
   const [topCommentId, setTopCommentId] = useState(null);
@@ -64,6 +69,13 @@ const PostModal = ({
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (!isOpen || showEditModal) return;
+      if (commentInputRef.current && document.activeElement === commentInputRef.current) {
+        if (e.key === 'Escape') {
+          onClose();
+        }
+        return;
+      }
+
       if (e.key === 'ArrowLeft' && onPrevious) {
         onPrevious();
       } else if (e.key === 'ArrowRight' && onNext) {
@@ -102,6 +114,51 @@ const PostModal = ({
         setJustSubmittedComment(false);
     }
   }, [comments, topCommentId, justSubmittedComment]);
+
+  const handleTouchStart = (e) => {
+    if (e.target.closest('.post-modal-sidebar') || e.target.closest('.modal-nav-btn')) return;
+    setTouchStartY(e.targetTouches[0].clientY);
+    setIsDragging(true);
+    if(modalContentRef.current) modalContentRef.current.classList.add('is-dragging');
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging || touchStartY === null) return;
+    const currentY = e.targetTouches[0].clientY;
+    const deltaY = currentY - touchStartY;
+
+    const backgroundOpacity = Math.max(1 - Math.abs(deltaY) / 1000, 0.5);
+    if(overlayRef.current) {
+      overlayRef.current.style.backgroundColor = `rgba(0, 0, 0, ${0.65 * backgroundOpacity})`;
+    }
+    if (modalContentRef.current) {
+      modalContentRef.current.style.transform = `translateY(${deltaY}px)`;
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!isDragging || touchStartY === null) return;
+
+    const currentY = e.changedTouches[0].clientY;
+    const deltaY = currentY - touchStartY;
+    const closeThreshold = 150;
+
+    if(modalContentRef.current) modalContentRef.current.classList.remove('is-dragging');
+
+    if (Math.abs(deltaY) > closeThreshold) {
+      onClose();
+    } else {
+      if (overlayRef.current) {
+        overlayRef.current.style.backgroundColor = '';
+      }
+      if (modalContentRef.current) {
+        modalContentRef.current.style.transform = 'translateY(0)';
+      }
+    }
+
+    setIsDragging(false);
+    setTouchStartY(null);
+  };
 
   if (!isOpen || !postData) return null;
 
@@ -271,11 +328,16 @@ const PostModal = ({
   const handleCommentUsernameClick = (username) => onClose();
 
   return (
-    <div className="post-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="post-modal-content">
+    <div 
+      className="post-modal-overlay" 
+      ref={overlayRef}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div ref={modalContentRef} className="post-modal-content">
         <button className="modal-close-btn" onClick={onClose}>✕</button>
-        
-
         
         <div className="post-modal-image">
           {onPrevious && currentIndex && currentIndex.total > 0 && currentIndex.current > 1 && !showEditModal && (
@@ -319,30 +381,26 @@ const PostModal = ({
             )}
           </div>
           
-          <div className="post-time">
-            {new Date(postData.createdAt).toLocaleString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            })}
-          </div>
-
           <div className="post-content">
             {caption && (
               <div className="post-caption">
-                <Link to={`/profile/${author?.username}`} onClick={handleCaptionUsernameClick}>
-                  <img src={getAvatarUrl(author?.avatar)} alt={author?.username} className="author-avatar" onError={(e) => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }} />
-                </Link>
                 <div className="caption-content">
-                  <Link to={`/profile/${author?.username}`} onClick={handleCaptionUsernameClick} className="author-username">{author?.username}</Link>
                   <span className={`caption-text ${!isCaptionExpanded && caption.length > 100 ? 'collapsed' : ''}`}>{caption}</span>
                   {caption.length > 100 && <button className="caption-toggle" onClick={() => setIsCaptionExpanded(!isCaptionExpanded)}>{isCaptionExpanded ? 'Show less' : 'Show more'}</button>}
                 </div>
               </div>
             )}
+            
+            <div className="post-time">
+              {new Date(postData.createdAt).toLocaleString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              })}
+            </div>
 
             <div className="post-actions">
               <div className="post-actions-left">
@@ -358,48 +416,50 @@ const PostModal = ({
               </div>
             </div>
 
-            <div className="comments-header">
-              Comments: {comments.length}
-            </div>
+            <div className="comments-and-form-wrapper">
+              <div className="comments-header">
+                Comments: {comments.length}
+              </div>
 
-            <div className="comments-section" ref={commentsContainerRef}>
-              {(() => {
-                const sortedComments = [...(comments || [])].sort((a, b) => new Date(a.createdAt || a.updatedAt || 0) - new Date(b.createdAt || b.updatedAt || 0));
-                const displayedComments = sortedComments.slice(Math.max(sortedComments.length - commentsToShow, 0));
-                
-                return (
-                  <>
-                    {sortedComments.length > commentsToShow && (
-                        <button onClick={loadMoreComments} className="show-more-comments">
-                            View previous comments
-                        </button>
-                    )}
-                    {displayedComments.map(comment => (
-                      <div key={comment._id} id={`comment-${comment._id}`} className="comment">
-                        <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)}>
-                          <img src={getAvatarUrl(comment.user.avatar)} alt={comment.user.username} className="comment-avatar" onError={(e) => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }} />
-                        </Link>
-                        <div className="comment-body">
-                          <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)} className="comment-author">{comment.user.username}</Link>
-                          <span className="comment-text">{comment.text}</span>
+              <div className="comments-section" ref={commentsContainerRef}>
+                {(() => {
+                  const sortedComments = [...(comments || [])].sort((a, b) => new Date(a.createdAt || a.updatedAt || 0) - new Date(b.createdAt || b.updatedAt || 0));
+                  const displayedComments = sortedComments.slice(Math.max(sortedComments.length - commentsToShow, 0));
+                  
+                  return (
+                    <>
+                      {sortedComments.length > commentsToShow && (
+                          <button onClick={loadMoreComments} className="show-more-comments">
+                              View previous comments
+                          </button>
+                      )}
+                      {displayedComments.map(comment => (
+                        <div key={comment._id} id={`comment-${comment._id}`} className="comment">
+                          <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)}>
+                            <img src={getAvatarUrl(comment.user.avatar)} alt={comment.user.username} className="comment-avatar" onError={(e) => { e.target.onerror = null; e.target.src = '/default-avatar.png'; }} />
+                          </Link>
+                          <div className="comment-body">
+                            <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)} className="comment-author">{comment.user.username}</Link>
+                            <span className="comment-text">{comment.text}</span>
+                          </div>
+                          {(currentUser && (comment.user?._id === currentUser._id || author?._id === currentUser._id)) && <button className="delete-comment-btn" onClick={() => handleDeleteComment(comment._id)} title="Delete comment">×</button>}
                         </div>
-                        {(currentUser && (comment.user?._id === currentUser._id || author?._id === currentUser._id)) && <button className="delete-comment-btn" onClick={() => handleDeleteComment(comment._id)} title="Delete comment">×</button>}
-                      </div>
-                    ))}
-                    {comments && comments.length === 0 && (
-                      <p style={{ textAlign: 'center', color: '#8e8e8e', padding: '20px 0' }}>No comments yet.</p>
-                    )}
-                     <div ref={commentsEndRef} />
-                  </>
-                );
-              })()}
+                      ))}
+                      {comments && comments.length === 0 && (
+                        <p style={{ textAlign: 'center', color: '#8e8e8e', padding: '20px 0' }}>No comments yet.</p>
+                      )}
+                       <div ref={commentsEndRef} />
+                    </>
+                  );
+                })()}
+              </div>
+              <form onSubmit={handleCommentSubmit} className="comment-form comment-form-modal-bottom">
+                <input type="text" ref={commentInputRef} value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Add a comment..." className="comment-input" />
+                <button type="submit" className="comment-submit" disabled={!newComment.trim()}>Post</button>
+              </form>
             </div>
           </div>
           
-          <form onSubmit={handleCommentSubmit} className="comment-form comment-form-modal-bottom">
-            <input type="text" ref={commentInputRef} value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Add a comment..." className="comment-input" />
-            <button type="submit" className="comment-submit" disabled={!newComment.trim()}>Post</button>
-          </form>
         </div>
       </div>
       {showLikesTooltip && postId && likesCount > 0 && <LikesModal postId={postId} isOpen={showLikesTooltip} onClose={handleTooltipClose} />}

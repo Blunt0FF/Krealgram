@@ -428,6 +428,14 @@ const Messages = ({ currentUser }) => {
     setSelectedPostForModal(null);
   };
 
+  // Универсальная функция для проверки, что сообщение отправлено текущим пользователем
+  const isMyMessage = (msg) => {
+    if (!msg || !msg.sender || !currentUser) return false;
+    if (typeof msg.sender === 'string') return msg.sender === currentUser._id;
+    if (typeof msg.sender === 'object') return msg.sender._id === currentUser._id;
+    return false;
+  };
+
   // Если пользователь не загружен, показываем загрузку
   if (!currentUser) {
     return <div className="messages-loading">Loading user data...</div>;
@@ -479,15 +487,27 @@ const Messages = ({ currentUser }) => {
                     <span className="conversation-name">{conv.participant?.username || 'Unknown'}</span>
                     <span className="conversation-last-message">
                       {conv.lastMessage ? (
-                        conv.lastMessage.media && conv.lastMessage.media.type === 'image' ? 
-                          'Sent a photo' :
-                        conv.lastMessage.sharedPost ? 
-                          'Shared a post' :
-                        conv.lastMessage.text ? 
-                          `${conv.lastMessage.text.substring(0, 25)}${conv.lastMessage.text.length > 25 ? '...' : ''}` : 
-                        typeof conv.lastMessage === 'object' ? 
-                          'Sent a message' :
-                          conv.lastMessage
+                        isMyMessage(conv.lastMessage) ? (
+                          conv.lastMessage.media && conv.lastMessage.media.type === 'image' ? 
+                            'You: Sent a photo' :
+                          conv.lastMessage.sharedPost ? 
+                            'You: Shared a post' :
+                          conv.lastMessage.text ? 
+                            `You: ${conv.lastMessage.text.substring(0, 25)}${conv.lastMessage.text.length > 25 ? '...' : ''}` : 
+                          typeof conv.lastMessage === 'object' ? 
+                            'You: Sent a message' :
+                            conv.lastMessage
+                        ) : (
+                          conv.lastMessage.media && conv.lastMessage.media.type === 'image' ? 
+                            'Sent a photo' :
+                          conv.lastMessage.sharedPost ? 
+                            'Shared a post' :
+                          conv.lastMessage.text ? 
+                            `${conv.lastMessage.text.substring(0, 25)}${conv.lastMessage.text.length > 25 ? '...' : ''}` : 
+                          typeof conv.lastMessage === 'object' ? 
+                            'Sent a message' :
+                            conv.lastMessage
+                        )
                       ) : (
                         conv._id?.startsWith('temp_') ? 'Start conversation...' : 'No messages'
                       )}
@@ -573,6 +593,7 @@ const Messages = ({ currentUser }) => {
                           <img 
                             src={message.media.url} 
                             alt="Shared image" 
+                            className="responsive-message-img"
                             style={{ 
                               maxWidth: '400px', 
                               maxHeight: '400px',

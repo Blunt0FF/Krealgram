@@ -3,24 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { getAvatarUrl } from '../../utils/imageUtils';
 // import { compressAvatar } from '../../utils/imageUtils'; // Сжатие будет либо удалено, либо изменено
 import { API_URL } from '../../config';
+import EmojiPicker from 'emoji-picker-react';
 import './EditProfile.css';
 
 const EditProfile = ({ user, setUser }) => {
   const navigate = useNavigate();
-  // Изменяем структуру formData, убираем avatar отсюда
   const [userData, setUserData] = useState({
     username: '',
     email: '',
     bio: ''
   });
-  const [avatarFile, setAvatarFile] = useState(null); // Для хранения объекта File нового аватара
-  const [avatarPreview, setAvatarPreview] = useState('/default-avatar.png'); // URL для превью (строка)
-  const [initialAvatarUrl, setInitialAvatarUrl] = useState(null); // URL текущего аватара пользователя (строка)
-  const [markAvatarForRemoval, setMarkAvatarForRemoval] = useState(false); // Флаг для удаления аватара
-
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState('/default-avatar.png');
+  const [initialAvatarUrl, setInitialAvatarUrl] = useState(null);
+  const [markAvatarForRemoval, setMarkAvatarForRemoval] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   // const [compressing, setCompressing] = useState(false); // Удаляем, если не будем сжимать на клиенте перед отправкой файла
 
   useEffect(() => {
@@ -31,7 +31,6 @@ const EditProfile = ({ user, setUser }) => {
         bio: user.bio || ''
       });
 
-      // Устанавливаем аватар для превью
       if (user.avatar) {
         const avatarUrl = getAvatarUrl(user.avatar);
         setAvatarPreview(avatarUrl);
@@ -105,6 +104,23 @@ const EditProfile = ({ user, setUser }) => {
     }
   };
 
+  const handleEmojiClick = (emojiData) => {
+    const { emoji } = emojiData;
+    const textArea = document.querySelector('textarea[name="bio"]');
+    const start = textArea.selectionStart;
+    const end = textArea.selectionEnd;
+    const text = userData.bio;
+    const newText = text.substring(0, start) + emoji + text.substring(end);
+    
+    setUserData(prev => ({
+      ...prev,
+      bio: newText
+    }));
+    
+    // Закрываем picker после выбора
+    setShowEmojiPicker(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -116,60 +132,101 @@ const EditProfile = ({ user, setUser }) => {
     const formDataToSend = new FormData();
 
     formDataToSend.append('bio', userData.bio);
-    // Username и email не отправляем, так как они readOnly и не должны меняться здесь
 
-    if (avatarFile) { // Если выбран новый файл аватара
-      formDataToSend.append('avatar', avatarFile);
-    } else if (markAvatarForRemoval && initialAvatarUrl) { // Если текущий аватар помечен к удалению и он был
+    if (avatarFile) {
+      console.log('Uploading avatar file:', {
+        name: avatarFile.name,
+        type: avatarFile.type,
+        size: avatarFile.size
+      });
+      
+      // Используем только поле 'image', которое ожидает сервер
+      formDataToSend.append('image', avatarFile);
+
+      // Проверяем содержимое FormData
+      console.log('FormData contents:');
+      for (let pair of formDataToSend.entries()) {
+        console.log(pair[0], pair[1]);
+        if (pair[1] instanceof File) {
+          console.log('File details:', {
+            name: pair[1].name,
+            type: pair[1].type,
+            size: pair[1].size
+          });
+        }
+      }
+    } else if (markAvatarForRemoval && initialAvatarUrl) {
+      console.log('Removing avatar');
       formDataToSend.append('removeAvatar', 'true');
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/users/profile`, { // Используем правильный endpoint
+      console.log('Sending request to:', `${API_URL}/api/users/profile`);
+      
+      // Добавим явные заголовки для multipart/form-data
+      const response = await fetch(`${API_URL}/api/users/profile`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
-          // Content-Type не указываем для FormData
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          // Не указываем Content-Type, браузер сам добавит с boundary
         },
+        credentials: 'include',
         body: formDataToSend
       });
 
+      // Добавим проверку заголовков ответа
+      console.log('Response headers:', {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
+
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update profile');
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch {
+          errorData = { message: 'Failed to parse error response' };
+        }
+        console.error('Profile update error response:', errorData);
+        throw new Error(errorData.message || `Server error: ${response.status}`);
       }
 
-      const updatedUser = await response.json();
+      const updatedUser = JSON.parse(responseText);
+      console.log('Profile update success:', updatedUser);
       
       // Обновляем данные в localStorage и глобальное состояние
       const storedUser = JSON.parse(localStorage.getItem('user'));
       if (storedUser) {
         const newUserData = { ...storedUser, bio: updatedUser.bio, avatar: updatedUser.avatar };
+        console.log('Updating user data:', newUserData);
         localStorage.setItem('user', JSON.stringify(newUserData));
-        // Обновляем глобальное состояние пользователя
         setUser(newUserData);
       }
 
       // Обновляем состояние для превью и начального аватара после успешного обновления
       if (updatedUser.avatar) {
-        // Если аватар - это полный URL (начинается с http), используем его как есть
-        // Иначе добавляем префикс для относительного пути
         const newAvatarUrl = getAvatarUrl(updatedUser.avatar);
+        console.log('New avatar URL:', newAvatarUrl);
         setAvatarPreview(newAvatarUrl);
         setInitialAvatarUrl(newAvatarUrl);
       } else {
+        console.log('No avatar in response, using default');
         setAvatarPreview('/default-avatar.png');
         setInitialAvatarUrl(null);
       }
-      setAvatarFile(null); // Сбрасываем выбранный файл
-      setMarkAvatarForRemoval(false); // Сбрасываем флаг удаления
+      setAvatarFile(null);
+      setMarkAvatarForRemoval(false);
 
-      // Profile updated successfully - removed alert
       navigate(`/profile/${updatedUser.username}`);
 
     } catch (err) {
-      setError(err.message);
-      console.error('Profile update error:', err);
+      console.error('Profile update error details:', err);
+      setError(err.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -249,15 +306,33 @@ const EditProfile = ({ user, setUser }) => {
             )}
           </div>
 
-          <div className="form-group">
+          <div className="form-group bio-group">
             <label>Bio</label>
-            <textarea
-              name="bio"
-              value={userData.bio} // Используем userData
-              onChange={handleUserInputChange} // Используем новый обработчик
-              className={validationErrors.bio ? 'error' : ''}
-              rows="4"
-            />
+            <div className="bio-input-container">
+              <textarea
+                name="bio"
+                value={userData.bio} // Используем userData
+                onChange={handleUserInputChange} // Используем новый обработчик
+                className={validationErrors.bio ? 'error' : ''}
+                rows="4"
+              />
+              <button
+                type="button"
+                className="emoji-button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              >
+                😊
+              </button>
+              {showEmojiPicker && (
+                <div className="emoji-picker-container">
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiClick}
+                    width={300}
+                    height={400}
+                  />
+                </div>
+              )}
+            </div>
             {validationErrors.bio && (
               <div className="error-message">{validationErrors.bio}</div>
             )}

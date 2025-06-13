@@ -16,6 +16,7 @@ const Feed = ({ user }) => {
 
   const observer = useRef();
   const isFetching = useRef(false);
+  const navigatedFromEnd = useRef(false);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -49,6 +50,16 @@ const Feed = ({ user }) => {
 
     fetchPosts();
   }, [page]);
+
+  useEffect(() => {
+    if (navigatedFromEnd.current && selectedPost) {
+        const currentIndex = posts.findIndex(p => p._id === selectedPost._id);
+        if (currentIndex < posts.length - 1) {
+            handleImageClick(posts[currentIndex + 1]);
+            navigatedFromEnd.current = false;
+        }
+    }
+  }, [posts, selectedPost]);
 
   const lastPostElementRef = useCallback(node => {
     if (loading) return;
@@ -116,6 +127,7 @@ const Feed = ({ user }) => {
     if (currentIndex < posts.length - 1) {
       handleImageClick(posts[currentIndex + 1]);
     } else if (hasMore && !loading) {
+      navigatedFromEnd.current = true;
       setPage(p => p + 1);
     }
   };
@@ -124,6 +136,14 @@ const Feed = ({ user }) => {
     setPosts(prevPosts => prevPosts.filter(post => post._id !== postId));
     closeModal();
   };
+
+  const getCurrentPostIndex = () => {
+    return posts.findIndex(p => p._id === selectedPost._id);
+  };
+
+  const currentIndex = isModalOpen && selectedPost ? getCurrentPostIndex() : -1;
+  const canGoPrevious = currentIndex > 0;
+  const canGoNext = (currentIndex !== -1 && currentIndex < posts.length - 1) || (currentIndex === posts.length - 1 && hasMore);
 
   return (
     <div className="feed-container">
@@ -153,6 +173,7 @@ const Feed = ({ user }) => {
 
       {isModalOpen && selectedPost && (
         <PostModal
+          key={selectedPost._id}
           post={selectedPost}
           isOpen={isModalOpen}
           onClose={closeModal}
@@ -161,6 +182,8 @@ const Feed = ({ user }) => {
           onDeletePost={handleDeletePost}
           onNext={goToNextPost}
           onPrevious={goToPreviousPost}
+          canGoPrevious={canGoPrevious}
+          canGoNext={canGoNext}
         />
       )}
     </div>
