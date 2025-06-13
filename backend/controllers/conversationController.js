@@ -130,8 +130,7 @@ exports.sendMessage = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { text, youtubeUrl, sharedPost: sharedPostString } = req.body;
-    let { media } = req.body; // Объявляем media как let
+    const { text, media, youtubeUrl, sharedPost: sharedPostString } = req.body;
     const recipientId = req.params.recipientId;
     const senderId = req.user._id;
 
@@ -198,16 +197,8 @@ exports.sendMessage = async (req, res) => {
         return res.status(400).json({ message: `Media validation failed: ${error.message}` });
       }
     } else if (media) {
-      // Медиа передано в JSON (например, для YouTube)
-      try {
-        if (typeof media === 'string') {
-          media = JSON.parse(media);
-        }
-        newMessage.media = media;
-      } catch (e) {
-        console.error('Failed to parse media JSON', e);
-        // Можно проигнорировать или вернуть ошибку
-      }
+      // Медиа передано в JSON (например, для прямых ссылок)
+      newMessage.media = media;
     } else if (youtubeUrl) {
       // Обработка YouTube ссылки
       try {

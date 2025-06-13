@@ -14,7 +14,7 @@ const commentRoutes = require('./routes/commentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const followRoutes = require('./routes/followRoutes');
-// const { setupSocketServer } = require('./socket');
+const { setupSocketServer } = require('./socket');
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -27,20 +27,31 @@ const server = http.createServer(app);
 
 // CORS configuration
 const corsOptions = {
-  origin: [
-    'http://localhost:4000',
-    'http://127.0.0.1:4000',
-    'https://krealgram.vercel.app',
-    'https://krealgram.com',
-    'https://www.krealgram.com'
-  ],
-  credentials: true,
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:4000',
+      'http://127.0.0.1:4000',
+      'https://krealgram.vercel.app',
+      'https://krealgram.com',
+      'https://www.krealgram.com',
+      'https://krealgram-lmnau82av-kreals-projects-83af4312.vercel.app',
+      'https://krealgram-cd3wdc3ov-kreals-projects-83af4312.vercel.app',
+      'https://krealgram-hvwz41uhu-kreals-projects-83af4312.vercel.app',
+      'https://krealgram-e9r3p66cd-kreals-projects-83af4312.vercel.app'
+    ];
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  credentials: true,
+  maxAge: 86400,
   preflightContinue: false,
-  optionsSuccessStatus: 204,
-  maxAge: 86400 // 24 часа
+  optionsSuccessStatus: 204
 };
 
 // Настройка Socket.IO с теми же CORS настройками
@@ -111,7 +122,7 @@ mongoose.connect(process.env.MONGODB_URI)
     const server = app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
-    // setupSocketServer(server);
+    setupSocketServer(server);
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err);

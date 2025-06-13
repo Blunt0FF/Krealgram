@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middlewares/authMiddleware');
-const User = require('../models/userModel');
+const auth = require('../middleware/auth');
+const User = require('../models/User');
 
 // Подписаться на пользователя
 router.post('/:userId', auth, async (req, res) => {
@@ -57,6 +57,40 @@ router.delete('/:userId', auth, async (req, res) => {
     res.json({ message: 'Успешно отписались от пользователя' });
   } catch (error) {
     console.error('Ошибка при отписке:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+});
+
+// Получить список подписчиков
+router.get('/followers/:userId', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .populate('followers', 'username profilePicture');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+
+    res.json(user.followers);
+  } catch (error) {
+    console.error('Ошибка при получении подписчиков:', error);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+});
+
+// Получить список подписок
+router.get('/following/:userId', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .populate('following', 'username profilePicture');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Пользователь не найден' });
+    }
+
+    res.json(user.following);
+  } catch (error) {
+    console.error('Ошибка при получении подписок:', error);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 });

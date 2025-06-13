@@ -14,18 +14,14 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
 
-    // Trim username и email при регистрации
-    const cleanUsername = username.trim();
-    const cleanEmail = email.trim();
-
     // Check for existing user by email or username
-    const existingUser = await User.findOne({ $or: [{ email: cleanEmail }, { username: cleanUsername }] });
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      if (existingUser.email === cleanEmail) {
-        return res.status(409).json({ message: `User with email ${cleanEmail} already exists.` });
+      if (existingUser.email === email) {
+        return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
-      if (existingUser.username === cleanUsername) {
-        return res.status(409).json({ message: `User with username ${cleanUsername} already exists.` });
+      if (existingUser.username === username) {
+        return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
 
@@ -35,8 +31,8 @@ exports.register = async (req, res) => {
 
     // Create a new user
     const user = new User({
-      username: cleanUsername,
-      email: cleanEmail,
+      username,
+      email,
       password: hashedPassword,
       avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
     });
@@ -80,15 +76,8 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    // Trim+toLowerCase для identifier
-    const cleanIdentifier = identifier.trim().toLowerCase();
-
-    // Case-insensitive search for user by email or username
     const user = await User.findOne({
-      $or: [
-        { email: { $regex: new RegExp(`^${cleanIdentifier}$`, 'i') } },
-        { username: { $regex: new RegExp(`^${cleanIdentifier}$`, 'i') } }
-      ]
+      $or: [{ email: identifier }, { username: identifier }]
     }).select('+password');
 
     if (!user) {
