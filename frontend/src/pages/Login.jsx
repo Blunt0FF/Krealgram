@@ -25,6 +25,11 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
     setIsLoading(true);
     setError('');
 
+    const loginData = {
+      ...formData,
+      identifier: formData.identifier.trim().toLowerCase()
+    };
+
     try {
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -33,7 +38,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
           'Accept': 'application/json'
         },
         credentials: 'include',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(loginData)
       });
 
       let data;

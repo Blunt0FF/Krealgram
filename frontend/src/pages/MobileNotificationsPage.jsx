@@ -127,26 +127,76 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
   );
 };
 
+// Компонент мобильной навигации
+const MobileBottomNav = ({ user }) => {
+  return (
+    <div className="mobile-bottom-nav">
+      <Link to="/feed" className="nav-item">
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9.005 16.545a2.997 2.997 0 0 1 2.997-2.997A2.997 2.997 0 0 1 15 16.545V22h7V12.5L12 2 2 12.5V22h7.005v-5.455z"/>
+        </svg>
+      </Link>
+      <Link to="/search" className="nav-item">
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 10.5A8.5 8.5 0 1 1 10.5 2a8.5 8.5 0 0 1 8.5 8.5Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+          <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="2"/>
+        </svg>
+      </Link>
+      <Link to="/create-post" className="nav-item">
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
+          <path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="2"/>
+        </svg>
+      </Link>
+       <Link to="/notifications_mobile" className="nav-item">
+        <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"></path>
+        </svg>
+      </Link>
+      <Link to={`/profile/${user?.username}`} className="nav-item">
+        <img 
+          src={getAvatarUrl(user?.avatar)} 
+          alt="Profile" 
+          className="nav-avatar"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = '/default-avatar.png';
+          }}
+        />
+      </Link>
+    </div>
+  );
+};
+
 const MobileNotificationsPage = ({ setUnreadCountGlobal }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
-  // const markAllAsRead = useCallback(async (token) => {
-  //   try {
-  //     await fetch(`${API_URL}/api/notifications/mark-all-read`, {
-  //       method: 'POST',
-  //       headers: { 'Authorization': `Bearer ${token}` }
-  //     });
-  //     if (typeof setUnreadCountGlobal === 'function') {
-  //       setUnreadCountGlobal(0);
-  //     }
-  //     setNotifications(prev => prev.map(n => ({ ...n, read: true }))); 
-  //   } catch (e) {
-  //     console.error('Error in markAllAsRead (MobilePage):', e);
-  //   }
-  // }, [setUnreadCountGlobal]);
+  const markAllAsRead = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const unreadNotifications = notifications.filter(n => !n.read);
+    if (unreadNotifications.length === 0) return;
+
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    if (typeof setUnreadCountGlobal === 'function') {
+      setUnreadCountGlobal(0);
+    }
+
+    try {
+      await fetch(`${API_URL}/api/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (e) {
+      console.error('Error in markAllAsRead (MobilePage):', e);
+      setNotifications(prev => prev.map(n => unreadNotifications.find(un => un._id === n._id) ? { ...n, read: false } : n));
+    }
+  }, [notifications, setUnreadCountGlobal]);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -216,6 +266,11 @@ const MobileNotificationsPage = ({ setUnreadCountGlobal }) => {
   };
 
   useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+
     fetchNotifications();
     document.body.classList.add('mobile-notifications-page-active'); // Класс для body
     return () => {
@@ -232,6 +287,13 @@ const MobileNotificationsPage = ({ setUnreadCountGlobal }) => {
           </svg>
         </button>
         <h3>Notifications</h3>
+        <button 
+            onClick={markAllAsRead} 
+            className="mark-all-read-btn-mobile"
+            disabled={notifications.every(n => n.read)}
+        >
+            Mark all as read
+        </button>
       </div>
       <div className="mobile-notifications-body">
         {loading && <div className="notifications-loading-mobile">Loading...</div>}
@@ -254,6 +316,7 @@ const MobileNotificationsPage = ({ setUnreadCountGlobal }) => {
            </div>
         )}
       </div>
+      <MobileBottomNav user={user} />
     </div>
   );
 };

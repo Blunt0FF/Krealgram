@@ -1,19 +1,20 @@
 /* MobileNotificationsPage.css */
 
-.notification-delete-btn{
+.notification-delete-btn {
   background: none;
-border: none;
-color: #8e8e8e;
-cursor: pointer;
-font-size: 14px;
-padding: 2px 6px;
-border-radius: 3px;
-transition: all 0.2s ease;
-    margin-left: 20px;
+  border: none;
+  color: #8e8e8e;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  margin-left: 20px;
 }
 
 body.mobile-notifications-page-active {
-  overflow: hidden; /* Предотвращаем прокрутку основного контента */
+  overflow: hidden;
+  /* Предотвращаем прокрутку основного контента */
 }
 
 .mobile-notifications-page {
@@ -21,12 +22,14 @@ body.mobile-notifications-page-active {
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 60px);
   background-color: #fff;
-  z-index: 1100; /* Выше, чем обычный контент, но может быть ниже других модалок, если они есть */
+  z-index: 1100;
+  /* Выше, чем обычный контент, но может быть ниже других модалок, если они есть */
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Предотвращаем случайную прокрутку всей страницы */
+  overflow: hidden;
+  /* Предотвращаем случайную прокрутку всей страницы */
 }
 
 .mobile-notifications-header {
@@ -34,8 +37,10 @@ body.mobile-notifications-page-active {
   align-items: center;
   padding: 10px 15px;
   border-bottom: 1px solid #dbdbdb;
-  background-color: #f9f9f9; /* Небольшой фон для хедера */
-  flex-shrink: 0; /* Хедер не должен сжиматься */
+  background-color: #f9f9f9;
+  /* Небольшой фон для хедера */
+  flex-shrink: 0;
+  /* Хедер не должен сжиматься */
 }
 
 .mobile-notifications-header .back-button {
@@ -48,15 +53,18 @@ body.mobile-notifications-page-active {
 }
 
 .mobile-notifications-header .back-button svg {
-  display: block; /* Убирает лишнее пространство под SVG */
+  display: block;
+  /* Убирает лишнее пространство под SVG */
 }
 
 .mobile-notifications-header h3 {
   margin: 0;
-  font-size: 17px; /* Чуть меньше, чем у панели */
+  font-size: 17px;
+  /* Чуть меньше, чем у панели */
   font-weight: 600;
   color: #262626;
-  flex-grow: 1; /* Заставляем заголовок занимать доступное место */
+  flex-grow: 1;
+  /* Заставляем заголовок занимать доступное место */
 }
 
 .mobile-notifications-body {
@@ -71,7 +79,7 @@ body.mobile-notifications-page-active {
   display: block;
   text-decoration: none;
   color: inherit;
-  border-bottom: 1px solid #efefef; 
+  border-bottom: 1px solid #efefef;
   cursor: pointer;
 }
 
@@ -80,7 +88,7 @@ body.mobile-notifications-page-active {
 }
 
 .notification-item-link-mobile:hover .notification-item-mobile {
-  background-color: #f9f9f9; 
+  background-color: #f9f9f9;
 }
 
 .notification-item-mobile {
@@ -88,14 +96,15 @@ body.mobile-notifications-page-active {
   align-items: center;
   padding: 12px 15px;
   transition: background-color 0.2s;
-  min-height: 60px; 
+  min-height: 60px;
 }
 
 .notification-item-mobile.unread {
-  background-color: #e6f3ff; 
+  background-color: #e6f3ff;
 }
+
 .notification-item-mobile.unread:hover {
-  background-color: #d9e9f8; 
+  background-color: #d9e9f8;
 }
 
 .notification-avatar-link-mobile {
@@ -115,10 +124,11 @@ body.mobile-notifications-page-active {
 .notification-content-wrapper-mobile {
   display: flex;
   flex-direction: column;
-  justify-content: center; /* На мобильной странице можно по центру */
+  justify-content: center;
+  /* На мобильной странице можно по центру */
   flex-grow: 1;
   min-width: 0;
-  overflow: hidden; 
+  overflow: hidden;
 }
 
 .notification-text-mobile {
@@ -126,10 +136,11 @@ body.mobile-notifications-page-active {
   color: #262626;
   line-height: 1.4;
   margin-bottom: 2px;
-  white-space: normal; 
+  white-space: normal;
   display: -webkit-box;
-  -webkit-line-clamp: 3; /* Можно 3 строки на отдельной странице */
-  -webkit-box-orient: vertical;  
+  -webkit-line-clamp: 3;
+  /* Можно 3 строки на отдельной странице */
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -160,7 +171,7 @@ body.mobile-notifications-page-active {
 }
 
 .notification-item-link-mobile.no-post-image .notification-post-image-mobile {
-    display: none; 
+  display: none;
 }
 
 /* Состояния загрузки, ошибки, пустого списка */
@@ -176,7 +187,8 @@ body.mobile-notifications-page-active {
   align-items: center;
   justify-content: center;
   flex-grow: 1;
-  height: calc(100% - 50px); /* Учитываем высоту хедера */
+  height: calc(100% - 50px);
+  /* Учитываем высоту хедера */
 }
 
 .notifications-error-mobile {
@@ -184,7 +196,8 @@ body.mobile-notifications-page-active {
 }
 
 .notifications-placeholder-mobile .placeholder-icon-mobile {
-  font-size: 60px; /* Иконка побольше */
+  font-size: 60px;
+  /* Иконка побольше */
   margin-bottom: 20px;
   color: #c7c7c7;
 }
@@ -207,12 +220,14 @@ body.mobile-notifications-page-active {
   font-size: 24px;
   line-height: 1;
   padding: 0 15px;
-  opacity: 0; /* Initially hidden */
+  opacity: 0;
+  /* Initially hidden */
   transition: opacity 0.2s ease-in-out;
 }
 
 .notification-item-wrapper-mobile:hover .notification-delete-btn-mobile {
-  opacity: 1; /* Show on hover */
+  opacity: 1;
+  /* Show on hover */
 }
 
 .notification-delete-btn-mobile:hover {
@@ -227,10 +242,11 @@ body.mobile-notifications-page-active {
   font-size: 14px;
   cursor: pointer;
   padding: 5px;
-  margin-left: 10px; /* Отступ от заголовка */
+  margin-left: 10px;
+  /* Отступ от заголовка */
 }
 
 .mark-all-read-btn-mobile:disabled {
   color: #b2dffc;
   cursor: not-allowed;
-} 
+}

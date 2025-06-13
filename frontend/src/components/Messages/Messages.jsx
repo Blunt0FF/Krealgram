@@ -586,7 +586,30 @@ const Messages = ({ currentUser }) => {
                           onPostClick={handlePostClickInMessage}
                         />
                       ) : (
-                        message.text && <p>{message.text}</p>
+                        (() => {
+                          // Проверяем, есть ли YouTube-ссылка в тексте
+                          const text = message.text;
+                          const youtubeData = text ? createYouTubeData(text) : null;
+                          if (youtubeData) {
+                            return (
+                              <div className="message-youtube" style={{ marginTop: '4px' }}>
+                                <iframe
+                                  width="370"
+                                  height="208"
+                                  src={youtubeData.embedUrl}
+                                  title="YouTube video player"
+                                  frameBorder="0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  style={{ borderRadius: '8px', maxWidth: '100%' }}
+                                ></iframe>
+                              </div>
+                            );
+                          } else if (text) {
+                            return <p>{text}</p>;
+                          }
+                          return null;
+                        })()
                       )}
                       {message.media && message.media.type === 'image' && (
                         <div className="message-image" onClick={() => openImageModal(message.media.url)}>
@@ -602,20 +625,6 @@ const Messages = ({ currentUser }) => {
                               cursor: 'pointer'
                             }}
                           />
-                        </div>
-                      )}
-                      {message.media && message.media.type === 'video' && message.media.youtubeId && (
-                        <div className="message-youtube" style={{ marginTop: '4px' }}>
-                          <iframe
-                            width="280"
-                            height="157"
-                            src={`https://www.youtube.com/embed/${message.media.youtubeId}`}
-                            title="YouTube video player"
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            style={{ borderRadius: '8px' }}
-                          ></iframe>
                         </div>
                       )}
                     </div>

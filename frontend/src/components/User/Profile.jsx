@@ -9,12 +9,12 @@ import './Profile.css';
 import '../Feed/PostModal.css';
 
 // ВОССТАНАВЛИВАЕМ ЛОКАЛЬНЫЙ КОМПОНЕНТ PostModal
-const PostModal = ({ 
-  post: initialPost, 
-  isOpen, 
-  onClose, 
-  currentUser, 
-  onPostUpdate, 
+const PostModal = ({
+  post: initialPost,
+  isOpen,
+  onClose,
+  currentUser,
+  onPostUpdate,
   onDeletePost,
   onPrevious,
   onNext,
@@ -31,7 +31,7 @@ const PostModal = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
-  
+
   const [touchStartY, setTouchStartY] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const modalContentRef = useRef(null);
@@ -50,15 +50,15 @@ const PostModal = ({
     setPostData(initialPost);
     setComments(initialPost?.comments || []);
     setCommentsToShow(4);
-    
+
     let isLiked = false;
     if (currentUser && initialPost) {
       if (typeof initialPost.isLikedByCurrentUser === 'boolean') {
         isLiked = initialPost.isLikedByCurrentUser;
       } else if (Array.isArray(initialPost.likes)) {
-        isLiked = initialPost.likes.some(like => 
-          like.user === currentUser._id || 
-          like.user?._id === currentUser._id || 
+        isLiked = initialPost.likes.some(like =>
+          like.user === currentUser._id ||
+          like.user?._id === currentUser._id ||
           like === currentUser._id
         );
       }
@@ -102,16 +102,16 @@ const PostModal = ({
 
   useLayoutEffect(() => {
     if (topCommentId && commentsContainerRef.current) {
-        const topElement = commentsContainerRef.current.querySelector(`#comment-${topCommentId}`);
-        if (topElement) {
-            const container = commentsContainerRef.current;
-            const offset = topElement.offsetTop - container.offsetTop;
-            container.scrollTop = offset;
-        }
-        setTopCommentId(null);
+      const topElement = commentsContainerRef.current.querySelector(`#comment-${topCommentId}`);
+      if (topElement) {
+        const container = commentsContainerRef.current;
+        const offset = topElement.offsetTop - container.offsetTop;
+        container.scrollTop = offset;
+      }
+      setTopCommentId(null);
     } else if (justSubmittedComment && commentsEndRef.current) {
-        commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        setJustSubmittedComment(false);
+      commentsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      setJustSubmittedComment(false);
     }
   }, [comments, topCommentId, justSubmittedComment]);
 
@@ -119,7 +119,7 @@ const PostModal = ({
     if (e.target.closest('.post-modal-sidebar') || e.target.closest('.modal-nav-btn')) return;
     setTouchStartY(e.targetTouches[0].clientY);
     setIsDragging(true);
-    if(modalContentRef.current) modalContentRef.current.classList.add('is-dragging');
+    if (modalContentRef.current) modalContentRef.current.classList.add('is-dragging');
   };
 
   const handleTouchMove = (e) => {
@@ -128,7 +128,7 @@ const PostModal = ({
     const deltaY = currentY - touchStartY;
 
     const backgroundOpacity = Math.max(1 - Math.abs(deltaY) / 1000, 0.5);
-    if(overlayRef.current) {
+    if (overlayRef.current) {
       overlayRef.current.style.backgroundColor = `rgba(0, 0, 0, ${0.65 * backgroundOpacity})`;
     }
     if (modalContentRef.current) {
@@ -143,7 +143,7 @@ const PostModal = ({
     const deltaY = currentY - touchStartY;
     const closeThreshold = 150;
 
-    if(modalContentRef.current) modalContentRef.current.classList.remove('is-dragging');
+    if (modalContentRef.current) modalContentRef.current.classList.remove('is-dragging');
 
     if (Math.abs(deltaY) > closeThreshold) {
       onClose();
@@ -163,8 +163,8 @@ const PostModal = ({
   if (!isOpen || !postData) return null;
 
   const { _id: postId, author, caption } = postData;
-  const likesCount = postData.likesCount !== undefined ? postData.likesCount : 
-                    (Array.isArray(postData.likes) ? postData.likes.length : 0);
+  const likesCount = postData.likesCount !== undefined ? postData.likesCount :
+    (Array.isArray(postData.likes) ? postData.likes.length : 0);
 
   const toggleLike = async () => {
     if (!token || !currentUser || !postData) return;
@@ -175,7 +175,7 @@ const PostModal = ({
     setPostData(prev => ({
       ...prev,
       likesCount: originalLikedStatus ? prev.likesCount - 1 : prev.likesCount + 1,
-      likes: originalLikedStatus 
+      likes: originalLikedStatus
         ? (prev.likes || []).filter(id => id !== currentUser._id)
         : [...(prev.likes || []), currentUser._id]
     }));
@@ -188,14 +188,14 @@ const PostModal = ({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Like error');
-      
+
       setPostData(prev => ({ ...prev, likesCount: data.likeCount }));
       setIsLikedByCurrentUser(data.liked);
 
       if (onPostUpdate) {
-        onPostUpdate(postId, { 
-          likesCount: data.likeCount, 
-          likes: data.likes, 
+        onPostUpdate(postId, {
+          likesCount: data.likeCount,
+          likes: data.likes,
           isLiked: data.liked,
           isLikedByCurrentUser: data.liked
         });
@@ -212,32 +212,32 @@ const PostModal = ({
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     if (!newComment.trim() || !currentUser || !postData) return;
-    
+
     const optimisticComment = {
       _id: `temp-${Date.now()}`,
       text: newComment,
       user: { _id: currentUser._id, username: currentUser.username, avatar: currentUser.avatar },
       createdAt: new Date().toISOString()
     };
-    
+
     const newComments = [...comments, optimisticComment];
     setComments(newComments);
     setPostData(prev => ({ ...prev, commentsCount: (prev.commentsCount || 0) + 1 }));
     setNewComment('');
-    
+
     try {
       const response = await fetch(`${API_URL}/api/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ text: optimisticComment.text, postId: postId }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok && data.comment) {
         const actualNewComment = { ...data.comment, createdAt: data.comment.createdAt || new Date().toISOString() };
         setComments(prev => prev.map(c => c._id === optimisticComment._id ? actualNewComment : c));
-        
+
         if (onPostUpdate) {
           onPostUpdate(postId, { commentsCount: newComments.length, comments: [...comments.filter(c => c._id !== optimisticComment._id), actualNewComment] });
         }
@@ -258,11 +258,11 @@ const PostModal = ({
   const loadMoreComments = () => {
     const sortedComments = [...(comments || [])].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     const displayedComments = sortedComments.slice(Math.max(sortedComments.length - commentsToShow, 0));
-    
+
     if (displayedComments.length > 0) {
       setTopCommentId(displayedComments[0]._id);
     }
-    
+
     setCommentsToShow(prev => Math.min(prev + 10, comments.length));
   };
 
@@ -328,8 +328,8 @@ const PostModal = ({
   const handleCommentUsernameClick = (username) => onClose();
 
   return (
-    <div 
-      className="post-modal-overlay" 
+    <div
+      className="post-modal-overlay"
       ref={overlayRef}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onTouchStart={handleTouchStart}
@@ -338,20 +338,20 @@ const PostModal = ({
     >
       <div ref={modalContentRef} className="post-modal-content">
         <button className="modal-close-btn" onClick={onClose}>✕</button>
-        
+
         <div className="post-modal-image">
           {onPrevious && currentIndex && currentIndex.total > 0 && currentIndex.current > 1 && !showEditModal && (
             <button className="modal-nav-btn modal-prev-btn" onClick={onPrevious}>
               ←
             </button>
           )}
-          
+
           {onNext && currentIndex && currentIndex.total > 0 && currentIndex.current < currentIndex.total && !showEditModal && (
             <button className="modal-nav-btn modal-next-btn" onClick={onNext}>
               →
             </button>
           )}
-          
+
           {postData.imageUrl ? <img src={postData.imageUrl} alt={postData.caption || 'Post'} /> : <div className="image-placeholder">Image not available</div>}
         </div>
         <div className="post-modal-sidebar">
@@ -363,16 +363,16 @@ const PostModal = ({
             {currentUser && author && currentUser._id === author._id && (
               <div className="post-options">
                 <button className="options-button" onClick={() => setShowOptionsMenu(!showOptionsMenu)}>
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" /></svg>
                 </button>
                 {showOptionsMenu && (
                   <div className="options-menu">
                     <button onClick={requestEditPost} className="option-item">
-                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fillRule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg>
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z" /><path fillRule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z" /></svg>
                       Edit
                     </button>
                     <button onClick={requestDeletePost} className="option-item delete">
-                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5Z"/></svg>
+                      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5Z" /></svg>
                       Delete
                     </button>
                   </div>
@@ -380,7 +380,7 @@ const PostModal = ({
               </div>
             )}
           </div>
-          
+
           <div className="post-content">
             {caption && (
               <div className="post-caption">
@@ -390,7 +390,8 @@ const PostModal = ({
                 </div>
               </div>
             )}
-            
+
+
             <div className="post-time">
               {new Date(postData.createdAt).toLocaleString('en-US', {
                 month: 'long',
@@ -425,13 +426,13 @@ const PostModal = ({
                 {(() => {
                   const sortedComments = [...(comments || [])].sort((a, b) => new Date(a.createdAt || a.updatedAt || 0) - new Date(b.createdAt || b.updatedAt || 0));
                   const displayedComments = sortedComments.slice(Math.max(sortedComments.length - commentsToShow, 0));
-                  
+
                   return (
                     <>
                       {sortedComments.length > commentsToShow && (
-                          <button onClick={loadMoreComments} className="show-more-comments">
-                              View previous comments
-                          </button>
+                        <button onClick={loadMoreComments} className="show-more-comments">
+                          View previous comments
+                        </button>
                       )}
                       {displayedComments.map(comment => (
                         <div key={comment._id} id={`comment-${comment._id}`} className="comment">
@@ -448,7 +449,7 @@ const PostModal = ({
                       {comments && comments.length === 0 && (
                         <p style={{ textAlign: 'center', color: '#8e8e8e', padding: '20px 0' }}>No comments yet.</p>
                       )}
-                       <div ref={commentsEndRef} />
+                      <div ref={commentsEndRef} />
                     </>
                   );
                 })()}
@@ -459,7 +460,7 @@ const PostModal = ({
               </form>
             </div>
           </div>
-          
+
         </div>
       </div>
       {showLikesTooltip && postId && likesCount > 0 && <LikesModal postId={postId} isOpen={showLikesTooltip} onClose={handleTooltipClose} />}
@@ -475,35 +476,35 @@ const MobileBottomNav = ({ user }) => {
     <div className="mobile-bottom-nav">
       <Link to="/feed" className="nav-item">
         <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M9.005 16.545a2.997 2.997 0 0 1 2.997-2.997A2.997 2.997 0 0 1 15 16.545V22h7V12.5L12 2 2 12.5V22h7.005v-5.455z"/>
+          <path d="M9.005 16.545a2.997 2.997 0 0 1 2.997-2.997A2.997 2.997 0 0 1 15 16.545V22h7V12.5L12 2 2 12.5V22h7.005v-5.455z" />
         </svg>
       </Link>
       <Link to="/search" className="nav-item">
         <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 10.5A8.5 8.5 0 1 1 10.5 2a8.5 8.5 0 0 1 8.5 8.5Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-          <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="2"/>
+          <path d="M19 10.5A8.5 8.5 0 1 1 10.5 2a8.5 8.5 0 0 1 8.5 8.5Z" stroke="currentColor" strokeWidth="2" fill="none" />
+          <path d="m21 21-4.3-4.3" stroke="currentColor" strokeWidth="2" />
         </svg>
       </Link>
       <Link to="/create-post" className="nav-item">
         <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
-          <path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="2"/>
+          <path d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Z" stroke="currentColor" strokeWidth="2" fill="none" />
+          <path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="2" />
         </svg>
       </Link>
       <Link to="/messages" className="nav-item">
         <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12.003 2.001a9.705 9.705 0 1 1 0 19.4 10.876 10.876 0 0 1-2.895-.384.798.798 0 0 0-.533.04l-1.984.876a.801.801 0 0 1-1.123-.708l-.054-1.78a.806.806 0 0 0-.27-.569 9.49 9.49 0 0 1-3.14-7.175 9.65 9.65 0 0 1 10-9.7Z" fillRule="evenodd"/>
+          <path d="M12.003 2.001a9.705 9.705 0 1 1 0 19.4 10.876 10.876 0 0 1-2.895-.384.798.798 0 0 0-.533.04l-1.984.876a.801.801 0 0 1-1.123-.708l-.054-1.78a.806.806 0 0 0-.27-.569 9.49 9.49 0 0 1-3.14-7.175 9.65 9.65 0 0 1 10-9.7Z" fillRule="evenodd" />
         </svg>
       </Link>
       <Link to="/notifications_mobile" className="nav-item">
         <svg className="nav-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12.003 2.001a9.705 9.705 0 1 1 0 19.4 10.876 10.876 0 0 1-2.895-.384.798.798 0 0 0-.533.04l-1.984.876a.801.801 0 0 1-1.123-.708l-.054-1.78a.806.806 0 0 0-.27-.569 9.49 9.49 0 0 1-3.14-7.175 9.65 9.65 0 0 1 10-9.7Z" fillRule="evenodd"/>
+          <path d="M12.003 2.001a9.705 9.705 0 1 1 0 19.4 10.876 10.876 0 0 1-2.895-.384.798.798 0 0 0-.533.04l-1.984.876a.801.801 0 0 1-1.123-.708l-.054-1.78a.806.806 0 0 0-.27-.569 9.49 9.49 0 0 1-3.14-7.175 9.65 9.65 0 0 1 10-9.7Z" fillRule="evenodd" />
         </svg>
       </Link>
       <Link to={`/profile/${user?.username}`} className="nav-item">
-        <img 
-          src={getAvatarUrl(user?.avatar)} 
-          alt="Profile" 
+        <img
+          src={getAvatarUrl(user?.avatar)}
+          alt="Profile"
           className="nav-avatar"
           onError={(e) => {
             e.target.onerror = null;
@@ -524,7 +525,7 @@ const PostThumbnail = ({ post, onClick }) => {
     if (post._id && !imageLoaded && !post.imageUrl) {
       const token = localStorage.getItem('token');
       fetch(`${API_URL}/api/posts/${post._id}/image`, {
-         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
         .then(res => res.json())
         .then(data => {
@@ -535,8 +536,8 @@ const PostThumbnail = ({ post, onClick }) => {
         })
         .catch(err => console.error('Error loading thumbnail:', err));
     } else if (post.imageUrl && !image) {
-        setImage(post.imageUrl);
-        setImageLoaded(true);
+      setImage(post.imageUrl);
+      setImageLoaded(true);
     }
   }, [post._id, post.imageUrl, imageLoaded, image]);
 
@@ -593,8 +594,8 @@ const FollowersModal = ({ isOpen, onClose, title, users, loading }) => {
             users.map(user => (
               <div key={user._id} className="follower-item">
                 <Link to={`/profile/${user.username}`} onClick={onClose}>
-                  <img 
-                    src={getAvatarUrl(user.avatar)} 
+                  <img
+                    src={getAvatarUrl(user.avatar)}
                     alt={user.username}
                     className="follower-avatar"
                     onError={(e) => {
@@ -677,19 +678,19 @@ const Profile = ({ user: currentUserProp }) => {
     } else {
       document.body.classList.remove('modal-open');
     }
-    
+
     return () => {
       document.body.classList.remove('modal-open');
     };
   }, [isModalOpen]);
 
   const handlePostUpdate = (postId, updates) => {
-    setPosts(prevPosts => prevPosts.map(p => 
+    setPosts(prevPosts => prevPosts.map(p =>
       p._id === postId ? { ...p, ...updates } : p
     ));
     // Всегда обновляем selectedPost для синхронизации состояния
     if (selectedPost && selectedPost._id === postId) {
-        setSelectedPost(prevSelectedPost => ({ ...prevSelectedPost, ...updates }));
+      setSelectedPost(prevSelectedPost => ({ ...prevSelectedPost, ...updates }));
     }
   };
 
@@ -697,44 +698,44 @@ const Profile = ({ user: currentUserProp }) => {
     if (!currentUserProp || !isOwner) return;
 
     try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/api/posts/${postIdToDelete}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        if (response.ok) {
-            setPosts(prevPosts => prevPosts.filter(p => p._id !== postIdToDelete));
-            closeModal();
-            if (profile && profile.user) {
-                 setProfile(prev => ({
-                    ...prev,
-                    user: {
-                        ...prev.user,
-                        postsCount: prev.user.postsCount !== undefined ? Math.max(0, prev.user.postsCount - 1) : (prev.posts?.filter(p => p._id !== postIdToDelete).length || 0)
-                    }
-                }));
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/posts/${postIdToDelete}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setPosts(prevPosts => prevPosts.filter(p => p._id !== postIdToDelete));
+        closeModal();
+        if (profile && profile.user) {
+          setProfile(prev => ({
+            ...prev,
+            user: {
+              ...prev.user,
+              postsCount: prev.user.postsCount !== undefined ? Math.max(0, prev.user.postsCount - 1) : (prev.posts?.filter(p => p._id !== postIdToDelete).length || 0)
             }
-            console.log('Post deleted successfully');
-        } else {
-            console.error('Error deleting post:', data.message);
+          }));
         }
+        console.log('Post deleted successfully');
+      } else {
+        console.error('Error deleting post:', data.message);
+      }
     } catch (error) {
-        console.error('Error deleting post:', error);
-        console.error('Network error when deleting post:', error);
+      console.error('Error deleting post:', error);
+      console.error('Network error when deleting post:', error);
     }
   };
 
   const openFollowersModal = async () => {
     if (!profile || !profile.user) return;
-    
+
     setFollowersLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/users/${profile.user._id}/followers`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setModalTitle('Followers');
@@ -750,14 +751,14 @@ const Profile = ({ user: currentUserProp }) => {
 
   const openFollowingModal = async () => {
     if (!profile || !profile.user) return;
-    
+
     setFollowingLoading(true);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/users/${profile.user._id}/following`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setModalTitle('Following');
@@ -775,7 +776,7 @@ const Profile = ({ user: currentUserProp }) => {
     if (!currentUserProp || isOwner) return;
 
     const wasFollowing = followInfo.isFollowing;
-    
+
     setFollowInfo(prev => ({
       ...prev,
       isFollowing: !wasFollowing,
@@ -785,7 +786,7 @@ const Profile = ({ user: currentUserProp }) => {
     try {
       const token = localStorage.getItem('token');
       const method = wasFollowing ? 'DELETE' : 'POST';
-      
+
       const response = await fetch(`${API_URL}/api/users/${profile.user._id}/follow`, {
         method: method,
         headers: { 'Authorization': `Bearer ${token}` }
@@ -826,69 +827,69 @@ const Profile = ({ user: currentUserProp }) => {
     setIsModalOpen(false);
     setFollowInfo({ isFollowing: false, followersCount: 0, followingCount: 0 });
     setIsOwner(false);
-    
+
     const token = localStorage.getItem('token');
-    
+
     fetch(`${API_URL}/api/users/profile/${username}`, {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {}
     })
-    .then(res => {
-      if (!res.ok) {
-        if (res.status === 404) {
+      .then(res => {
+        if (!res.ok) {
+          if (res.status === 404) {
             console.error('User not found');
+          }
+          throw new Error(`HTTP error! status: ${res.status}`);
         }
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      return res.json();
-    })
-    .then(data => {
-      if (data.user) {
-        setProfile(data);
-        
-        const processedPosts = (data.user.posts || []).map(p => {
-          // Проверяем, лайкнул ли текущий пользователь этот пост
-          const isLikedByCurrentUser = currentUserProp && p.likes ? 
-            p.likes.some(like => 
-              like.user === currentUserProp._id || 
-              like.user?._id === currentUserProp._id || 
-              like === currentUserProp._id
-            ) : false;
-          
-          // Обрабатываем лайки поста
-          
-          return {
-            ...p,
-            likesCount: p.likes?.length || 0,
-            commentsCount: p.comments?.length || 0,
-            imageUrl: getImageUrl(p.imageUrl || p.image),
-            isLikedByCurrentUser: isLikedByCurrentUser
-          };
-        });
-        setPosts(processedPosts);
-        
-        setFollowInfo({
-          isFollowing: data.user.isFollowedByCurrentUser || false,
-          followersCount: data.user.followersCount || 0,
-          followingCount: data.user.followingCount || 0
-        });
-        
-        // Проверяем владельца профиля - используем как currentUser, так и localStorage
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const userId = currentUserProp?._id || storedUser?._id;
-        if (userId) {
-          setIsOwner(userId === data.user._id);
+        return res.json();
+      })
+      .then(data => {
+        if (data.user) {
+          setProfile(data);
+
+          const processedPosts = (data.user.posts || []).map(p => {
+            // Проверяем, лайкнул ли текущий пользователь этот пост
+            const isLikedByCurrentUser = currentUserProp && p.likes ?
+              p.likes.some(like =>
+                like.user === currentUserProp._id ||
+                like.user?._id === currentUserProp._id ||
+                like === currentUserProp._id
+              ) : false;
+
+            // Обрабатываем лайки поста
+
+            return {
+              ...p,
+              likesCount: p.likes?.length || 0,
+              commentsCount: p.comments?.length || 0,
+              imageUrl: getImageUrl(p.imageUrl || p.image),
+              isLikedByCurrentUser: isLikedByCurrentUser
+            };
+          });
+          setPosts(processedPosts);
+
+          setFollowInfo({
+            isFollowing: data.user.isFollowedByCurrentUser || false,
+            followersCount: data.user.followersCount || 0,
+            followingCount: data.user.followingCount || 0
+          });
+
+          // Проверяем владельца профиля - используем как currentUser, так и localStorage
+          const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+          const userId = currentUserProp?._id || storedUser?._id;
+          if (userId) {
+            setIsOwner(userId === data.user._id);
+          }
+        } else {
+          console.error("User data not found in response:", data);
+          setProfile(null);
         }
-      } else {
-        console.error("User data not found in response:", data);
-        setProfile(null);
-      }
-      setLoadingProfile(false);
-    })
-    .catch(err => {
+        setLoadingProfile(false);
+      })
+      .catch(err => {
         console.error('Error fetching profile:', err);
         setLoadingProfile(false);
         setProfile(null);
-    });
+      });
   }, [username, currentUserProp]);
 
   if (loadingProfile) {
@@ -896,7 +897,7 @@ const Profile = ({ user: currentUserProp }) => {
   }
 
   if (!profile || !profile.user) {
-          return <div className="profile-container"><div className="no-posts"><h3>Profile not found.</h3></div></div>;
+    return <div className="profile-container"><div className="no-posts"><h3>Profile not found.</h3></div></div>;
   }
 
   return (
@@ -904,10 +905,10 @@ const Profile = ({ user: currentUserProp }) => {
       <div className="profile-container">
         <div className="profile-header">
           <div className="profile-avatar">
-            <img 
-              src={getAvatarUrl(profile.user.avatar)} 
-              alt={profile.user.username} 
-              loading="lazy" 
+            <img
+              src={getAvatarUrl(profile.user.avatar)}
+              alt={profile.user.username}
+              loading="lazy"
               onClick={() => {
                 if (profile.user.avatar && profile.user.avatar !== '/default-avatar.png') {
                   setShowAvatarModal(true);
@@ -920,7 +921,7 @@ const Profile = ({ user: currentUserProp }) => {
               }}
             />
           </div>
-          
+
           <div className="profile-info">
             <div className="profile-header-row">
               <h1 className="profile-username">{profile.user.username}</h1>
@@ -930,8 +931,8 @@ const Profile = ({ user: currentUserProp }) => {
                     <Link to="/edit-profile" className="edit-profile-btn">
                       Edit profile
                     </Link>
-                    <button 
-                      className="logout-btn mobile-only" 
+                    <button
+                      className="logout-btn mobile-only"
                       onClick={() => {
                         localStorage.removeItem('token');
                         localStorage.removeItem('user');
@@ -943,8 +944,8 @@ const Profile = ({ user: currentUserProp }) => {
                   </>
                 ) : currentUserProp ? (
                   <>
-                    <button 
-                      className={`follow-btn ${followInfo.isFollowing ? 'following' : ''}`} 
+                    <button
+                      className={`follow-btn ${followInfo.isFollowing ? 'following' : ''}`}
                       onClick={toggleFollow}
                     >
                       {followInfo.isFollowing ? 'Unfollow' : 'Follow'}
@@ -954,7 +955,7 @@ const Profile = ({ user: currentUserProp }) => {
                 ) : null}
               </div>
             </div>
-            
+
             <div className="profile-stats">
               <div className="stat-item">
                 <span className="stat-number">{profile.user.postsCount !== undefined ? profile.user.postsCount : posts.length}</span>
@@ -969,13 +970,13 @@ const Profile = ({ user: currentUserProp }) => {
                 <span className="stat-label">following</span>
               </div>
             </div>
-            
+
             {profile.user.bio && (
               <div className="profile-bio">
                 <p>{profile.user.bio}</p>
               </div>
             )}
-            
+
             {profile.user.website && (
               <div className="profile-website">
                 <a href={profile.user.website} target="_blank" rel="noopener noreferrer">
@@ -985,7 +986,7 @@ const Profile = ({ user: currentUserProp }) => {
             )}
           </div>
         </div>
-        
+
         <div className="profile-content">
           <div className={`posts-grid ${posts.length === 0 ? 'no-posts-container' : ''}`}>
             {posts.length === 0 ? (
@@ -995,9 +996,9 @@ const Profile = ({ user: currentUserProp }) => {
               </div>
             ) : (
               posts.map((post) => (
-                <PostThumbnail 
-                  key={post._id} 
-                  post={post} 
+                <PostThumbnail
+                  key={post._id}
+                  post={post}
                   onClick={() => handlePostClick(post)}
                 />
               ))
@@ -1034,8 +1035,8 @@ const Profile = ({ user: currentUserProp }) => {
               <button className="avatar-modal-close" onClick={() => setShowAvatarModal(false)}>
                 ×
               </button>
-              <img 
-                src={getAvatarUrl(profile.user.avatar)} 
+              <img
+                src={getAvatarUrl(profile.user.avatar)}
                 alt={profile.user.username}
                 className="avatar-modal-image"
                 onError={(e) => {
@@ -1047,7 +1048,7 @@ const Profile = ({ user: currentUserProp }) => {
           </div>
         )}
       </div>
-      
+
       <MobileBottomNav user={currentUserProp} />
     </>
   );

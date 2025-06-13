@@ -171,10 +171,6 @@ const PostModal = ({
     const currentY = e.targetTouches[0].clientY;
     const deltaY = currentY - touchStartY;
 
-    const backgroundOpacity = Math.max(1 - Math.abs(deltaY) / 1000, 0.5);
-    if(overlayRef.current) {
-      overlayRef.current.style.backgroundColor = `rgba(0, 0, 0, ${0.65 * backgroundOpacity})`;
-    }
     if (modalContentRef.current) {
       modalContentRef.current.style.transform = `translateY(${deltaY}px)`;
     }
@@ -192,9 +188,6 @@ const PostModal = ({
     if (Math.abs(deltaY) > closeThreshold) {
       onClose();
     } else {
-      if (overlayRef.current) {
-        overlayRef.current.style.backgroundColor = '';
-      }
       if (modalContentRef.current) {
         modalContentRef.current.style.transform = 'translateY(0)';
       }
