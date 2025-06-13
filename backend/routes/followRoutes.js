@@ -61,38 +61,4 @@ router.delete('/:userId', auth, async (req, res) => {
   }
 });
 
-// Получить список подписчиков
-router.get('/followers/:userId', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId)
-      .populate('followers', 'username profilePicture');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
-    }
-
-    res.json(user.followers);
-  } catch (error) {
-    console.error('Ошибка при получении подписчиков:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
-  }
-});
-
-// Получить список подписок
-router.get('/following/:userId', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId)
-      .populate('following', 'username profilePicture');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
-    }
-
-    res.json(user.following);
-  } catch (error) {
-    console.error('Ошибка при получении подписок:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
-  }
-});
-
 module.exports = router; 
