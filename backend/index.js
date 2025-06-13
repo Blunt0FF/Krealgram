@@ -27,31 +27,20 @@ const server = http.createServer(app);
 
 // CORS configuration
 const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:4000',
-      'http://127.0.0.1:4000',
-      'https://krealgram.vercel.app',
-      'https://krealgram.com',
-      'https://www.krealgram.com',
-      'https://krealgram-lmnau82av-kreals-projects-83af4312.vercel.app',
-      'https://krealgram-cd3wdc3ov-kreals-projects-83af4312.vercel.app',
-      'https://krealgram-hvwz41uhu-kreals-projects-83af4312.vercel.app',
-      'https://krealgram-e9r3p66cd-kreals-projects-83af4312.vercel.app'
-    ];
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'http://localhost:4000',
+    'http://127.0.0.1:4000',
+    'https://krealgram.vercel.app',
+    'https://krealgram.com',
+    'https://www.krealgram.com'
+  ],
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  credentials: true,
-  maxAge: 86400,
   preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
+  maxAge: 86400 // 24 часа
 };
 
 // Настройка Socket.IO с теми же CORS настройками
