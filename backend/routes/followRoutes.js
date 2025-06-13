@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/authMiddleware');
-const User = require('../models/User');
+const User = require('../models/userModel');
 
 // Подписаться на пользователя
 router.post('/:userId', auth, async (req, res) => {
