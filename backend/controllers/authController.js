@@ -77,7 +77,10 @@ exports.login = async (req, res) => {
     }
 
     const user = await User.findOne({
-      $or: [{ email: identifier }, { username: identifier }]
+      $or: [
+        { email: identifier },
+        { username: { $regex: new RegExp('^' + identifier + '$', 'i') } }
+      ]
     }).select('+password');
 
     if (!user) {
