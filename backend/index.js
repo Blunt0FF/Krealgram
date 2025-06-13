@@ -6,15 +6,6 @@ const path = require('path'); // Добавим path для работы с пу
 const http = require('http');
 const { Server } = require('socket.io');
 const connectDB = require('./config/db'); // Мы создадим этот файл далее
-const authRoutes = require('./routes/authRoutes');
-const postRoutes = require('./routes/postRoutes');
-const userRoutes = require('./routes/userRoutes');
-const likeRoutes = require('./routes/likeRoutes');
-const commentRoutes = require('./routes/commentRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
-const searchRoutes = require('./routes/searchRoutes');
-const followRoutes = require('./routes/followRoutes');
-const { setupSocketServer } = require('./socket');
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -24,62 +15,54 @@ connectDB();
 
 const app = express();
 const server = http.createServer(app);
-
-// CORS configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      'http://localhost:4000',
-      'http://127.0.0.1:4000',
-      'https://krealgram.vercel.app',
-      'https://krealgram.com',
-      'https://www.krealgram.com',
-      'https://krealgram-lmnau82av-kreals-projects-83af4312.vercel.app',
-      'https://krealgram-cd3wdc3ov-kreals-projects-83af4312.vercel.app',
-      'https://krealgram-hvwz41uhu-kreals-projects-83af4312.vercel.app',
-      'https://krealgram-e9r3p66cd-kreals-projects-83af4312.vercel.app'
-    ];
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  credentials: true,
-  maxAge: 86400,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
-
-// Настройка Socket.IO с теми же CORS настройками
 const io = new Server(server, {
-  cors: corsOptions
+  cors: {
+    origin: [
+      "http://localhost:4000",
+      "http://127.0.0.1:4000",
+      "https://krealgram.vercel.app",
+      "https://krealgram.com",
+      "https://www.krealgram.com"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    credentials: true
+  }
 });
 
 app.set('io', io); // Сделаем io доступным в контроллерах
 
-// Применяем CORS ко всем маршрутам
+// Настройки CORS для Express
+const corsOptions = {
+  origin: [
+    'http://localhost:4000',
+    'http://127.0.0.1:4000',
+    'https://krealgram.vercel.app',
+    'https://krealgram.com',
+    'https://www.krealgram.com'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  credentials: true,
+  maxAge: 86400 // 24 часа
+};
+
 app.use(cors(corsOptions));
 
-// Обработка OPTIONS запросов
-app.options('*', cors(corsOptions));
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Добавляем базовый маршрут для проверки работоспособности
-app.get('/', (req, res) => {
-  res.json({ message: 'API is working' });
-});
+// Важно: middleware для парсинга JSON должен идти после CORS
+app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Раздача статических файлов из папки 'uploads'
 // __dirname в ES Modules не работает так, как в CommonJS, но так как package.json указывает "type": "commonjs" (по умолчанию для npm init -y)
 // то __dirname будет работать корректно.
 // Если бы мы использовали "type": "module", пришлось бы использовать import.meta.url
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Базовый маршрут для проверки
+app.get('/', (req, res) => {
+  res.send('Krealgram API is working!');
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -90,15 +73,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// API routes
+// TODO: Подключить маршруты (routes)
+const authRoutes = require('./routes/authRoutes');
+const postRoutes = require('./routes/postRoutes');
+const userRoutes = require('./routes/userRoutes');
+const commentRoutes = require('./routes/commentRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const likeRoutes = require('./routes/likeRoutes');
+const conversationRoutes = require('./routes/conversationRoutes'); // Добавляем маршруты для диалогов
+const notificationRoutes = require('./routes/notificationRoutes'); // Импортируем маршруты уведомлений
+
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/likes', likeRoutes);
 app.use('/api/comments', commentRoutes);
-app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
-app.use('/api/follow', followRoutes);
+app.use('/api/likes', likeRoutes);
+app.use('/api/conversations', conversationRoutes); // Подключаем маршруты для диалогов
+app.use('/api/notifications', notificationRoutes); // Подключаем маршруты для уведомлений
 
 // Настройка Socket.IO
 io.on('connection', (socket) => {
@@ -115,21 +107,4 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-    const server = app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-    });
-    setupSocketServer(server);
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
-  });
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!', error: err.message });
-}); 
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`)); 
