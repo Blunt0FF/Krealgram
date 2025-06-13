@@ -14,7 +14,7 @@ const commentRoutes = require('./routes/commentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const followRoutes = require('./routes/followRoutes');
-const { setupSocketServer } = require('./socket');
+// const { setupSocketServer } = require('./socket');
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -122,7 +122,7 @@ mongoose.connect(process.env.MONGODB_URI)
     const server = app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
-    setupSocketServer(server);
+    // setupSocketServer(server);
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err);
