@@ -38,16 +38,23 @@ const corsOptions = {
     'http://127.0.0.1:4000',
     'https://krealgram.vercel.app',
     'https://krealgram.com',
-    'https://www.krealgram.com'
+    'https://www.krealgram.com',
+    'https://krealgram-backend.onrender.com'
   ],
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  credentials: true,
-  maxAge: 86400 // 24 часа
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+  maxAge: 86400
 };
 
+// Применяем CORS ко всем маршрутам
 app.use(cors(corsOptions));
+
+// Обработка OPTIONS запросов
+app.options('*', cors(corsOptions));
 
 // Важно: middleware для парсинга JSON должен идти после CORS
 app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных
