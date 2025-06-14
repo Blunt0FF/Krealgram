@@ -27,7 +27,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
 
     const loginData = {
       ...formData,
-      identifier: formData.identifier.trim().toLowerCase()
+      identifier: formData.identifier.trim()
     };
 
     try {
