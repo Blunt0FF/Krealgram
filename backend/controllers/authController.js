@@ -76,18 +76,26 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
+    console.log('Login attempt with identifier:', identifier);
+
+    // Экранируем специальные символы в регулярном выражении
+    const escapedIdentifier = identifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    
     const user = await User.findOne({
       $or: [
         { email: identifier },
-        { username: { $regex: new RegExp('^' + identifier + '$', 'i') } }
+        { username: { $regex: new RegExp('^' + escapedIdentifier + '$', 'i') } }
       ]
     }).select('+password');
+
+    console.log('User found:', user ? 'yes' : 'no');
 
     if (!user) {
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match:', isMatch ? 'yes' : 'no');
     
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid password or invalid credentials.' });
