@@ -46,15 +46,12 @@ exports.register = async (req, res) => {
       { expiresIn: '7d' } // Token expiration
     );
 
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
     res.status(201).json({
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        createdAt: user.createdAt
-      },
+      user: userResponse,
       message: 'User registered successfully'
     });
 
@@ -94,7 +91,7 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     console.log('Password match:', isMatch ? 'yes' : 'no');
     
     if (!isMatch) {
@@ -183,7 +180,7 @@ exports.resetPassword = async (req, res) => {
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() }
-    });
+    }).select('+password');
 
     if (!user) {
       return res.status(400).json({
