@@ -47,11 +47,15 @@ exports.register = async (req, res) => {
       }
     }
 
+    // Хешируем пароль здесь
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     // Create a new user
     const user = new User({
       username,
       email: email.toLowerCase(),
-      password: password,
+      password: hashedPassword, // Сохраняем хешированный пароль
       avatar: avatar || ''
     });
 
@@ -131,7 +135,7 @@ exports.login = async (req, res) => {
     }
 
     console.log('User found, comparing password...');
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await user.comparePassword(password);
     
     if (!isMatch) {
       console.log('Password mismatch for user:', user.username);

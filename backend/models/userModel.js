@@ -96,6 +96,10 @@ userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     return next();
   }
+  // Дополнительная проверка, чтобы не хешировать уже хешированный пароль
+  if (this.password && this.password.startsWith('$2a$')) {
+    return next();
+  }
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -106,16 +110,8 @@ userSchema.pre('save', async function(next) {
 });
 
 // Метод для проверки пароля
-userSchema.methods.correctPassword = async function(candidatePassword) {
-  try {
-    console.log('Comparing passwords...');
-    const isMatch = await bcrypt.compare(candidatePassword, this.password);
-    console.log('Password comparison result:', isMatch);
-    return isMatch;
-  } catch (error) {
-    console.error('Error comparing passwords:', error);
-    throw error;
-  }
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Виртуальные поля для подсчета

@@ -52,12 +52,12 @@
   position: relative;
 }
 
-/* .main-content-with-sidebar {
+.main-content-with-sidebar {
   margin-left: 244px;
   width: 100%;
   min-height: 100vh;
   transition: margin-left 0.3s ease-out;
-} */
+}
 
 /* Мобильная адаптивность */
 @media (max-width: 768px) {
@@ -66,11 +66,11 @@
     padding-bottom: 60px;
   }
   
-  /* .main-content-with-sidebar {
+  .main-content-with-sidebar {
     margin-left: 0;
     min-height: calc(100vh - 60px);
     padding-bottom: 60px;
-  } */
+  }
   
   /* Скрываем сайдбар на мобильных */
   .main-layout .sidebar {
@@ -78,7 +78,7 @@
   }
 }
 
-/* @media (max-width: 900px) {
+@media (max-width: 900px) {
   .main-content-with-sidebar {
     margin-left: 0;
   }
@@ -86,4 +86,4 @@
   .main-layout .sidebar {
     display: none;
   }
-} */
+}
