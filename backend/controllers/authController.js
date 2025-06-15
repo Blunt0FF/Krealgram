@@ -1,6 +1,6 @@
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt'); // We use bcrypt as installed
+const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 
@@ -10,6 +10,11 @@ exports.register = async (req, res) => {
     const { username, email, password, avatar } = req.body;
     
     console.log('Registration attempt:', { username, email }); // Логируем попытку регистрации
+
+    if (!process.env.JWT_SECRET) {
+      console.error('FATAL ERROR: JWT_SECRET is not defined.');
+      return res.status(500).json({ message: 'Server configuration error.' });
+    }
 
     // Check for required fields
     if (!username || !email || !password) {
@@ -46,7 +51,7 @@ exports.register = async (req, res) => {
     const user = new User({
       username,
       email: email.toLowerCase(),
-      password,
+      password: password,
       avatar: avatar || ''
     });
 
@@ -115,7 +120,7 @@ exports.login = async (req, res) => {
     // Case-insensitive search for both email and username
     const user = await User.findOne({
       $or: [
-        { email: identifier.toLowerCase() },
+        { email: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } },
         { username: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } }
       ]
     }).select('+password');
@@ -126,7 +131,7 @@ exports.login = async (req, res) => {
     }
 
     console.log('User found, comparing password...');
-    const isMatch = await user.correctPassword(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
       console.log('Password mismatch for user:', user.username);
@@ -134,6 +139,15 @@ exports.login = async (req, res) => {
     }
 
     console.log('Password match, generating token...');
+    user.lastActive = new Date();
+    user.isOnline = true;
+    await user.save({ validateBeforeSave: false }); // Skip validation on login
+
+    if (!process.env.JWT_SECRET) {
+        console.error('FATAL ERROR: JWT_SECRET is not defined.');
+        return res.status(500).json({ message: 'Server configuration error.' });
+    }
+
     const token = jwt.sign(
       { id: user._id, username: user.username },
       process.env.JWT_SECRET,
