@@ -13,14 +13,18 @@ exports.register = async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
+    
+    // Normalize username and email
+    const normalizedUsername = username.trim().toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
     // Check for existing user by email or username
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const existingUser = await User.findOne({ $or: [{ email: normalizedEmail }, { username: normalizedUsername }] });
     if (existingUser) {
-      if (existingUser.email === email) {
+      if (existingUser.email === normalizedEmail) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
-      if (existingUser.username === username) {
+      if (existingUser.username === normalizedUsername) {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
@@ -31,8 +35,8 @@ exports.register = async (req, res) => {
 
     // Create a new user
     const user = new User({
-      username,
-      email,
+      username: normalizedUsername,
+      email: normalizedEmail,
       password: hashedPassword,
       avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
     });
@@ -76,8 +80,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
+    const normalizedIdentifier = identifier.trim().toLowerCase();
+
     const user = await User.findOne({
-      $or: [{ email: identifier }, { username: identifier }]
+      $or: [{ email: normalizedIdentifier }, { username: normalizedIdentifier }]
     }).select('+password');
 
     if (!user) {
