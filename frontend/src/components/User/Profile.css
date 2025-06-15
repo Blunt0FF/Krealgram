@@ -655,7 +655,7 @@
 }
 
 .post-content {
-margin-bottom: 65px;
+/* margin-bottom: 65px; */
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -1480,7 +1480,7 @@ margin-bottom: 65px;
   }
 
   .post-content {
-    padding-bottom: 60px;
+    /* padding-bottom: 60px; */
   }
 
   .comments-section {
@@ -1529,7 +1529,7 @@ margin-bottom: 65px;
   }
   
   .post-content {
-    padding-bottom: 60px;
+    /* padding-bottom: 60px; */
     height: calc(60vh - 120px);
   }
   

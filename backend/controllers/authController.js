@@ -14,11 +14,14 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
 
+    // Экранируем специальные символы для регулярного выражения
+    const escapedUsername = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
     // Check for existing user by email or username (case-insensitive)
     const existingUser = await User.findOne({
       $or: [
         { email: email.toLowerCase() },
-        { username: { $regex: new RegExp(`^${username}$`, 'i') } }
+        { username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') } }
       ]
     });
 
@@ -31,16 +34,12 @@ exports.register = async (req, res) => {
       }
     }
 
-    // Hash the password
-    const salt = await bcrypt.genSalt(10); // Generate salt
-    const hashedPassword = await bcrypt.hash(password, salt); // Hash password
-
-    // Create a new user
+    // Create a new user (let the model's pre-save hook handle password hashing)
     const user = new User({
       username,
       email: email.toLowerCase(),
-      password: hashedPassword,
-      avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
+      password, // Пароль будет захеширован в pre-save хуке модели
+      avatar: avatar || ''
     });
 
     await user.save();
@@ -82,11 +81,14 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
+    // Экранируем специальные символы для регулярного выражения
+    const escapedIdentifier = identifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
     // Case-insensitive search for both email and username
     const user = await User.findOne({
       $or: [
         { email: identifier.toLowerCase() },
-        { username: { $regex: new RegExp(`^${identifier}$`, 'i') } }
+        { username: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } }
       ]
     }).select('+password');
 
