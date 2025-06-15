@@ -96,10 +96,6 @@ userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     return next();
   }
-  // Дополнительная проверка, чтобы не хешировать уже хешированный пароль
-  if (this.password && this.password.startsWith('$2a$')) {
-    return next();
-  }
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);

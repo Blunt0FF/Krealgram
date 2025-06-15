@@ -1,6 +1,6 @@
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcrypt'); // We use bcrypt as installed
 const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailService');
 
@@ -8,65 +8,42 @@ const { sendPasswordResetEmail } = require('../utils/emailService');
 exports.register = async (req, res) => {
   try {
     const { username, email, password, avatar } = req.body;
-    
-    console.log('Registration attempt:', { username, email }); // Логируем попытку регистрации
-
-    if (!process.env.JWT_SECRET) {
-      console.error('FATAL ERROR: JWT_SECRET is not defined.');
-      return res.status(500).json({ message: 'Server configuration error.' });
-    }
 
     // Check for required fields
     if (!username || !email || !password) {
-      console.log('Missing required fields:', { username: !!username, email: !!email, password: !!password });
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
 
-    // Экранируем специальные символы для регулярного выражения
-    const escapedUsername = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-    console.log('Escaped username:', escapedUsername);
-
-    // Check for existing user by email or username (case-insensitive)
-    const existingUser = await User.findOne({
-      $or: [
-        { email: email.toLowerCase() },
-        { username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') } }
-      ]
-    });
-
+    // Check for existing user by email or username
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      console.log('User already exists:', { 
-        existingEmail: existingUser.email, 
-        existingUsername: existingUser.username 
-      });
-      if (existingUser.email === email.toLowerCase()) {
+      if (existingUser.email === email) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
-      if (existingUser.username.toLowerCase() === username.toLowerCase()) {
+      if (existingUser.username === username) {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
 
-    // Хешируем пароль здесь
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Hash the password
+    const salt = await bcrypt.genSalt(10); // Generate salt
+    const hashedPassword = await bcrypt.hash(password, salt); // Hash password
 
     // Create a new user
     const user = new User({
       username,
-      email: email.toLowerCase(),
-      password: hashedPassword, // Сохраняем хешированный пароль
-      avatar: avatar || ''
+      email,
+      password: hashedPassword,
+      avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
     });
 
-    console.log('Attempting to save user...');
     await user.save();
-    console.log('User saved successfully:', user._id);
 
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { id: user._id, username: user.username }, // Token payload
+      process.env.JWT_SECRET, 
+      { expiresIn: '7d' } // Token expiration
     );
 
     res.status(201).json({
@@ -82,26 +59,11 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
-
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
-      return res.status(409).json({ 
-        message: `User with this ${field} already exists.`,
-        field: field
-      });
+    console.error('Registration error:', error);
+    if (error.code === 11000) { // Handle duplicates at the DB level (just in case)
+        return res.status(409).json({ message: 'User with this email or username already exists.'});
     }
-
-    res.status(500).json({ 
-      message: 'A server error occurred during registration.',
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    res.status(500).json({ message: 'A server error occurred during registration.', error: error.message });
   }
 };
 
@@ -110,47 +72,28 @@ exports.login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
     
-    console.log('Login attempt:', { identifier }); // Логируем попытку входа
-
     if (!identifier || !password) {
-      console.log('Missing credentials:', { identifier: !!identifier, password: !!password });
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    // Экранируем специальные символы для регулярного выражения
-    const escapedIdentifier = identifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-    console.log('Escaped identifier:', escapedIdentifier);
-
-    // Case-insensitive search for both email and username
     const user = await User.findOne({
-      $or: [
-        { email: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } },
-        { username: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } }
-      ]
+      $or: [{ email: identifier }, { username: identifier }]
     }).select('+password');
 
     if (!user) {
-      console.log('User not found:', identifier);
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
     }
 
-    console.log('User found, comparing password...');
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
-      console.log('Password mismatch for user:', user.username);
       return res.status(401).json({ message: 'Invalid password or invalid credentials.' });
     }
 
-    console.log('Password match, generating token...');
+    // Update lastActive and isOnline
     user.lastActive = new Date();
     user.isOnline = true;
-    await user.save({ validateBeforeSave: false }); // Skip validation on login
-
-    if (!process.env.JWT_SECRET) {
-        console.error('FATAL ERROR: JWT_SECRET is not defined.');
-        return res.status(500).json({ message: 'Server configuration error.' });
-    }
+    await user.save();
 
     const token = jwt.sign(
       { id: user._id, username: user.username },
@@ -168,16 +111,8 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
-    res.status(500).json({ 
-      message: 'A server error occurred during login.',
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'A server error occurred during login.', error: error.message });
   }
 };
 
@@ -201,7 +136,7 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: 'User not found with this email address.' });
     }
