@@ -33,30 +33,22 @@ exports.register = async (req, res) => {
     const user = new User({
       username,
       email,
-      password, // Передаем пароль как есть, модель его захеширует
+      password, // Передаем пароль как есть. Модель сама его захеширует.
       avatar: avatar || ''
     });
 
     await user.save();
 
-    const token = jwt.sign(
-      { id: user._id, username: user.username },
-      process.env.JWT_SECRET, 
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({
       token,
-      user: { id: user._id, username: user.username, email: user.email, avatar: user.avatar, createdAt: user.createdAt },
+      user: { id: user._id, username: user.username, email: user.email, avatar: user.avatar },
       message: 'User registered successfully'
     });
 
   } catch (error) {
     console.error('Registration error:', error);
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern)[0];
-      return res.status(409).json({ message: `User with this ${field} already exists.`});
-    }
     res.status(500).json({ message: 'A server error occurred during registration.', error: error.message });
   }
 };
@@ -78,25 +70,15 @@ exports.login = async (req, res) => {
       ]
     }).select('+password');
 
-    if (!user) {
-      return res.status(401).json({ message: 'User not found or invalid credentials.' });
-    }
-
-    const isMatch = await user.comparePassword(password);
-    
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid password or invalid credentials.' });
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
     user.lastActive = new Date();
     user.isOnline = true;
     await user.save({ validateBeforeSave: false });
 
-    const token = jwt.sign(
-      { id: user._id, username: user.username },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     
     const userResponse = user.toObject();
     delete userResponse.password;
