@@ -16,46 +16,33 @@ exports.register = async (req, res) => {
       return res.status(500).json({ message: 'Server configuration error.' });
     }
 
-    // Check for required fields
     if (!username || !email || !password) {
       console.log('Missing required fields:', { username: !!username, email: !!email, password: !!password });
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
 
-    // Экранируем специальные символы для регулярного выражения
-    const escapedUsername = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-    console.log('Escaped username:', escapedUsername);
-
-    // Check for existing user by email or username (case-insensitive)
-    const existingUser = await User.findOne({
+    // Регистронезависимая проверка на существование пользователя
+    const existingUser = await User.findOne({ 
       $or: [
-        { email: email.toLowerCase() },
-        { username: { $regex: new RegExp(`^${escapedUsername}$`, 'i') } }
-      ]
+        { email: email.toLowerCase() }, 
+        { username: { $regex: new RegExp(`^${username}$`, 'i') } }
+      ] 
     });
 
     if (existingUser) {
-      console.log('User already exists:', { 
-        existingEmail: existingUser.email, 
-        existingUsername: existingUser.username 
-      });
-      if (existingUser.email === email.toLowerCase()) {
-        return res.status(409).json({ message: `User with email ${email} already exists.` });
-      }
       if (existingUser.username.toLowerCase() === username.toLowerCase()) {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
+      if (existingUser.email === email.toLowerCase()) {
+        return res.status(409).json({ message: `User with email ${email} already exists.` });
+      }
     }
 
-    // Хешируем пароль здесь
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create a new user
+    // Модель сама хеширует пароль через pre-save хук
     const user = new User({
       username,
-      email: email.toLowerCase(),
-      password: hashedPassword, // Сохраняем хешированный пароль
+      email, // Модель приводит к нижнему регистру
+      password,
       avatar: avatar || ''
     });
 
@@ -65,7 +52,7 @@ exports.register = async (req, res) => {
 
     const token = jwt.sign(
       { id: user._id, username: user.username },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET, 
       { expiresIn: '7d' }
     );
 
@@ -117,11 +104,9 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    // Экранируем специальные символы для регулярного выражения
     const escapedIdentifier = identifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     console.log('Escaped identifier:', escapedIdentifier);
 
-    // Case-insensitive search for both email and username
     const user = await User.findOne({
       $or: [
         { email: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } },
@@ -201,7 +186,7 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: 'User not found with this email address.' });
     }
