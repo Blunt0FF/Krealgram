@@ -8,14 +8,18 @@ const { sendPasswordResetEmail } = require('../utils/emailService');
 exports.register = async (req, res) => {
   try {
     const { username, email, password, avatar } = req.body;
+    
+    console.log('Registration attempt:', { username, email }); // Логируем попытку регистрации
 
     // Check for required fields
     if (!username || !email || !password) {
+      console.log('Missing required fields:', { username: !!username, email: !!email, password: !!password });
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
 
     // Экранируем специальные символы для регулярного выражения
     const escapedUsername = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    console.log('Escaped username:', escapedUsername);
 
     // Check for existing user by email or username (case-insensitive)
     const existingUser = await User.findOne({
@@ -26,6 +30,10 @@ exports.register = async (req, res) => {
     });
 
     if (existingUser) {
+      console.log('User already exists:', { 
+        existingEmail: existingUser.email, 
+        existingUsername: existingUser.username 
+      });
       if (existingUser.email === email.toLowerCase()) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
@@ -34,21 +42,22 @@ exports.register = async (req, res) => {
       }
     }
 
-    // Create a new user (let the model's pre-save hook handle password hashing)
+    // Create a new user
     const user = new User({
       username,
       email: email.toLowerCase(),
-      password, // Пароль будет захеширован в pre-save хуке модели
+      password,
       avatar: avatar || ''
     });
 
+    console.log('Attempting to save user...');
     await user.save();
+    console.log('User saved successfully:', user._id);
 
-    // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, username: user.username }, // Token payload
-      process.env.JWT_SECRET, 
-      { expiresIn: '7d' } // Token expiration
+      { id: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({
@@ -64,11 +73,26 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
-    if (error.code === 11000) { // Handle duplicates at the DB level (just in case)
-        return res.status(409).json({ message: 'User with this email or username already exists.'});
+    console.error('Registration error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(409).json({ 
+        message: `User with this ${field} already exists.`,
+        field: field
+      });
     }
-    res.status(500).json({ message: 'A server error occurred during registration.', error: error.message });
+
+    res.status(500).json({ 
+      message: 'A server error occurred during registration.',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
@@ -77,12 +101,16 @@ exports.login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
     
+    console.log('Login attempt:', { identifier }); // Логируем попытку входа
+
     if (!identifier || !password) {
+      console.log('Missing credentials:', { identifier: !!identifier, password: !!password });
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
     // Экранируем специальные символы для регулярного выражения
     const escapedIdentifier = identifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    console.log('Escaped identifier:', escapedIdentifier);
 
     // Case-insensitive search for both email and username
     const user = await User.findOne({
@@ -93,20 +121,19 @@ exports.login = async (req, res) => {
     }).select('+password');
 
     if (!user) {
+      console.log('User not found:', identifier);
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('User found, comparing password...');
+    const isMatch = await user.correctPassword(password, user.password);
     
     if (!isMatch) {
+      console.log('Password mismatch for user:', user.username);
       return res.status(401).json({ message: 'Invalid password or invalid credentials.' });
     }
 
-    // Update lastActive and isOnline
-    user.lastActive = new Date();
-    user.isOnline = true;
-    await user.save();
-
+    console.log('Password match, generating token...');
     const token = jwt.sign(
       { id: user._id, username: user.username },
       process.env.JWT_SECRET,
@@ -123,8 +150,16 @@ exports.login = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'A server error occurred during login.', error: error.message });
+    console.error('Login error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      message: 'A server error occurred during login.',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

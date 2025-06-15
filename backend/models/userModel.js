@@ -105,9 +105,17 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Метод для проверки пароля (переименовываем для соответствия с контроллером)
-userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
-  return bcrypt.compare(candidatePassword, userPassword);
+// Метод для проверки пароля
+userSchema.methods.correctPassword = async function(candidatePassword) {
+  try {
+    console.log('Comparing passwords...');
+    const isMatch = await bcrypt.compare(candidatePassword, this.password);
+    console.log('Password comparison result:', isMatch);
+    return isMatch;
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    throw error;
+  }
 };
 
 // Виртуальные поля для подсчета
