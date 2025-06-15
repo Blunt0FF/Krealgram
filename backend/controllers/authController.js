@@ -14,13 +14,19 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
 
-    // Check for existing user by email or username
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    // Check for existing user by email or username (case-insensitive)
+    const existingUser = await User.findOne({
+      $or: [
+        { email: email.toLowerCase() },
+        { username: { $regex: new RegExp(`^${username}$`, 'i') } }
+      ]
+    });
+
     if (existingUser) {
-      if (existingUser.email === email) {
+      if (existingUser.email === email.toLowerCase()) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
-      if (existingUser.username === username) {
+      if (existingUser.username.toLowerCase() === username.toLowerCase()) {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
@@ -32,7 +38,7 @@ exports.register = async (req, res) => {
     // Create a new user
     const user = new User({
       username,
-      email,
+      email: email.toLowerCase(),
       password: hashedPassword,
       avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
     });
@@ -46,12 +52,15 @@ exports.register = async (req, res) => {
       { expiresIn: '7d' } // Token expiration
     );
 
-    const userResponse = user.toObject();
-    delete userResponse.password;
-
     res.status(201).json({
       token,
-      user: userResponse,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        createdAt: user.createdAt
+      },
       message: 'User registered successfully'
     });
 
@@ -73,26 +82,19 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    console.log('Login attempt with identifier:', identifier);
-
-    // Экранируем специальные символы в регулярном выражении
-    const escapedIdentifier = identifier.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-    
+    // Case-insensitive search for both email and username
     const user = await User.findOne({
       $or: [
-        { email: identifier },
-        { username: { $regex: new RegExp('^' + escapedIdentifier + '$', 'i') } }
+        { email: identifier.toLowerCase() },
+        { username: { $regex: new RegExp(`^${identifier}$`, 'i') } }
       ]
     }).select('+password');
-
-    console.log('User found:', user ? 'yes' : 'no');
 
     if (!user) {
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
     }
 
-    const isMatch = await user.comparePassword(password);
-    console.log('Password match:', isMatch ? 'yes' : 'no');
+    const isMatch = await bcrypt.compare(password, user.password);
     
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid password or invalid credentials.' });
@@ -144,7 +146,7 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return res.status(404).json({ message: 'User not found with this email address.' });
     }
@@ -180,7 +182,7 @@ exports.resetPassword = async (req, res) => {
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() }
-    }).select('+password');
+    });
 
     if (!user) {
       return res.status(400).json({
