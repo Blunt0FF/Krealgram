@@ -374,7 +374,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                 </Link>
                 <div className="comment-content">
                   <Link to={`/profile/${comment.user?.username}`} className="comment-username-link">
-                    {comment.user?.username || '...'}
+                    {comment.user?.username || 'DELETED USER'}
                   </Link>
                   <span className="comment-text">{comment.text}</span>
                 </div>

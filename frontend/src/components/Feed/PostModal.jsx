@@ -7,7 +7,6 @@ import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import './PostModal.css';
 
-const MAX_CAPTION_LENGTH_DISPLAY = 100; // Максимальная длина описания для показа до кнопки "more"
 const MAX_CAPTION_LENGTH_EDIT = 500; // Максимальная длина описания при редактировании
 
 // Функция для проверки и извлечения YouTube ID
@@ -210,17 +209,9 @@ const PostModal = ({
 
   // Логика для "more/less" кнопки
   const needsMoreButton = useMemo(() => {
-    // Проверяем длину текста, чтобы определить, нужна ли кнопка "more"
-    return caption && caption.length > MAX_CAPTION_LENGTH_DISPLAY;
+    if (!caption) return false;
+    return caption.length > 20 || caption.includes('\n')|| caption.includes('\r\n') || caption.includes('<br');
   }, [caption]);
-
-  const displayedCaption = useMemo(() => {
-    if (!caption) return '';
-    if (needsMoreButton && !isCaptionExpanded) {
-      return caption.substring(0, MAX_CAPTION_LENGTH_DISPLAY) + '...';
-    }
-    return caption;
-  }, [caption, needsMoreButton, isCaptionExpanded]);
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
@@ -552,7 +543,7 @@ const PostModal = ({
               <div className="caption-content">
                 
                 <span className={`caption-text ${needsMoreButton && !isCaptionExpanded ? 'collapsed' : ''}`}>
-                  {displayedCaption}
+                  {caption}
                 </span>
                 {needsMoreButton && (
                   <button
