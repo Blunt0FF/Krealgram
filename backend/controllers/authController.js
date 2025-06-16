@@ -33,15 +33,12 @@ exports.register = async (req, res) => {
       }
     }
 
-    // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
+    // The model's pre-save hook will handle hashing
     // Create a new user with original username casing
     const user = new User({
       username: trimmedUsername,
       email: normalizedEmail,
-      password: hashedPassword,
+      password: password, // Pass the plain password to the model
       avatar: avatar || ''
     });
 
