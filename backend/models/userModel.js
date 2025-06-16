@@ -11,6 +11,13 @@ const userSchema = new mongoose.Schema({
     maxlength: [30, 'Username cannot be more than 30 characters long'],
     match: [/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, underscores, hyphens and periods']
   },
+  username_lowercase: {
+    type: String,
+    unique: true,
+    required: true,
+    select: false,
+    trim: true
+  },
   email: {
     type: String,
     required: [true, 'Email is required'],
@@ -75,7 +82,9 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Индексы (username и email уже индексированы из-за unique: true)
+// Индексы
+userSchema.index({ username_lowercase: 1 }); // Индекс для быстрого, нечувствительного к регистру поиска
+userSchema.index({ email: 1 }); // email уже уникален, но явный индекс не помешает
 userSchema.index({ createdAt: -1 });
 userSchema.index({ lastActive: -1 });
 userSchema.index({ likes: 1 }); // Добавляем индекс для быстрого поиска по лайкам
@@ -91,8 +100,14 @@ userSchema.virtual('followingCount').get(function() {
   return this.following ? this.following.length : 0;
 });
 
-// Pre-save hook to hash password if it's modified
+// Pre-save hook to handle username_lowercase and password hashing
 userSchema.pre('save', async function(next) {
+  // Handle username_lowercase
+  if (this.isModified('username')) {
+    this.username_lowercase = this.username.toLowerCase();
+  }
+
+  // Handle password hashing
   if (!this.isModified('password')) {
     return next();
   }

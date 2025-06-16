@@ -14,31 +14,34 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
     
-    // Normalize username and email
+    // Normalize inputs for checking
     const normalizedUsername = username.trim().toLowerCase();
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check for existing user by email or username
-    const existingUser = await User.findOne({ $or: [{ email: normalizedEmail }, { username: normalizedUsername }] });
+    // Check for existing user by email or username_lowercase
+    const existingUser = await User.findOne({ 
+      $or: [{ email: normalizedEmail }, { username_lowercase: normalizedUsername }] 
+    });
+
     if (existingUser) {
       if (existingUser.email === normalizedEmail) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
-      if (existingUser.username === normalizedUsername) {
+      if (existingUser.username_lowercase === normalizedUsername) {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
 
     // Hash the password
-    const salt = await bcrypt.genSalt(10); // Generate salt
-    const hashedPassword = await bcrypt.hash(password, salt); // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create a new user
+    // Create a new user with original username casing
     const user = new User({
-      username: normalizedUsername,
+      username: username.trim(),
       email: normalizedEmail,
       password: hashedPassword,
-      avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
+      avatar: avatar || ''
     });
 
     await user.save();
@@ -83,7 +86,7 @@ exports.login = async (req, res) => {
     const normalizedIdentifier = identifier.trim().toLowerCase();
 
     const user = await User.findOne({
-      $or: [{ email: normalizedIdentifier }, { username: normalizedIdentifier }]
+      $or: [{ email: normalizedIdentifier }, { username_lowercase: normalizedIdentifier }]
     }).select('+password');
 
     if (!user) {

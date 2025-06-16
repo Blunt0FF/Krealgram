@@ -1,0 +1,10 @@
+MONGO_URI=mongodb+srv://admin:228228@study.flfhk.mongodb.net/Krealgram
+PORT=3000
+JWT_SECRET=x9$Fg7@wP!rT#cZ1uLqE^3NhA&vXsK0MjY2dBtGz
+USE_CLOUDINARY=true
+CLOUDINARY_CLOUD_NAME=dibcwdwsd
+CLOUDINARY_API_KEY=616423676952743
+CLOUDINARY_API_SECRET=Dz9NnIV8G1xa0oJjw7PN6OwutoA
+EMAIL_USER = krealgram@gmail.com
+EMAIL_PASSWORD = iioi qlqv aoew aesk
+FRONTEND_URL = http://localhost:4000
