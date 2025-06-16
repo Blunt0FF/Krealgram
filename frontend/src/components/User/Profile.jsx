@@ -556,7 +556,8 @@ const Profile = ({ user: currentUserProp }) => {
             onDeletePost={handleDeletePost}
             onPrevious={goToPreviousPost}
             onNext={goToNextPost}
-            currentIndex={getCurrentPostIndex()}
+            canGoPrevious={posts.findIndex(p => p._id === selectedPost._id) > 0}
+            canGoNext={posts.findIndex(p => p._id === selectedPost._id) < posts.length - 1}
           />
         )}
 

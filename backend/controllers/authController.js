@@ -12,7 +12,7 @@ exports.register = async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
-    
+
     const trimmedUsername = username.trim();
     const normalizedEmail = email.trim().toLowerCase();
     
@@ -30,8 +30,8 @@ exports.register = async (req, res) => {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
       // If found by case-insensitive username, it's a duplicate.
-      return res.status(409).json({ message: `User with username ${username} already exists.` });
-    }
+        return res.status(409).json({ message: `User with username ${username} already exists.` });
+      }
 
     // The model's pre-save hook will handle password hashing.
     const user = new User({

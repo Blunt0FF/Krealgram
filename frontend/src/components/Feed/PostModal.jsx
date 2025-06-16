@@ -210,7 +210,7 @@ const PostModal = ({
   // Логика для "more/less" кнопки
   const needsMoreButton = useMemo(() => {
     if (!caption) return false;
-    return caption.length > 20 || caption.includes('\n')|| caption.includes('\r\n') || caption.includes('<br');
+    return caption.length > 20 || caption.includes('\n') || caption.includes('<br');
   }, [caption]);
 
   const formatDateTime = (dateString) => {

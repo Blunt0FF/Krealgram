@@ -337,7 +337,6 @@
   justify-content: space-between;
   flex-shrink: 0;
   margin: 0 12px;
-  height: 30px;
 }
 
 .post-actions-left {
@@ -610,39 +609,37 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: transparent;
+  background: rgba(0, 0, 0, 0.3); /* Немного фона для видимости */
   color: white;
   border: none;
-  width: 50px;
-  height: 50px;
-  font-size: 24px;
-  font-weight: bold;
+  border-radius: 50%; /* Сделаем их круглыми */
+  width: 40px; /* Уменьшим размер */
+  height: 40px;
+  font-size: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   z-index: 10002;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0.7; /* Сделаем их полупрозрачными по умолчанию */
 }
 
 .post-modal-image:hover .modal-nav-btn {
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 1; /* Полная непрозрачность при наведении на картинку */
 }
 
 .modal-prev-btn {
-  left: 20px;
+  left: 10px; /* Ближе к краю */
 }
 
 .modal-next-btn {
-  right: 20px;
+  right: 10px; /* Ближе к краю */
 }
 
 .modal-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-50%) scale(1.2);
+  background: rgba(0, 0, 0, 0.5); /* Темнее при наведении на кнопку */
+  transform: translateY(-50%) scale(1.1); /* Небольшое увеличение */
 }
 
 .author-details-wrapper {
