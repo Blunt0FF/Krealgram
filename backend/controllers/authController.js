@@ -13,11 +13,31 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
     
-    // The model's pre-save hook handles hashing and creates the unique lowercase username.
+    const trimmedUsername = username.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Manual, case-insensitive check for duplicates before attempting to save.
+    // This is a robust safeguard against race conditions and configuration issues.
+    const existingUser = await User.findOne({
+      $or: [
+        { email: normalizedEmail },
+        { username: { $regex: new RegExp(`^${trimmedUsername}$`, "i") } }
+      ]
+    });
+
+    if (existingUser) {
+      if (existingUser.email === normalizedEmail) {
+        return res.status(409).json({ message: `User with email ${email} already exists.` });
+      }
+      // If found by case-insensitive username, it's a duplicate.
+      return res.status(409).json({ message: `User with username ${username} already exists.` });
+    }
+
+    // The model's pre-save hook will handle password hashing.
     const user = new User({
-      username: username.trim(),
-      email: email.trim(), // The model schema will lowercase it.
-      password: password, // Pass plain password to be hashed by the pre-save hook.
+      username: trimmedUsername, // Save with original case
+      email: normalizedEmail,
+      password: password, // Pass plain password
       avatar: avatar || ''
     });
 
@@ -25,9 +45,9 @@ exports.register = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, username: user.username }, // Token payload
+      { id: user._id, username: user.username },
       process.env.JWT_SECRET, 
-      { expiresIn: '7d' } // Token expiration
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({
@@ -44,26 +64,10 @@ exports.register = async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
-
-    // Handle duplicate key errors (code 11000) from MongoDB
-    if (error.code === 11000) { 
-        const field = Object.keys(error.keyPattern)[0];
-        const value = Object.values(error.keyValue)[0];
-        if (field === 'email') {
-            return res.status(409).json({ message: `An account with the email '${value}' already exists.`});
-        }
-        if (field === 'username_lowercase') {
-            return res.status(409).json({ message: `An account with the username '${value}' already exists.`});
-        }
+    // The pre-check should prevent most duplicate errors, but this is a fallback.
+    if (error.code === 11000) {
+        return res.status(409).json({ message: 'User with this email or username already exists.'});
     }
-
-    // Handle Mongoose validation errors
-    if (error.name === 'ValidationError') {
-        const messages = Object.values(error.errors).map(val => val.message);
-        return res.status(400).json({ message: messages.join('. ') });
-    }
-
-    // Generic server error for any other issues
     res.status(500).json({ message: 'A server error occurred during registration.', error: error.message });
   }
 };
@@ -77,11 +81,15 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    const normalizedIdentifier = identifier.trim().toLowerCase();
+    const trimmedIdentifier = identifier.trim();
 
-    // Find user by email (which is already lowercase) or by the indexed lowercase username.
+    // Find user by either email or a case-insensitive username match.
+    // This works for all users, new and old.
     const user = await User.findOne({
-      $or: [{ email: normalizedIdentifier }, { username_lowercase: normalizedIdentifier }]
+      $or: [
+        { email: trimmedIdentifier.toLowerCase() }, 
+        { username: { $regex: new RegExp(`^${trimmedIdentifier}$`, "i") } }
+      ]
     }).select('+password');
 
     if (!user) {
