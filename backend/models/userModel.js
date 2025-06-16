@@ -11,11 +11,6 @@ const userSchema = new mongoose.Schema({
     maxlength: [30, 'Username cannot be more than 30 characters long'],
     match: [/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, underscores, hyphens and periods']
   },
-  username_lowercase: {
-    type: String,
-    select: false,
-    trim: true
-  },
   email: {
     type: String,
     required: [true, 'Email is required'],
@@ -81,7 +76,6 @@ const userSchema = new mongoose.Schema({
 });
 
 // Индексы
-userSchema.index({ username_lowercase: 1 }, { unique: true, sparse: true }); // Индекс для быстрого, нечувствительного к регистру поиска
 userSchema.index({ email: 1 }); // email уже уникален, но явный индекс не помешает
 userSchema.index({ createdAt: -1 });
 userSchema.index({ lastActive: -1 });
@@ -98,8 +92,9 @@ userSchema.virtual('followingCount').get(function() {
   return this.following ? this.following.length : 0;
 });
 
-// Pre-save hook to hash password if it's modified
+// Pre-save hook to handle password hashing
 userSchema.pre('save', async function(next) {
+  // Handle password hashing
   if (!this.isModified('password')) {
     return next();
   }

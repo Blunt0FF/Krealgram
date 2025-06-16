@@ -14,27 +14,35 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
 
-    // Check for existing user by email or username
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+    const trimmedUsername = username.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Case-insensitive check for existing user
+    const existingUser = await User.findOne({
+      $or: [
+        { email: normalizedEmail },
+        { username: { $regex: new RegExp(`^${trimmedUsername}$`, "i") } }
+      ]
+    });
+    
     if (existingUser) {
-      if (existingUser.email === email) {
+      if (existingUser.email === normalizedEmail) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
-      }
-      if (existingUser.username === username) {
+      } else {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
 
     // Hash the password
-    const salt = await bcrypt.genSalt(10); // Generate salt
-    const hashedPassword = await bcrypt.hash(password, salt); // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create a new user
+    // Create a new user with original username casing
     const user = new User({
-      username,
-      email,
+      username: trimmedUsername,
+      email: normalizedEmail,
       password: hashedPassword,
-      avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
+      avatar: avatar || ''
     });
 
     await user.save();
@@ -76,9 +84,16 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    const user = await User.findOne({
-      $or: [{ email: identifier }, { username: identifier }]
-    }).select('+password');
+    // Fix: Allow _.- in username part of identifier
+    const isEmail = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test(identifier);
+    const trimmedIdentifier = identifier.trim();
+
+    let user;
+    if (isEmail) {
+      user = await User.findOne({ email: trimmedIdentifier.toLowerCase() }).select('+password');
+    } else {
+      user = await User.findOne({ username: { $regex: new RegExp(`^${trimmedIdentifier}$`, "i") } }).select('+password');
+    }
 
     if (!user) {
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
