@@ -13,8 +13,6 @@ const userSchema = new mongoose.Schema({
   },
   username_lowercase: {
     type: String,
-    unique: true,
-    required: true,
     select: false,
     trim: true
   },
@@ -83,7 +81,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Индексы
-userSchema.index({ username_lowercase: 1 }); // Индекс для быстрого, нечувствительного к регистру поиска
+userSchema.index({ username_lowercase: 1 }, { unique: true, sparse: true }); // Индекс для быстрого, нечувствительного к регистру поиска
 userSchema.index({ email: 1 }); // email уже уникален, но явный индекс не помешает
 userSchema.index({ createdAt: -1 });
 userSchema.index({ lastActive: -1 });
@@ -100,14 +98,8 @@ userSchema.virtual('followingCount').get(function() {
   return this.following ? this.following.length : 0;
 });
 
-// Pre-save hook to handle username_lowercase and password hashing
+// Pre-save hook to hash password if it's modified
 userSchema.pre('save', async function(next) {
-  // Handle username_lowercase
-  if (this.isModified('username')) {
-    this.username_lowercase = this.username.toLowerCase();
-  }
-
-  // Handle password hashing
   if (!this.isModified('password')) {
     return next();
   }

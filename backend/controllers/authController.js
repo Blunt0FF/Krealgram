@@ -13,35 +13,28 @@ exports.register = async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
-    
-    // Normalize inputs for checking
-    const normalizedUsername = username.trim().toLowerCase();
-    const normalizedEmail = email.trim().toLowerCase();
 
-    // Check for existing user by email or username_lowercase
-    const existingUser = await User.findOne({ 
-      $or: [{ email: normalizedEmail }, { username_lowercase: normalizedUsername }] 
-    });
-
+    // Check for existing user by email or username
+    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      if (existingUser.email === normalizedEmail) {
+      if (existingUser.email === email) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
       }
-      if (existingUser.username_lowercase === normalizedUsername) {
+      if (existingUser.username === username) {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
 
     // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(10); // Generate salt
+    const hashedPassword = await bcrypt.hash(password, salt); // Hash password
 
-    // Create a new user with original username casing
+    // Create a new user
     const user = new User({
-      username: username.trim(),
-      email: normalizedEmail,
+      username,
+      email,
       password: hashedPassword,
-      avatar: avatar || ''
+      avatar: avatar || '' // Use an empty string if avatar is not provided (according to the model)
     });
 
     await user.save();
@@ -83,10 +76,8 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    const normalizedIdentifier = identifier.trim().toLowerCase();
-
     const user = await User.findOne({
-      $or: [{ email: normalizedIdentifier }, { username_lowercase: normalizedIdentifier }]
+      $or: [{ email: identifier }, { username: identifier }]
     }).select('+password');
 
     if (!user) {
