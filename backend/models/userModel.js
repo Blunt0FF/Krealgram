@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, 'Email is required'],
+    unique: true,
     trim: true,
     lowercase: true,
     match: [/.+\@.+\..+/, 'Please enter a valid email address']
@@ -97,7 +98,7 @@ userSchema.virtual('followingCount').get(function() {
 
 // Pre-save hook to handle username_lowercase and password hashing
 userSchema.pre('save', async function(next) {
-  // Always create a lowercase version of the username
+  // Always create a lowercase version of the username for case-insensitive lookup
   if (this.isModified('username')) {
     this.username_lowercase = this.username.toLowerCase();
   }

@@ -12,29 +12,12 @@ exports.register = async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
-
-    const trimmedUsername = username.trim();
-    const normalizedEmail = email.trim().toLowerCase();
     
-    // Check for existing user using case-insensitive search on the indexed lowercase fields
-    const existingUser = await User.findOne({ 
-      $or: [{ email: normalizedEmail }, { username_lowercase: trimmedUsername.toLowerCase() }] 
-    });
-
-    if (existingUser) {
-      if (existingUser.email === normalizedEmail) {
-        return res.status(409).json({ message: `User with email ${email} already exists.` });
-      }
-      if (existingUser.username.toLowerCase() === trimmedUsername.toLowerCase()) {
-        return res.status(409).json({ message: `User with username ${username} already exists.` });
-      }
-    }
-
-    // Pass the plain password. The model's pre-save hook will hash it.
+    // The model's pre-save hook handles hashing and creates the unique lowercase username.
     const user = new User({
-      username: trimmedUsername,
-      email: normalizedEmail,
-      password: password,
+      username: username.trim(),
+      email: email.trim(), // The model schema will lowercase it.
+      password: password, // Pass plain password to be hashed by the pre-save hook.
       avatar: avatar || ''
     });
 
@@ -61,9 +44,26 @@ exports.register = async (req, res) => {
 
   } catch (error) {
     console.error('Registration error:', error);
-    if (error.code === 11000) { // Handle duplicates at the DB level (just in case)
-        return res.status(409).json({ message: 'User with this email or username already exists.'});
+
+    // Handle duplicate key errors (code 11000) from MongoDB
+    if (error.code === 11000) { 
+        const field = Object.keys(error.keyPattern)[0];
+        const value = Object.values(error.keyValue)[0];
+        if (field === 'email') {
+            return res.status(409).json({ message: `An account with the email '${value}' already exists.`});
+        }
+        if (field === 'username_lowercase') {
+            return res.status(409).json({ message: `An account with the username '${value}' already exists.`});
+        }
     }
+
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+        const messages = Object.values(error.errors).map(val => val.message);
+        return res.status(400).json({ message: messages.join('. ') });
+    }
+
+    // Generic server error for any other issues
     res.status(500).json({ message: 'A server error occurred during registration.', error: error.message });
   }
 };
@@ -77,10 +77,9 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    const trimmedIdentifier = identifier.trim();
-    const normalizedIdentifier = trimmedIdentifier.toLowerCase();
+    const normalizedIdentifier = identifier.trim().toLowerCase();
 
-    // Find user by email or case-insensitively by username
+    // Find user by email (which is already lowercase) or by the indexed lowercase username.
     const user = await User.findOne({
       $or: [{ email: normalizedIdentifier }, { username_lowercase: normalizedIdentifier }]
     }).select('+password');
