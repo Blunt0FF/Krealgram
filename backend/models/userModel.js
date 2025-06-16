@@ -8,19 +8,17 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: [3, 'Username must be at least 3 characters long'],
     maxlength: [30, 'Username cannot be more than 30 characters long'],
-    match: [/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, underscores, hyphens and periods']
+    match: [/^[a-zA-Z0-9_.]+$/, 'Username can only contain letters, numbers, underscores, and periods']
   },
   username_lowercase: {
     type: String,
     unique: true,
     sparse: true,
-    select: false,
-    trim: true
+    select: false
   },
   email: {
     type: String,
     required: [true, 'Email is required'],
-    unique: true,
     trim: true,
     lowercase: true,
     match: [/.+\@.+\..+/, 'Please enter a valid email address']
@@ -81,8 +79,7 @@ const userSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Индексы
-userSchema.index({ email: 1 }); // email уже уникален, но явный индекс не помешает
+// Индексы (username и email уже индексированы из-за unique: true)
 userSchema.index({ createdAt: -1 });
 userSchema.index({ lastActive: -1 });
 userSchema.index({ likes: 1 }); // Добавляем индекс для быстрого поиска по лайкам

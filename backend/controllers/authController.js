@@ -9,7 +9,6 @@ exports.register = async (req, res) => {
   try {
     const { username, email, password, avatar } = req.body;
 
-    // Check for required fields
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Please fill in all required fields: username, email, and password.' });
     }
@@ -17,29 +16,25 @@ exports.register = async (req, res) => {
     const trimmedUsername = username.trim();
     const normalizedEmail = email.trim().toLowerCase();
     
-    // Case-insensitive check for existing user.
-    // This regex check works for both old and new users.
-    const existingUser = await User.findOne({
-      $or: [
-        { email: normalizedEmail },
-        { username: { $regex: new RegExp(`^${trimmedUsername}$`, "i") } }
-      ]
+    // Check for existing user using case-insensitive search on the indexed lowercase fields
+    const existingUser = await User.findOne({ 
+      $or: [{ email: normalizedEmail }, { username_lowercase: trimmedUsername.toLowerCase() }] 
     });
-    
+
     if (existingUser) {
       if (existingUser.email === normalizedEmail) {
         return res.status(409).json({ message: `User with email ${email} already exists.` });
-      } else {
+      }
+      if (existingUser.username.toLowerCase() === trimmedUsername.toLowerCase()) {
         return res.status(409).json({ message: `User with username ${username} already exists.` });
       }
     }
 
-    // The model's pre-save hook will handle hashing.
-    // The hook also creates the unique, lowercase username for indexing.
+    // Pass the plain password. The model's pre-save hook will hash it.
     const user = new User({
       username: trimmedUsername,
       email: normalizedEmail,
-      password: password, // Pass the plain password to the model
+      password: password,
       avatar: avatar || ''
     });
 
@@ -82,19 +77,13 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    // Identifier can be email or username
-    const isEmail = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test(identifier);
     const trimmedIdentifier = identifier.trim();
+    const normalizedIdentifier = trimmedIdentifier.toLowerCase();
 
-    let userQuery;
-    if (isEmail) {
-      userQuery = { email: trimmedIdentifier.toLowerCase() };
-    } else {
-      // Case-insensitive search for username
-      userQuery = { username: { $regex: new RegExp(`^${trimmedIdentifier}$`, "i") } };
-    }
-
-    const user = await User.findOne(userQuery).select('+password');
+    // Find user by email or case-insensitively by username
+    const user = await User.findOne({
+      $or: [{ email: normalizedIdentifier }, { username_lowercase: normalizedIdentifier }]
+    }).select('+password');
 
     if (!user) {
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
