@@ -5,11 +5,17 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: [true, 'Username is required'],
-    unique: true,
     trim: true,
     minlength: [3, 'Username must be at least 3 characters long'],
     maxlength: [30, 'Username cannot be more than 30 characters long'],
     match: [/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, underscores, hyphens and periods']
+  },
+  username_lowercase: {
+    type: String,
+    unique: true,
+    sparse: true,
+    select: false,
+    trim: true
   },
   email: {
     type: String,
@@ -92,8 +98,13 @@ userSchema.virtual('followingCount').get(function() {
   return this.following ? this.following.length : 0;
 });
 
-// Pre-save hook to handle password hashing
+// Pre-save hook to handle username_lowercase and password hashing
 userSchema.pre('save', async function(next) {
+  // Always create a lowercase version of the username
+  if (this.isModified('username')) {
+    this.username_lowercase = this.username.toLowerCase();
+  }
+
   // Handle password hashing
   if (!this.isModified('password')) {
     return next();

@@ -17,7 +17,8 @@ exports.register = async (req, res) => {
     const trimmedUsername = username.trim();
     const normalizedEmail = email.trim().toLowerCase();
     
-    // Case-insensitive check for existing user
+    // Case-insensitive check for existing user.
+    // This regex check works for both old and new users.
     const existingUser = await User.findOne({
       $or: [
         { email: normalizedEmail },
@@ -33,8 +34,8 @@ exports.register = async (req, res) => {
       }
     }
 
-    // The model's pre-save hook will handle hashing
-    // Create a new user with original username casing
+    // The model's pre-save hook will handle hashing.
+    // The hook also creates the unique, lowercase username for indexing.
     const user = new User({
       username: trimmedUsername,
       email: normalizedEmail,
@@ -81,16 +82,19 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Please enter your username/email and password.' });
     }
 
-    // Fix: Allow _.- in username part of identifier
+    // Identifier can be email or username
     const isEmail = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test(identifier);
     const trimmedIdentifier = identifier.trim();
 
-    let user;
+    let userQuery;
     if (isEmail) {
-      user = await User.findOne({ email: trimmedIdentifier.toLowerCase() }).select('+password');
+      userQuery = { email: trimmedIdentifier.toLowerCase() };
     } else {
-      user = await User.findOne({ username: { $regex: new RegExp(`^${trimmedIdentifier}$`, "i") } }).select('+password');
+      // Case-insensitive search for username
+      userQuery = { username: { $regex: new RegExp(`^${trimmedIdentifier}$`, "i") } };
     }
+
+    const user = await User.findOne(userQuery).select('+password');
 
     if (!user) {
       return res.status(401).json({ message: 'User not found or invalid credentials.' });
