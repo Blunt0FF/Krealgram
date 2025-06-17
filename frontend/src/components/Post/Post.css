@@ -151,11 +151,12 @@
 }
 
 .post-actions {
-  padding: 1px;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid #efefef;
+  flex-shrink: 0;
+  margin: 0 12px;
 }
 
 .post-actions-left {
@@ -163,6 +164,7 @@
   align-items: center;
   gap: 12px;
 }
+
 
 .likes-count-inline {
   font-size: 14px;
@@ -176,10 +178,10 @@
   color: #8e8e8e;
 }
 
-.post-actions-right {
+/* .post-actions-right {
   display: flex;
   gap: 16px;
-}
+} */
 
 .action-button {
   background: none;

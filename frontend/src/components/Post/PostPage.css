@@ -71,7 +71,8 @@ html .post-page-container,
 .post-page-container .post-actions,
 .post-page-container .post-likes,
 .post-page-container .post-description,
-.post-page-container .post-comments {
+.post-page-container .post-comments 
+{
   width: 100% !important;
 }
 

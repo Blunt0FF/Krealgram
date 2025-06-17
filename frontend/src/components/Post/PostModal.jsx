@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import ShareModal from '../Post/ShareModal';
-import EditPostModal from '../Post/EditPostModal';
-import LikesModal from '../Post/LikesModal';
+import ShareModal from './ShareModal';
+import EditPostModal from './EditPostModal';
+import LikesModal from './LikesModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import './PostModal.css';

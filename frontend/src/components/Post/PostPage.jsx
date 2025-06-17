@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Post from './Post';
-import PostModal from '../Feed/PostModal';
+import PostModal from '../Post/PostModal';
 import { API_URL } from '../../config';
 import './PostPage.css';
 

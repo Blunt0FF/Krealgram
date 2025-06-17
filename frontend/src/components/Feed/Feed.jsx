@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Post from '../Post/Post';
-import PostModal from './PostModal';
+import PostModal from '../Post/PostModal';
 import { API_URL } from '../../config';
 import './Feed.css';
 

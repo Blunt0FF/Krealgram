@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import LikesModal from '../Post/LikesModal';
 import ShareModal from '../Post/ShareModal';
 import EditPostModal from '../Post/EditPostModal';
-import PostModal from '../Feed/PostModal';
+import PostModal from '../Post/PostModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import './Profile.css';
@@ -210,19 +210,6 @@ const Profile = ({ user: currentUserProp }) => {
     setIsModalOpen(false);
     setSelectedPost(null);
   };
-
-  // Управление классом modal-open для body
-  useEffect(() => {
-    if (isModalOpen) {
-      document.body.classList.add('modal-open');
-    } else {
-      document.body.classList.remove('modal-open');
-    }
-
-    return () => {
-      document.body.classList.remove('modal-open');
-    };
-  }, [isModalOpen]);
 
   const handlePostUpdate = (postId, updates) => {
     setPosts(prevPosts => prevPosts.map(p =>

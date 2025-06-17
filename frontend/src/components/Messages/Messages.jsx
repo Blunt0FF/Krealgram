@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
 import { getAvatarUrl } from '../../utils/imageUtils';
-import PostModal from '../Feed/PostModal';
+import PostModal from '../Post/PostModal';
 import SharedPost from './SharedPost';
 import './Messages.css';
 import { API_URL } from '../../config';
