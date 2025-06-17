@@ -448,7 +448,7 @@ const PostModal = ({
         ref={modalContentRef}
         className="post-modal-content"
       >
-        <button className="modal-close-btn" onClick={onClose}>
+        <button className="modal-close-btn" onClick={onClose} onTouchStart={(e) => e.stopPropagation()}>
           ✕
         </button>
 
@@ -474,12 +474,12 @@ const PostModal = ({
 
           {/* Навигационные кнопки */}
           {onPrevious && canGoPrevious && (
-            <button className="modal-nav-btn modal-prev-btn" onClick={onPrevious}>
+            <button className="modal-nav-btn modal-prev-btn" onClick={onPrevious} onTouchStart={(e) => e.stopPropagation()}>
               &#10094;
             </button>
           )}
           {onNext && canGoNext && (
-            <button className="modal-nav-btn modal-next-btn" onClick={onNext}>
+            <button className="modal-nav-btn modal-next-btn" onClick={onNext} onTouchStart={(e) => e.stopPropagation()}>
               &#10095;
             </button>
           )}

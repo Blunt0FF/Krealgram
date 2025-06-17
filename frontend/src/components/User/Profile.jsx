@@ -347,6 +347,17 @@ const Profile = ({ user: currentUserProp }) => {
   };
 
   useEffect(() => {
+    if (selectedPost) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [selectedPost]);
+
+  useEffect(() => {
     setLoadingProfile(true);
     setProfile(null);
     setPosts([]);
