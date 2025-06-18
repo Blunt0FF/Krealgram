@@ -4,6 +4,7 @@ import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 import LikesModal from './LikesModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';
 import { API_URL } from '../../config';
 import './PostModal.css';
 
@@ -127,14 +128,10 @@ const PostModal = ({
   }, [isOpen, onClose, onPrevious, onNext, showEditModal]);
 
   useEffect(() => {
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    
     if (isOpen || showEditModal) {
-      document.body.style.overflow = 'hidden';
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
+      lockBodyScroll();
     } else {
-      document.body.style.overflow = 'auto';
-      document.body.style.paddingRight = '0px';
+      unlockBodyScroll();
       // Очищаем transform при закрытии модалки
       if (modalContentRef.current) {
         modalContentRef.current.style.transform = '';
@@ -145,8 +142,7 @@ const PostModal = ({
     }
     
     return () => {
-      document.body.style.overflow = 'auto';
-      document.body.style.paddingRight = '0px';
+      unlockBodyScroll();
       // Очищаем transform при размонтировании
       if (modalContentRef.current) {
         modalContentRef.current.style.transform = '';

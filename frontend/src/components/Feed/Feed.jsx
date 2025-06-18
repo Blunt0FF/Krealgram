@@ -17,7 +17,19 @@ const Feed = ({ user }) => {
   const observer = useRef();
   const isFetching = useRef(false);
 
+  // Сбрасываем page и прокручиваем в верх при монтировании компонента
   useEffect(() => {
+    setPage(1);
+    setPosts([]);
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    // Прокручиваем в верх при первой загрузке ленты
+    if (page === 1) {
+      window.scrollTo(0, 0);
+    }
+    
     const fetchPosts = async () => {
       if (isFetching.current) return;
       isFetching.current = true;

@@ -43,6 +43,8 @@ const SearchPage = () => {
   }, [searchQuery]);
 
   useEffect(() => {
+    // Прокручиваем в верх при переходе на страницу поиска
+    window.scrollTo(0, 0);
     setRecentUsers(getRecentUsers());
   }, []);
 

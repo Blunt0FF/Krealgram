@@ -24,6 +24,9 @@ const EditProfile = ({ user, setUser }) => {
   // const [compressing, setCompressing] = useState(false); // Удаляем, если не будем сжимать на клиенте перед отправкой файла
 
   useEffect(() => {
+    // Прокручиваем в верх при переходе на страницу редактирования профиля
+    window.scrollTo(0, 0);
+    
     if (user) {
       setUserData({
         username: user.username || '',

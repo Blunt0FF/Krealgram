@@ -359,6 +359,9 @@ const Profile = ({ user: currentUserProp }) => {
   }, [selectedPost]);
 
   useEffect(() => {
+    // Прокручиваем в верх при переходе на профиль
+    window.scrollTo(0, 0);
+    
     setLoadingProfile(true);
     setProfile(null);
     setPosts([]);

@@ -123,6 +123,9 @@ const Messages = ({ currentUser }) => {
   }, [searchQuery]);
 
   useEffect(() => {
+    // Прокручиваем в верх при переходе на страницу сообщений
+    window.scrollTo(0, 0);
+    
     if (currentUser && currentUser._id) {
         fetchConversations().then(fetchedConversations => {
           const queryParams = new URLSearchParams(location.search);
@@ -390,6 +393,14 @@ const Messages = ({ currentUser }) => {
     setIsChatOpen(false);
     setSelectedConversation(null);
     setMessages([]);
+    
+    // Прокручиваем список диалогов в верх
+    setTimeout(() => {
+      const conversationsList = document.querySelector('.conversations-list');
+      if (conversationsList) {
+        conversationsList.scrollTop = 0;
+      }
+    }, 100);
   };
 
   const deleteMessage = async (messageId) => {

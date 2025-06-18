@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { compressPostImage } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
@@ -13,6 +13,11 @@ const CreatePost = () => {
   const [compressedFile, setCompressedFile] = useState(null);
   const [originalFileName, setOriginalFileName] = useState('');
   const [compressing, setCompressing] = useState(false);
+
+  useEffect(() => {
+    // Прокручиваем в верх при переходе на страницу создания поста
+    window.scrollTo(0, 0);
+  }, []);
 
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
