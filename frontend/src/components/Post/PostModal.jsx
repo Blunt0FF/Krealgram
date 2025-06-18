@@ -135,11 +135,25 @@ const PostModal = ({
     } else {
       document.body.style.overflow = 'auto';
       document.body.style.paddingRight = '0px';
+      // Очищаем transform при закрытии модалки
+      if (modalContentRef.current) {
+        modalContentRef.current.style.transform = '';
+      }
+      if (overlayRef.current) {
+        overlayRef.current.style.backgroundColor = '';
+      }
     }
     
     return () => {
       document.body.style.overflow = 'auto';
       document.body.style.paddingRight = '0px';
+      // Очищаем transform при размонтировании
+      if (modalContentRef.current) {
+        modalContentRef.current.style.transform = '';
+      }
+      if (overlayRef.current) {
+        overlayRef.current.style.backgroundColor = '';
+      }
     };
   }, [isOpen, showEditModal]);
 
@@ -195,7 +209,7 @@ const PostModal = ({
         overlayRef.current.style.backgroundColor = '';
       }
       if (modalContentRef.current) {
-        modalContentRef.current.style.transform = 'translateY(0)';
+        modalContentRef.current.style.transform = '';
       }
     }
 
@@ -444,13 +458,13 @@ const PostModal = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      <button className="modal-close-btn" onClick={onClose} onTouchStart={(e) => e.stopPropagation()}>
+        ✕
+      </button>
       <div
         ref={modalContentRef}
         className="post-modal-content"
       >
-        <button className="modal-close-btn" onClick={onClose} onTouchStart={(e) => e.stopPropagation()}>
-          ✕
-        </button>
 
         <div className="post-modal-image">
           {postData.youtubeData ? (

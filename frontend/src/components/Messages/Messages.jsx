@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import PostModal from '../Post/PostModal';
+import ImageModal from '../common/ImageModal';
 import SharedPost from './SharedPost';
 import './Messages.css';
 import { API_URL } from '../../config';
@@ -827,22 +828,12 @@ const Messages = ({ currentUser }) => {
         />
       )}
 
-      {imageModalOpen && selectedImage && (
-        <div className="image-modal-overlay" onClick={closeImageModal}>
-          <div className="image-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="image-modal-close" onClick={closeImageModal}>
-              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <img 
-              src={selectedImage} 
-              alt="Full size" 
-              className="modal-image"
-            />
-          </div>
-        </div>
-      )}
+      <ImageModal
+        src={selectedImage}
+        alt="Message image"
+        isOpen={imageModalOpen}
+        onClose={closeImageModal}
+      />
     </div>
   );
 };

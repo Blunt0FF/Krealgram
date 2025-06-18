@@ -4,6 +4,7 @@ import LikesModal from '../Post/LikesModal';
 import ShareModal from '../Post/ShareModal';
 import EditPostModal from '../Post/EditPostModal';
 import PostModal from '../Post/PostModal';
+import ImageModal from '../common/ImageModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import './Profile.css';
@@ -448,11 +449,17 @@ const Profile = ({ user: currentUserProp }) => {
               alt={profile.user.username}
               loading="lazy"
               onClick={() => {
-                if (profile.user.avatar && profile.user.avatar !== '/default-avatar.png') {
+                // Проверяем, что аватарка не является дефолтной
+                const avatarUrl = getAvatarUrl(profile.user.avatar);
+                if (profile.user.avatar && avatarUrl && avatarUrl !== '/default-avatar.png' && !avatarUrl.includes('default-avatar.png')) {
                   setShowAvatarModal(true);
                 }
               }}
-              style={{ cursor: profile.user.avatar && profile.user.avatar !== '/default-avatar.png' ? 'pointer' : 'default' }}
+              style={{ 
+                cursor: profile.user.avatar && 
+                        getAvatarUrl(profile.user.avatar) !== '/default-avatar.png' && 
+                        !getAvatarUrl(profile.user.avatar).includes('default-avatar.png') ? 'pointer' : 'default' 
+              }}
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = '/default-avatar.png';
@@ -567,25 +574,12 @@ const Profile = ({ user: currentUserProp }) => {
           loading={modalTitle === 'Followers' ? followersLoading : followingLoading}
         />
 
-        {/* Avatar Modal */}
-        {showAvatarModal && (
-          <div className="avatar-modal-overlay" onClick={() => setShowAvatarModal(false)}>
-            <div className="avatar-modal-content" onClick={(e) => e.stopPropagation()}>
-              <button className="avatar-modal-close" onClick={() => setShowAvatarModal(false)}>
-                ×
-              </button>
-              <img
-                src={getAvatarUrl(profile.user.avatar)}
-                alt={profile.user.username}
-                className="avatar-modal-image"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = '/default-avatar.png';
-                }}
-              />
-            </div>
-          </div>
-        )}
+        <ImageModal
+          src={getAvatarUrl(profile.user.avatar)}
+          alt={`${profile.user.username}'s avatar`}
+          isOpen={showAvatarModal}
+          onClose={() => setShowAvatarModal(false)}
+        />
       </div>
 
       <MobileBottomNav user={currentUserProp} />

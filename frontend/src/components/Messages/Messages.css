@@ -650,11 +650,9 @@
 @keyframes modalSlideIn {
   from {
     opacity: 0;
-    transform: translateY(-50px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -914,6 +912,13 @@
 
 .message:hover .message-options-btn {
   opacity: 1;
+}
+
+/* Всегда показываем кнопку удаления на мобильных */
+@media (max-width: 768px) {
+  .message-options-btn {
+    opacity: 1 !important;
+  }
 }
 
 .message-options-btn:hover {

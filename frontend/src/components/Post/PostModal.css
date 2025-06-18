@@ -37,9 +37,9 @@
 
 /* --- Остальные стили без изменений --- */
 .modal-close-btn {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+  position: fixed;
+  top: 20px;
+  right: 20px;
   background: rgba(0, 0, 0, 0.7);
   color: white;
   border: none;
@@ -52,7 +52,7 @@
   align-items: center;
   justify-content: center;
   z-index: 10001;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease;
 }
 
 .modal-close-btn:hover {
@@ -595,16 +595,7 @@
   }
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+
 
 /* Навигационные кнопки и счетчик постов в модальном окне */
 .modal-nav-btn {
@@ -713,10 +704,12 @@
   }
 
   .modal-close-btn {
-    top: 10px;
-    right: 10px;
+    position: fixed;
+    top: 15px;
+    right: 15px;
     width: 32px;
     height: 32px;
+    font-size: 16px;
   }
 
   .modal-nav-btn {
