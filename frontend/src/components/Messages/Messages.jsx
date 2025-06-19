@@ -147,8 +147,18 @@ const Messages = ({ currentUser }) => {
             if (existingConv) {
               selectConversation(existingConv);
             } else {
-              console.warn(`Диалог с recipientId=${recipientId} не найден среди существующих. Нужен API для получения user by ID.`);
-              navigate(location.pathname, { replace: true });
+              // Получаем информацию о пользователе и создаем новый диалог
+              fetchUserById(recipientId).then(user => {
+                if (user) {
+                  startConversation(user);
+                } else {
+                  console.warn(`Пользователь с ID ${recipientId} не найден`);
+                  navigate(location.pathname, { replace: true });
+                }
+              }).catch(error => {
+                console.error('Ошибка получения пользователя:', error);
+                navigate(location.pathname, { replace: true });
+              });
             }
           }
         });
@@ -184,6 +194,26 @@ const Messages = ({ currentUser }) => {
       console.error('Network error fetching conversations:', error);
       setConversations([]);
       return [];
+    }
+  };
+
+  const fetchUserById = async (userId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      const response = await fetch(`${API_URL}/api/users/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.user;
+      } else {
+        console.error('Error fetching user:', await response.text());
+        return null;
+      }
+    } catch (error) {
+      console.error('Network error fetching user:', error);
+      return null;
     }
   };
 
@@ -571,9 +601,15 @@ const Messages = ({ currentUser }) => {
                 />
                 <div className="chat-user-info">
                   <span className="chat-username">{selectedConversation.participant.username}</span>
-                  <span className="chat-status">
-                    {formatLastSeen(selectedConversation.participant.lastActive, selectedConversation.participant.isOnline)}
-                  </span>
+                  {(() => {
+                    const statusText = formatLastSeen(selectedConversation.participant.lastActive, selectedConversation.participant.isOnline);
+                    const isOnline = statusText === 'Online';
+                    return (
+                      <span className={`chat-status ${isOnline ? 'online' : 'offline'}`}>
+                        {statusText}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

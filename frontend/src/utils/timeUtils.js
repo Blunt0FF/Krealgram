@@ -1,6 +1,6 @@
 export const formatLastSeen = (lastActive, isOnline) => {
   if (isOnline) {
-    return 'Active now';
+    return 'Online';
   }
 
   if (!lastActive) {
@@ -18,7 +18,7 @@ export const formatLastSeen = (lastActive, isOnline) => {
     const diffInHoursFloor = Math.floor(diffInHours);
 
     if (diffInMinutes < 1) {
-      return 'Active now';
+      return 'Online';
     } else if (diffInMinutes < 60) {
       return `Active ${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
     } else {
