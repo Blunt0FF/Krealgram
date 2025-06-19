@@ -65,6 +65,14 @@ const PostThumbnail = ({ post, onClick }) => {
   const image = post.imageUrl || post.image;
 
   const getThumbnailSrc = React.useMemo(() => {
+    // Проверяем YouTube видео первым делом - всегда показываем thumbnail
+    if (post.youtubeData || (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')))) {
+      // Для YouTube видео ВСЕГДА показываем статичный thumbnail, НЕ iframe
+      const thumbnail = getMediaThumbnail(post, { forProfile: true, width: 300, height: 300 });
+
+      return thumbnail || '/video-placeholder.svg';
+    }
+    
     // Для видео всегда показываем thumbnail или placeholder
     if (post.mediaType === 'video') {
       // Если есть videoUrl (внешнее видео), получаем thumbnail через videoUtils
@@ -88,6 +96,7 @@ const PostThumbnail = ({ post, onClick }) => {
               '/video/upload/',
               `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
             );
+
             return gifUrl;
           } else {
             // На десктопе: зацикленные 10 сек, 30 FPS
@@ -95,6 +104,7 @@ const PostThumbnail = ({ post, onClick }) => {
               '/video/upload/',
               `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
             );
+
             return gifUrl;
           }
         }
@@ -136,8 +146,9 @@ const PostThumbnail = ({ post, onClick }) => {
   const isVideo = React.useMemo(() => {
     return post.mediaType === 'video' || 
            (image && image.includes('cloudinary.com') && image.includes('/video/')) ||
-           post.videoUrl;
-  }, [post.mediaType, post.videoUrl, image]);
+           post.videoUrl ||
+           post.youtubeData;
+  }, [post.mediaType, post.videoUrl, post.youtubeData, image]);
 
   return (
     <div className="post-thumbnail" onClick={onClick}>
@@ -149,6 +160,14 @@ const PostThumbnail = ({ post, onClick }) => {
           onError={(e) => {
             // Если thumbnail не загрузился, пробуем альтернативные варианты
             if (isVideo) {
+              // Для YouTube видео пробуем fallback thumbnail
+              if (e.target.src.includes('youtube.com') && e.target.src.includes('maxresdefault')) {
+                // Пробуем hqdefault если maxresdefault не доступен
+                const fallbackUrl = e.target.src.replace('maxresdefault', 'hqdefault');
+                e.target.src = fallbackUrl;
+                return;
+              }
+              
               // Для Cloudinary видео пробуем другой формат
               if (e.target.src.includes('cloudinary.com') && !e.target.src.includes('f_auto')) {
                 const fallbackUrl = e.target.src.replace('f_jpg', 'f_auto');

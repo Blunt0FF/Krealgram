@@ -183,20 +183,25 @@
 
 @media (max-width: 768px) {
   .stories-video-container {
-    padding: 50px 15px 160px 15px; /* Больше места снизу для интерфейса */
+    padding: 50px 15px 180px 15px; /* Больше места снизу для интерфейса */
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .stories-video {
     max-width: 100%;
-    max-height: calc(100vh - 210px); /* Учитываем интерфейс сверху и снизу */
-    width: auto;
-    height: auto;
+    height: calc(100vh - 230px); /* Больше высоты для видео */
+    width: 100%;
+    object-fit: contain;
+    background: black;
   }
   
   .stories-video[src*="youtube.com"] {
     max-width: 100%;
-    height: 50vh;
-    max-height: calc(100vh - 210px);
+    height: calc(100vh - 230px);
+    width: 100%;
   }
 }
 
@@ -264,18 +269,25 @@
   font-size: 14px;
   cursor: pointer;
   margin-bottom: 8px;
-  padding: 4px 0;
+  padding: 6px 0;
   text-decoration: underline;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.stories-view-comments:hover {
+  color: rgba(255, 255, 255, 1);
 }
 
 .stories-comments-list {
   margin-bottom: 12px;
-  max-height: 120px;
+  max-height: 150px;
   overflow-y: auto;
-  border-radius: 8px;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .stories-comment {
@@ -296,6 +308,11 @@
   margin-right: 6px;
   color: white !important;
   text-decoration: underline;
+}
+
+.stories-comment-text {
+  color: white !important;
+  font-weight: 400;
 }
 
 .stories-add-comment {
@@ -421,6 +438,16 @@
   .stories-description,
   .stories-view-comments {
     font-size: 13px;
+  }
+  
+  .stories-comments-list {
+    max-height: 100px;
+    padding: 8px;
+  }
+  
+  .stories-comment {
+    font-size: 13px;
+    margin-bottom: 6px;
   }
   
   .stories-add-comment {

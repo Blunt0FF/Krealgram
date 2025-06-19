@@ -361,7 +361,13 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
         
         {post.createdAt && (
           <div className="post-date-container">
-            <div className="post-date">{formatDateTime(post.createdAt)}</div>
+            <div 
+              className="post-date"
+              style={{ cursor: 'pointer' }}
+              onClick={() => onImageClick(post)}
+            >
+              {formatDateTime(post.createdAt)}
+            </div>
           </div>
         )}
       </div>

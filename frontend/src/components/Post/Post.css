@@ -505,6 +505,33 @@
   font-weight: 400;
 }
 
+/* Кликабельная дата для видео на мобильных */
+.post-date.video-date-clickable {
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: -4px -8px;
+}
+
+@media (max-width: 768px) {
+  .post-date.video-date-clickable {
+    background: rgba(0, 149, 246, 0.1);
+    color: #0095f6;
+    font-weight: 500;
+  }
+  
+  .post-date.video-date-clickable:hover {
+    background: rgba(0, 149, 246, 0.2);
+    color: #1877f2;
+  }
+  
+  .post-date.video-date-clickable:active {
+    background: rgba(0, 149, 246, 0.3);
+    transform: scale(0.98);
+  }
+}
+
 .comment-form {
   border-top: 1px solid #efefef;
   padding: 8px 16px;

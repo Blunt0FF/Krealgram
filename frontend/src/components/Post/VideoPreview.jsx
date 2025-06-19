@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { getMediaThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
   const [imageError, setImageError] = useState(false);
   const [staticError, setStaticError] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const videoRef = useRef(null);
+  const clickTimeoutRef = useRef(null);
   
   const gifUrl = getMediaThumbnail(post);
   const staticUrl = getStaticThumbnail(post);
@@ -14,6 +18,56 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
 
   const handleStaticError = () => {
     setStaticError(true);
+  };
+
+  const handleVideoClick = (e) => {
+    e.preventDefault();
+    
+    // Для внешних видео (YouTube, TikTok и т.д.) всегда открываем модалку
+    if (post.videoUrl || post.youtubeData) {
+      onClick && onClick();
+      return;
+    }
+
+    // Для мобильных устройств - всегда открываем модалку сразу
+    if (window.innerWidth <= 768) {
+      onClick && onClick();
+      return;
+    }
+
+    // Для десктопа используем логику двойного клика
+    if (clickTimeoutRef.current) {
+      // Второй клик - открываем модалку
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+      onClick && onClick();
+    } else {
+      // Первый клик - воспроизводим видео
+      clickTimeoutRef.current = setTimeout(() => {
+        clickTimeoutRef.current = null;
+        handleVideoPlay();
+      }, 300);
+    }
+  };
+
+  const handleVideoPlay = () => {
+    if (!showVideo) {
+      setShowVideo(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.play();
+          setIsVideoPlaying(true);
+        }
+      }, 100);
+    } else if (videoRef.current) {
+      if (isVideoPlaying) {
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      } else {
+        videoRef.current.play();
+        setIsVideoPlaying(true);
+      }
+    }
   };
 
   // Если обе картинки не загрузились, показываем placeholder
@@ -32,7 +86,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           justifyContent: 'center',
           ...style
         }}
-        onClick={onClick}
+        onClick={handleVideoClick}
         onDoubleClick={onDoubleClick}
       >
         <div style={{
@@ -63,11 +117,36 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         backgroundColor: '#000',
         ...style
       }}
-      onClick={onClick}
+      onClick={handleVideoClick}
       onDoubleClick={onDoubleClick}
     >
+      {/* Видео для воспроизведения */}
+      {showVideo && (post.imageUrl || post.image) && (
+        <video
+          ref={videoRef}
+          src={post.imageUrl || post.image}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 2
+          }}
+          controls
+          playsInline
+          onPlay={() => setIsVideoPlaying(true)}
+          onPause={() => setIsVideoPlaying(false)}
+          onEnded={() => {
+            setIsVideoPlaying(false);
+            setShowVideo(false);
+          }}
+        />
+      )}
+
       {/* Основное GIF превью */}
-      {!imageError && (
+      {!imageError && !showVideo && (
         <img
           src={gifUrl}
           alt="Video preview"
@@ -84,7 +163,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       )}
       
       {/* Fallback статичное превью */}
-      {imageError && !staticError && (
+      {imageError && !staticError && !showVideo && (
         <img
           src={staticUrl}
           alt="Video preview"
@@ -101,24 +180,26 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       )}
 
       {/* Play кнопка */}
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        background: 'rgba(0,0,0,0.7)',
-        borderRadius: '50%',
-        width: '60px',
-        height: '60px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1
-      }}>
-        <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
-      </div>
+      {!showVideo && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.7)',
+          borderRadius: '50%',
+          width: '60px',
+          height: '60px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1
+        }}>
+          <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+        </div>
+      )}
 
       {/* Информация о внешнем видео */}
       {post.videoUrl && (

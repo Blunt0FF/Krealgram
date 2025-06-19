@@ -54,6 +54,9 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
       setIsLiked(currentVideo.likes?.includes(currentUser._id) || false);
       setLikesCount(currentVideo.likesCount || currentVideo.likes?.length || 0);
+      
+
+      
       setComments(currentVideo.comments || []);
       setShowComments(false);
     }
@@ -70,6 +73,8 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
 
       if (response.ok) {
         const data = await response.json();
+
+        
         setVideos(data.posts || []);
       }
     } catch (error) {
@@ -357,29 +362,42 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                 </div>
               )}
 
-              {/* Комментарии - всегда показываем если есть */}
+              {/* Комментарии - показываем 3 или все */}
               {comments.length > 0 && (
                 <div className="stories-comments-list">
-                  {comments.slice(-3).map((comment, index) => {
-                    const username = comment.author?.username || comment.user?.username || comment.username || 'User';
+                  {/* Кнопка для просмотра всех комментариев (если их больше 3) */}
+                  {comments.length > 3 && !showComments && (
+                    <button 
+                      className="stories-view-comments"
+                      onClick={() => setShowComments(true)}
+                    >
+                      View all {comments.length} comments
+                    </button>
+                  )}
+                  
+                  {/* Показываем первые 3 или все комментарии */}
+                  {(showComments ? comments : comments.slice(0, 3)).map((comment, index) => {
+
+                    
+                    const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
                     return (
                       <div key={comment._id || index} className="stories-comment">
                         <span className="comment-username">{username}</span>
-                        <span style={{ color: 'white' }}>{comment.text}</span>
+                        <span className="stories-comment-text">{comment.text}</span>
                       </div>
                     );
                   })}
+                  
+                  {/* Кнопка скрыть комментарии если показаны все */}
+                  {comments.length > 3 && showComments && (
+                    <button 
+                      className="stories-view-comments"
+                      onClick={() => setShowComments(false)}
+                    >
+                      Hide comments
+                    </button>
+                  )}
                 </div>
-              )}
-
-              {/* Кнопка для просмотра всех комментариев (если их больше 3) */}
-              {comments.length > 3 && !showComments && (
-                <button 
-                  className="stories-view-comments"
-                  onClick={() => setShowComments(!showComments)}
-                >
-                  View all {comments.length} comments
-                </button>
               )}
 
               {/* Поле добавления комментария */}

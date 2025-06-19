@@ -45,20 +45,48 @@ export const getStaticThumbnail = (post) => {
 export const getMediaThumbnail = (post, options = {}) => {
   if (!post) return '/video-placeholder.svg';
 
-  // YouTube видео
+  // YouTube видео - проверяем все возможные источники
   if (post.youtubeData && post.youtubeData.thumbnailUrl) {
+
     return post.youtubeData.thumbnailUrl;
   }
 
   // Видео URL напрямую
   if (post.videoUrl) {
-    // YouTube URL
+    // YouTube URL - улучшенная регулярка
     const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
     const youtubeMatch = post.videoUrl.match(youtubeRegex);
     if (youtubeMatch) {
-      const thumbnail = `https://img.youtube.com/vi/${youtubeMatch[1]}/hqdefault.jpg`;
+      // Используем maxresdefault для лучшего качества, fallback на hqdefault
+      const thumbnail = `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
       return thumbnail;
     }
+  }
+
+  // Дополнительная проверка для YouTube URL в разных полях
+  const checkYouTubeUrl = (url) => {
+    if (!url) return null;
+    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(youtubeRegex);
+    if (match) {
+      return `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`;
+    }
+    return null;
+  };
+
+  // Проверяем YouTube URL в различных полях
+  const youtubeThumb = checkYouTubeUrl(post.videoUrl) || 
+                      checkYouTubeUrl(post.youtubeUrl) || 
+                      checkYouTubeUrl(post.image) || 
+                      checkYouTubeUrl(post.imageUrl);
+  
+  if (youtubeThumb) {
+
+    return youtubeThumb;
+  }
+
+  // Продолжаем с остальными типами видео
+  if (post.videoUrl) {
     
     // TikTok URL - пытаемся извлечь thumbnail
     if (post.videoUrl.includes('tiktok.com') || post.videoUrl.includes('vm.tiktok.com')) {

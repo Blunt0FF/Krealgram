@@ -592,9 +592,27 @@ exports.getUserVideos = async (req, res) => {
       ]
     })
       .populate('author', 'username avatar')
+      .populate({
+        path: 'comments',
+        populate: {
+          path: 'user',
+          select: 'username avatar'
+        },
+        options: { sort: { createdAt: 1 } } // Сортируем комментарии по возрастанию (старые сначала)
+      })
+      .populate('likes', '_id') // Загружаем лайки тоже
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, posts: userVideos });
+    // Добавляем информацию о лайках и комментариях
+    const videosWithInfo = userVideos.map(video => ({
+      ...video.toObject(),
+      likesCount: video.likes ? video.likes.length : 0,
+      commentsCount: video.comments ? video.comments.length : 0
+    }));
+
+
+
+    res.json({ success: true, posts: videosWithInfo });
   } catch (error) {
     console.error('Error fetching user videos:', error);
     res.status(500).json({

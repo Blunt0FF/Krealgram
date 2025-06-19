@@ -63,7 +63,7 @@
   flex: 1.2; /* Изображение занимает больше места */
   min-height: 400px;
   max-height: 95vh;
-  background: #000;
+  background: white; /* Белый фон вместо черного */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -78,7 +78,6 @@
 .post-modal-image img {
   width: 100%;
   height: 100%;
-  min-height: 500px;
   object-fit: contain;
   border-radius: 0;
   margin: 0;
@@ -90,8 +89,7 @@
 .post-modal-image iframe {
   width: 100%;
   height: 100%;
-  min-height: 400px; /* Уменьшаем минимальную высоту для iframe */
-  aspect-ratio: 16/9;
+  min-height: 600px; /* Увеличиваем минимальную высоту для iframe */
   border: none;
   background: black;
 }
@@ -99,9 +97,8 @@
 .post-modal-image video,
 .post-modal-video {
   width: 100%;
-  height: auto;
-  max-height: 80vh; /* Увеличиваем максимальную высоту для мобильных */
-  min-height: 300px;
+  height: 95vh; /* ВИДЕО НА ВСЮ ВЫСОТУ ЭКРАНА! */
+  min-height: 600px;
   object-fit: contain;
   background: #000;
   border-radius: 8px;
@@ -330,7 +327,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  padding: 12px 16px; /* Уменьшаем вертикальный padding */
   flex-shrink: 0;
   border-top: 1px solid #efefef;
 }
@@ -514,7 +511,11 @@
 
   .post-modal-image {
     flex-shrink: 0; /* Изображение не сжимается */
-    max-height: 60vh; /* Увеличиваем высоту изображения */
+    max-height: 65vh; /* Увеличиваем высоту изображения */
+    background: white; /* Белый фон */
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .post-modal-sidebar {
@@ -546,13 +547,24 @@
   }
 
   .post-modal-image video {
-    max-height: 70vh;
-    min-height: 250px;
-    border-radius: 4px;
+    width: 100%;
+    height: 65vh; /* ВИДЕО НА ВСЮ ВЫСОТУ МОБИЛЬНОГО! */
+    min-height: 400px;
+    object-fit: contain;
+    background: #000;
   }
   
   .post-modal-image iframe {
-    min-height: 300px;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+  }
+
+  .post-modal-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
   }
 }
 
@@ -573,7 +585,11 @@
 
   .post-modal-image {
     flex-shrink: 0; /* Изображение не сжимается */
-    max-height: 60vh; /* Увеличиваем высоту изображения */
+    max-height: 70vh; /* Увеличиваем высоту изображения */
+    background: white; /* Белый фон */
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .post-modal-sidebar {
@@ -608,12 +624,23 @@
   }
 
   .post-modal-image video {
-    max-height: 70vh;
-    min-height: 250px;
-    border-radius: 4px;
+    width: 100%;
+    height: 70vh; /* ВИДЕО НА ВСЮ ВЫСОТУ МОБИЛЬНОГО! */
+    min-height: 350px;
+    object-fit: contain;
+    background: #000;
   }
   
   .post-modal-image iframe {
-    min-height: 300px;
+    width: 100%;
+    height: 100%;
+    min-height: 350px;
+  }
+
+  .post-modal-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
   }
 }
