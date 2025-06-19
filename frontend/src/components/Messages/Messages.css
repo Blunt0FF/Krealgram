@@ -523,7 +523,7 @@
     padding: 16px;
     gap: 8px;
     margin-top: 70px;
-    margin-bottom: 70px;
+    margin-bottom: 120px;
     overflow-y: auto;
     height: calc(100vh - 200px);
   }

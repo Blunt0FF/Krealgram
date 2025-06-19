@@ -58,6 +58,7 @@ const Messages = ({ currentUser }) => {
   const [isPostModalOpen, setPostModalOpen] = useState(false);
   const [selectedPostForModal, setSelectedPostForModal] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [conversationsScrollPosition, setConversationsScrollPosition] = useState(0);
 
   // Обработка пересылаемого поста
   useEffect(() => {
@@ -100,6 +101,28 @@ const Messages = ({ currentUser }) => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Функции для работы с недавними пользователями
+  const getRecentUsers = () => {
+    try {
+      const stored = localStorage.getItem('recentUsers');
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error getting recent users:', error);
+      return [];
+    }
+  };
+
+  const addRecentUser = (user) => {
+    try {
+      const recent = getRecentUsers();
+      const filtered = recent.filter(u => u._id !== user._id);
+      const updated = [user, ...filtered].slice(0, 5); // Максимум 5 недавних пользователей
+      localStorage.setItem('recentUsers', JSON.stringify(updated));
+    } catch (error) {
+      console.error('Error adding recent user:', error);
+    }
   };
 
   useEffect(() => {
@@ -148,9 +171,13 @@ const Messages = ({ currentUser }) => {
               selectConversation(existingConv);
             } else {
               // Получаем информацию о пользователе и создаем новый диалог
+              console.log('Создаем новый диалог с пользователем ID:', recipientId);
               fetchUserById(recipientId).then(user => {
+                console.log('Получен пользователь:', user);
                 if (user) {
                   startConversation(user);
+                  // Убираем параметр recipient из URL после создания диалога
+                  navigate(location.pathname, { replace: true });
                 } else {
                   console.warn(`Пользователь с ID ${recipientId} не найден`);
                   navigate(location.pathname, { replace: true });
@@ -201,7 +228,7 @@ const Messages = ({ currentUser }) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return null;
-      const response = await fetch(`${API_URL}/api/users/${userId}`, {
+      const response = await fetch(`${API_URL}/api/users/profile/${userId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -224,6 +251,13 @@ const Messages = ({ currentUser }) => {
         setIsChatOpen(false);
         return;
     }
+    
+    // Сохраняем позицию скролла перед открытием диалога
+    const conversationsList = document.querySelector('.conversations-list');
+    if (conversationsList) {
+      setConversationsScrollPosition(conversationsList.scrollTop);
+    }
+    
     setSelectedConversation(conversation);
     setIsChatOpen(true); // Открываем чат на мобильных
     try {
@@ -337,14 +371,19 @@ const Messages = ({ currentUser }) => {
   };
 
   const startConversation = async (userToChatWith) => {
+    console.log('startConversation вызвана с пользователем:', userToChatWith);
     if (!userToChatWith || !userToChatWith._id) return null;
     if (currentUser && userToChatWith._id === currentUser._id) {
         return null;
     }
 
     // Добавляем пользователя в недавние
-    addRecentUser(userToChatWith);
-    setRecentUsers(getRecentUsers());
+    try {
+      addRecentUser(userToChatWith);
+      setRecentUsers(getRecentUsers());
+    } catch (error) {
+      console.log('Ошибка при работе с недавними пользователями:', error);
+    }
 
     const existingConversation = conversations.find(
       (conv) => conv.participant && conv.participant._id === userToChatWith._id
@@ -435,13 +474,13 @@ const Messages = ({ currentUser }) => {
     setSelectedConversation(null);
     setMessages([]);
     
-    // Прокручиваем список диалогов в верх
+    // Восстанавливаем позицию скролла
     setTimeout(() => {
       const conversationsList = document.querySelector('.conversations-list');
       if (conversationsList) {
-        conversationsList.scrollTop = 0;
+        conversationsList.scrollTop = conversationsScrollPosition;
       }
-    }, 100);
+    }, 50);
   };
 
   const deleteMessage = async (messageId) => {

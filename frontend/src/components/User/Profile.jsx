@@ -7,6 +7,7 @@ import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
+import { formatLastSeen } from '../../utils/timeUtils';
 import './Profile.css';
 
 // Компонент мобильной навигации
@@ -112,8 +113,31 @@ const PostThumbnail = ({ post, onClick }) => {
 };
 
 // Компонент модального окна для подписчиков/подписок
-const FollowersModal = ({ isOpen, onClose, title, users, loading }) => {
+const FollowersModal = ({ isOpen, onClose, title, users, loading, currentUser, onRemoveFollower }) => {
+  // Блокируем скролл при открытии модалки
+  React.useEffect(() => {
+    if (isOpen) {
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+      document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '0';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '0';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const handleRemoveFollower = async (userToRemove) => {
+    if (onRemoveFollower) {
+      await onRemoveFollower(userToRemove);
+    }
+  };
 
   return (
     <div className="followers-modal-overlay" onClick={onClose}>
@@ -133,19 +157,49 @@ const FollowersModal = ({ isOpen, onClose, title, users, loading }) => {
             <div className="followers-empty">No {title.toLowerCase()} yet</div>
           ) : (
             users.map(user => (
-              <div key={user._id} className="follower-item">
-                <Link to={`/profile/${user.username}`} onClick={onClose}>
-                  <img
-                    src={getAvatarUrl(user.avatar)}
-                    alt={user.username}
-                    className="follower-avatar"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/default-avatar.png';
-                    }}
-                  />
-                  <span className="follower-username">{user.username}</span>
-                </Link>
+              <div key={user._id || `deleted-${Math.random()}`} className="follower-item">
+                <div className="follower-content">
+                  {user.username ? (
+                    <Link to={`/profile/${user.username}`} onClick={onClose} className="follower-link">
+                      <img
+                        src={getAvatarUrl(user.avatar)}
+                        alt={user.username}
+                        className="follower-avatar"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = '/default-avatar.png';
+                        }}
+                      />
+                      <span className="follower-username">{user.username}</span>
+                    </Link>
+                  ) : (
+                    <div className="follower-link deleted-user">
+                      <img
+                        src="/default-avatar.png"
+                        alt="Deleted user"
+                        className="follower-avatar deleted-avatar"
+                      />
+                      <span className="follower-username deleted-username">DELETED USER</span>
+                    </div>
+                  )}
+                  
+                  {/* Показываем кнопку удаления только для подписчиков и только владельцу профиля */}
+                  {title === 'Followers' && currentUser && onRemoveFollower && user._id && (
+                    <button
+                      className="remove-follower-btn"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleRemoveFollower(user);
+                      }}
+                      title="Remove follower"
+                    >
+                      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}
@@ -269,6 +323,10 @@ const Profile = ({ user: currentUserProp }) => {
         setModalTitle('Followers');
         setModalUsers(data.followers || []);
         setIsFollowersModalOpen(true);
+      } else {
+        console.error('Failed to load followers:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Error details:', errorData);
       }
     } catch (error) {
       console.error('Error loading followers:', error);
@@ -292,11 +350,48 @@ const Profile = ({ user: currentUserProp }) => {
         setModalTitle('Following');
         setModalUsers(data.following || []);
         setIsFollowersModalOpen(true);
+      } else {
+        console.error('Failed to load following:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Error details:', errorData);
       }
     } catch (error) {
       console.error('Error loading following:', error);
     } finally {
       setFollowingLoading(false);
+    }
+  };
+
+  const removeFollower = async (followerToRemove) => {
+    if (!isOwner || !followerToRemove._id || !profile?.user?._id) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/users/${profile.user._id}/followers/${followerToRemove._id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Удаляем пользователя из списка модалки
+        setModalUsers(prevUsers => prevUsers.filter(user => user._id !== followerToRemove._id));
+        
+        // Обновляем счетчики из ответа API
+        setFollowInfo(prev => ({
+          ...prev,
+          followersCount: data.followersCount,
+          followingCount: data.followingCount
+        }));
+
+        console.log('Follower removed successfully');
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Failed to remove follower:', errorData);
+      }
+    } catch (error) {
+      console.error('Error removing follower:', error);
     }
   };
 
@@ -472,7 +567,22 @@ const Profile = ({ user: currentUserProp }) => {
 
           <div className="profile-info">
             <div className="profile-header-row">
-              <h1 className="profile-username">{profile.user.username}</h1>
+              <div className="profile-username-container">
+                <h1 className="profile-username">{profile.user.username}</h1>
+                {!isOwner && (
+                  <div className="profile-activity-status">
+                    {(() => {
+                      const statusText = formatLastSeen(profile.user.lastActive, profile.user.isOnline);
+                      const isOnline = statusText === 'Online';
+                      return (
+                        <span className={`activity-status ${isOnline ? 'online' : 'offline'}`}>
+                          {statusText}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
               <div className="profile-actions">
                 {isOwner ? (
                   <>
@@ -575,6 +685,8 @@ const Profile = ({ user: currentUserProp }) => {
           title={modalTitle}
           users={modalUsers}
           loading={modalTitle === 'Followers' ? followersLoading : followingLoading}
+          currentUser={isOwner ? currentUserProp : null}
+          onRemoveFollower={isOwner ? removeFollower : null}
         />
 
         <ImageModal

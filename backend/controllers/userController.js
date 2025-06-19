@@ -370,4 +370,78 @@ exports.getFollowingList = async (req, res) => {
     }
     res.status(500).json({ message: 'На сервере произошла ошибка при получении списка подписок.', error: error.message });
   }
+};
+
+// @desc    Удалить подписчика (только владелец профиля)
+// @route   DELETE /api/users/:userId/followers/:followerId
+// @access  Private
+exports.removeFollower = async (req, res) => {
+  const { userId, followerId } = req.params;
+  const currentUserId = req.user.id;
+
+  // Проверяем, что текущий пользователь является владельцем профиля
+  if (currentUserId.toString() !== userId.toString()) {
+    return res.status(403).json({ message: 'Доступ запрещен. Вы можете удалять подписчиков только со своего профиля.' });
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const profileOwner = await User.findById(userId).session(session);
+    const followerUser = await User.findById(followerId).session(session);
+
+    if (!profileOwner) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Профиль не найден.' });
+    }
+
+    if (!followerUser) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Подписчик не найден.' });
+    }
+
+    // Проверяем, что пользователь действительно является подписчиком
+    const isFollower = profileOwner.followers.some(id => id.equals(followerId));
+    if (!isFollower) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: 'Пользователь не является подписчиком.' });
+    }
+
+    // Удаляем подписчика из списка подписчиков владельца профиля
+    profileOwner.followers.pull(followerId);
+    
+    // Удаляем владельца профиля из списка подписок подписчика
+    followerUser.following.pull(userId);
+
+    await profileOwner.save({ session });
+    await followerUser.save({ session });
+
+    // Удаляем уведомление о подписке, если оно существует
+    await removeNotification(userId, {
+      sender: followerId,
+      type: 'follow'
+    });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Получаем обновленные счетчики
+    const updatedProfileOwner = await User.findById(userId).select('followers following').lean();
+
+    res.status(200).json({
+      message: 'Подписчик успешно удален.',
+      followersCount: updatedProfileOwner.followers.length,
+      followingCount: updatedProfileOwner.following.length
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Ошибка при удалении подписчика:', error);
+    res.status(500).json({ message: 'На сервере произошла ошибка при удалении подписчика.', error: error.message });
+  }
 }; 
