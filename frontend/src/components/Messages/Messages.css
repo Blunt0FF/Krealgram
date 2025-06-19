@@ -122,23 +122,11 @@
   min-width: 0;
 }
 
-.conversation-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-
 .conversation-name {
   font-weight: 600;
   font-size: 14px;
   color: #262626;
-}
-
-.online-indicator {
-  color: #00d26a;
-  font-size: 8px;
-  line-height: 1;
+  margin-bottom: 2px;
 }
 
 .conversation-last-message {
@@ -184,18 +172,15 @@
   color: #262626;
 }
 
-.chat-status {
-  font-size: 12px;
-  font-weight: 400;
-}
+  .chat-status {
+    font-size: 12px;
+    color: #8e8e8e;
+    font-weight: 400;
+  }
 
-.chat-status.online {
-  color: #00d26a !important;
-}
-
-.chat-status.offline {
-  color: #8e8e8e !important;
-}
+  .chat-status.online {
+    color: #00d26a;
+  }
 
 .messages-area {
   flex: 1;
@@ -437,7 +422,7 @@
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 680px) {
   .messages-container {
     height: calc(100vh - 60px);
     max-height: calc(100vh - 60px);
@@ -471,6 +456,7 @@
     background: #fff;
     z-index: 2;
     display: none;
+    flex-direction: column;
   }
 
   .messages-main.chat-open {
@@ -510,40 +496,48 @@
 
   .chat-header {
     padding: 16px 20px;
-    position: fixed;
+    position: sticky;
     top: 0;
-    left: 0;
-    right: 0;
     background: #fff;
     border-bottom: 1px solid #dbdbdb;
     z-index: 15;
   }
 
-  .messages-area {
-    padding: 16px;
-    gap: 8px;
-    margin-top: 70px;
-    margin-bottom: 120px;
-    overflow-y: auto;
-    height: calc(100vh - 200px);
-  }
+     .messages-area {
+     padding: 16px;
+     gap: 8px;
+     margin-top: 0;
+     margin-bottom: 0;
+     overflow-y: auto;
+     flex: 1;
+     min-height: 0;
+   }
 
   .message {
     margin-bottom: 12px;
   }
 
-  .message-input-form {
-    padding: 12px 16px;
-    position: fixed;
-    bottom: 60px;
-    left: 0;
-    right: 0;
-    background: #fff;
-    border-top: 1px solid #dbdbdb;
-    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
-    z-index: 1050;
-    width: 100%;
-  }
+     .message-input-form {
+     padding: 12px 16px;
+     background: #fff;
+     border-top: 1px solid #dbdbdb;
+     box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
+     flex-shrink: 0;
+   }
+
+   .deleted-user-message {
+     padding: 12px 16px;
+     background: #f8f9fa;
+     border-top: 1px solid #dbdbdb;
+     text-align: center;
+     flex-shrink: 0;
+   }
+
+   .deleted-user-message p {
+     color: #8e8e8e;
+     margin: 0;
+     font-style: italic;
+   }
 
   .conversation-item {
     padding: 12px 20px;
@@ -604,41 +598,29 @@
   }
 }
 
-@media (max-width: 900px) and (min-width: 769px) {
+/* Планшеты: обычный layout БЕЗ учета мобильной навигации */
+@media (min-width: 681px) and (max-width: 900px) {
   .messages-container {
-    height: calc(100vh - 60px);
+    height: 100vh;
+    max-height: 100vh;
   }
-
-  .messages-sidebar {
-    width: 300px;
-    min-width: 280px;
-  }
-
-  .messages-main {
-    flex: 1;
-  }
-
-  .back-btn {
+  
+  /* Скрываем кнопку назад на планшетах */
+  .mobile-only {
     display: none !important;
   }
+}
 
-  .conversation-item {
-    padding: 10px 16px;
-  }
-
-  .conversation-avatar {
-    width: 40px;
-    height: 40px;
-  }
-
-  .conversation-name {
-    font-size: 14px;
-  }
-
-  .conversation-last-message {
-    font-size: 12px;
+/* Десктопы: убеждаемся что кнопка назад скрыта */
+@media (min-width: 901px) {
+  .mobile-only {
+    display: none !important;
   }
 }
+
+
+
+
 
 .modal-overlay {
   position: fixed;
@@ -934,9 +916,18 @@
 }
 
 /* Всегда показываем кнопку удаления на мобильных */
-@media (max-width: 768px) {
+@media (max-width: 480px) {
   .message-options-btn {
     opacity: 1 !important;
+  }
+  
+  /* Ограничиваем ширину изображений на мобильных */
+  .message-image img {
+    max-width: calc(100vw - 120px) !important;
+  }
+  
+  .responsive-message-img {
+    max-width: calc(100vw - 120px) !important;
   }
 }
 
@@ -1117,4 +1108,35 @@
   .responsive-message-img {
     max-width: 270px !important;
   }
+}
+
+/* Стили для кнопки загрузки старых сообщений */
+.load-older-messages {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  margin-bottom: 8px;
+}
+
+.load-older-btn {
+  background: #0095f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.load-older-btn:hover:not(:disabled) {
+  background: #1877f2;
+  transform: translateY(-1px);
+}
+
+.load-older-btn:disabled {
+  background: #8e8e8e;
+  cursor: not-allowed;
+  transform: none;
 } 

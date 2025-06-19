@@ -55,8 +55,8 @@ exports.getMessagesForConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 30; // Количество сообщений на странице
+    const limit = parseInt(req.query.limit) || 20; // Количество сообщений на запрос
+    const offset = parseInt(req.query.offset) || 0; // Смещение от конца
 
     const conversation = await Conversation.findOne({
       _id: conversationId,
@@ -91,15 +91,14 @@ exports.getMessagesForConversation = async (req, res) => {
       return res.status(404).json({ message: 'Conversation not found or you do not have access.' });
     }
 
-    // Пагинация для массива вложенных сообщений
-    // Сортируем сообщения по дате для правильной пагинации
+    // Сортируем сообщения по дате (старые -> новые)
     const sortedMessages = conversation.messages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     
     const totalMessages = sortedMessages.length;
-    const totalPages = Math.ceil(totalMessages / limit);
 
-    // Page 1 - самые последние сообщения. Мы нарезаем с конца массива.
-    const endIndex = totalMessages - ((page - 1) * limit);
+    // Для offset=0 берем последние limit сообщений
+    // Для offset>0 берем сообщения с конца, пропуская offset сообщений
+    const endIndex = totalMessages - offset;
     const startIndex = Math.max(0, endIndex - limit);
 
     const paginatedMessages = sortedMessages.slice(startIndex, endIndex);
@@ -108,9 +107,9 @@ exports.getMessagesForConversation = async (req, res) => {
       message: 'Conversation messages fetched successfully',
       conversationId,
       messages: paginatedMessages,
-      currentPage: page,
-      totalPages: totalPages,
-      totalMessages
+      totalCount: totalMessages,
+      limit,
+      offset
     });
 
   } catch (error) {

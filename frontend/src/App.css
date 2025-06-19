@@ -60,16 +60,15 @@
 }
 
 /* Мобильная адаптивность */
-@media (max-width: 768px) {
+/* Мобильные устройства с padding-bottom */
+@media (max-width: 680px) {
   .main-content {
     min-height: calc(100vh - 60px);
-    padding-bottom: 60px;
   }
   
   .main-content-with-sidebar {
     margin-left: 0;
     min-height: calc(100vh - 60px);
-    padding-bottom: 60px;
   }
   
   /* Скрываем сайдбар на мобильных */
@@ -78,11 +77,18 @@
   }
 }
 
-@media (max-width: 900px) {
-  .main-content-with-sidebar {
-    margin-left: 0;
+/* Планшеты без padding-bottom */
+@media (min-width: 681px) and (max-width: 900px) {
+  .main-content {
+    min-height: 100vh;
   }
   
+  .main-content-with-sidebar {
+    margin-left: 0;
+    min-height: 100vh;
+  }
+  
+  /* Скрываем сайдбар на планшетах */
   .main-layout .sidebar {
     display: none;
   }

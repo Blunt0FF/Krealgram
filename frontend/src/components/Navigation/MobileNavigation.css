@@ -105,7 +105,10 @@
   .mobile-navigation {
     display: block !important;
   }
-  
+}
+
+/* Добавляем padding-bottom только для мобильных устройств */
+@media (max-width: 680px) {
   body {
     padding-bottom: 60px;
   }

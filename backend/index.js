@@ -135,7 +135,7 @@ const PORT = process.env.PORT || 3000;
 
 // Сбрасываем всех пользователей в offline при запуске сервера
 resetAllUsersToOffline().then(() => {
-  console.log('All users set to offline on server start');
+  // console.log('All users set to offline on server start');
 }).catch((error) => {
   console.error('Failed to reset user statuses:', error);
 });

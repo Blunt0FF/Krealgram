@@ -38,4 +38,38 @@ export const formatLastSeen = (lastActive, isOnline) => {
     
     return `was online ${day} ${month} at ${hours}:${minutes}`;
   }
+};
+
+export const formatMessageTime = (timestamp) => {
+  const messageDate = new Date(timestamp);
+  const now = new Date();
+  
+  const hours = messageDate.getHours().toString().padStart(2, '0');
+  const minutes = messageDate.getMinutes().toString().padStart(2, '0');
+  const timeString = `${hours}:${minutes}`;
+  
+  // Проверяем, сегодня ли сообщение
+  const isToday = messageDate.toDateString() === now.toDateString();
+  
+  if (isToday) {
+    return timeString; // Только время для сегодняшних сообщений
+  }
+  
+  // Проверяем, в этом ли году
+  const isThisYear = messageDate.getFullYear() === now.getFullYear();
+  
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
+  const day = messageDate.getDate();
+  const month = months[messageDate.getMonth()];
+  
+  if (isThisYear) {
+    return `${timeString} ${day} ${month}`;
+  } else {
+    const year = messageDate.getFullYear();
+    return `${timeString} ${day} ${month} ${year}`;
+  }
 }; 

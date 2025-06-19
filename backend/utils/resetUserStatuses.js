@@ -10,7 +10,7 @@ const resetAllUsersToOffline = async () => {
       }
     );
     
-    console.log(`Reset ${result.modifiedCount} users to offline status`);
+    // console.log(`Reset ${result.modifiedCount} users to offline status`);
     return result.modifiedCount;
   } catch (error) {
     console.error('Error resetting user statuses:', error);

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
 import { getAvatarUrl } from '../../utils/imageUtils';
-import { formatLastSeen } from '../../utils/timeUtils';
+import { formatLastSeen, formatMessageTime } from '../../utils/timeUtils';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import SharedPost from './SharedPost';
@@ -59,6 +59,9 @@ const Messages = ({ currentUser }) => {
   const [selectedPostForModal, setSelectedPostForModal] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [conversationsScrollPosition, setConversationsScrollPosition] = useState(0);
+  const [messageOffset, setMessageOffset] = useState(0);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
 
   // Обработка пересылаемого поста
   useEffect(() => {
@@ -99,6 +102,11 @@ const Messages = ({ currentUser }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // Сохраняем позицию скролла при скролле списка диалогов
+  const handleConversationsScroll = useCallback((e) => {
+    setConversationsScrollPosition(e.target.scrollTop);
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -128,6 +136,16 @@ const Messages = ({ currentUser }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Восстанавливаем скролл при закрытии чата
+  useEffect(() => {
+    if (!isChatOpen && conversationsScrollPosition > 0) {
+      const conversationsList = document.querySelector('.conversations-list');
+      if (conversationsList) {
+        conversationsList.scrollTop = conversationsScrollPosition;
+      }
+    }
+  }, [isChatOpen]);
 
   const searchUsers = useCallback(async () => {
     if (!searchQuery.trim()) {
@@ -252,30 +270,30 @@ const Messages = ({ currentUser }) => {
         return;
     }
     
-    // Сохраняем позицию скролла перед открытием диалога
-    const conversationsList = document.querySelector('.conversations-list');
-    if (conversationsList) {
-      setConversationsScrollPosition(conversationsList.scrollTop);
-    }
+    // Позиция уже сохранена через onScroll
     
     setSelectedConversation(conversation);
     setIsChatOpen(true); // Открываем чат на мобильных
+    setMessageOffset(0); // Сбрасываем offset для новой беседы
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/conversations/${conversation._id}/messages`, {
+      const response = await fetch(`${API_URL}/api/conversations/${conversation._id}/messages?limit=20&offset=0`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages || []);
+        setTotalMessages(data.totalCount || 0);
         setTimeout(scrollToBottom, 100); // Добавляем небольшую задержку для уверенности что DOM обновился
       } else {
         console.error('Error fetching messages:', await response.text());
         setMessages([]);
+        setTotalMessages(0);
       }
     } catch (error) {
       console.error('Network error fetching messages:', error);
       setMessages([]);
+      setTotalMessages(0);
     }
   };
 
@@ -394,18 +412,21 @@ const Messages = ({ currentUser }) => {
       setIsChatOpen(true);
       
       // Загружаем сообщения для существующего диалога
+      setMessageOffset(0);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/api/conversations/${existingConversation._id}/messages`, {
+        const response = await fetch(`${API_URL}/api/conversations/${existingConversation._id}/messages?limit=20&offset=0`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
           const data = await response.json();
           setMessages(data.messages || []);
+          setTotalMessages(data.totalCount || 0);
         }
       } catch (error) {
         console.error('Error loading messages:', error);
         setMessages([]);
+        setTotalMessages(0);
       }
 
       // Закрываем модальное окно
@@ -425,6 +446,8 @@ const Messages = ({ currentUser }) => {
     setSelectedConversation(newConversation);
     setIsChatOpen(true);
     setMessages([]);
+    setMessageOffset(0);
+    setTotalMessages(0);
     
     // Закрываем модальное окно
     setShowNewMessageModal(false);
@@ -469,18 +492,53 @@ const Messages = ({ currentUser }) => {
     setImageModalOpen(false);
   };
 
+  const loadOlderMessages = async () => {
+    if (!selectedConversation || loadingOlderMessages) return;
+    
+    setLoadingOlderMessages(true);
+    const newOffset = messageOffset + messages.length;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation._id}/messages?limit=20&offset=${newOffset}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const olderMessages = data.messages || [];
+        
+        if (olderMessages.length > 0) {
+          // Сохраняем текущую позицию скролла
+          const messagesArea = document.querySelector('.messages-area');
+          const scrollHeight = messagesArea?.scrollHeight || 0;
+          
+          // Добавляем старые сообщения в начало
+          setMessages(prevMessages => [...olderMessages, ...prevMessages]);
+          setMessageOffset(newOffset);
+          
+          // Восстанавливаем позицию скролла после добавления сообщений
+          setTimeout(() => {
+            if (messagesArea) {
+              const newScrollHeight = messagesArea.scrollHeight;
+              messagesArea.scrollTop = newScrollHeight - scrollHeight;
+            }
+          }, 50);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading older messages:', error);
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  };
+
   const backToConversations = () => {
     setIsChatOpen(false);
     setSelectedConversation(null);
     setMessages([]);
-    
-    // Восстанавливаем позицию скролла
-    setTimeout(() => {
-      const conversationsList = document.querySelector('.conversations-list');
-      if (conversationsList) {
-        conversationsList.scrollTop = conversationsScrollPosition;
-      }
-    }, 50);
+    setMessageOffset(0);
+    setTotalMessages(0);
   };
 
   const deleteMessage = async (messageId) => {
@@ -549,7 +607,7 @@ const Messages = ({ currentUser }) => {
           </button>
         </div>
         
-        <div className="conversations-list">
+        <div className="conversations-list" onScroll={handleConversationsScroll}>
           {conversations.length === 0 && !showNewMessageModal ? (
             <div className="no-conversations">
               <h3>Your Messages</h3>
@@ -562,14 +620,14 @@ const Messages = ({ currentUser }) => {
             conversations.map(conv => (
               <div 
                 key={conv._id || conv.participant?._id}
-                className={`conversation-item ${selectedConversation?._id === conv._id || (selectedConversation?.participant?._id === conv.participant?._id && selectedConversation?._id?.startsWith('temp_')) ? 'active' : ''}`}
+                className={`conversation-item ${selectedConversation?._id === conv._id || (selectedConversation?.participant?._id === conv.participant?._id && selectedConversation?._id?.startsWith('temp_')) ? 'active' : ''} ${!conv.participant?.username ? 'deleted-user' : ''}`}
                 onClick={() => selectConversation(conv)}
               >
                 <div className="conversation-content"> 
                   <img 
                     src={getAvatarUrl(conv.participant?.avatar)} 
                     alt={conv.participant?.username}
-                    className="conversation-avatar"
+                    className={`conversation-avatar ${!conv.participant?.username ? 'deleted-user-avatar' : ''}`}
                     onError={(e) => {
                       e.target.onerror = null;
                       e.target.src = '/default-avatar.png';
@@ -577,8 +635,10 @@ const Messages = ({ currentUser }) => {
                   />
                   <div className="conversation-info">
                     <div className="conversation-name-row">
-                      <span className="conversation-name">{conv.participant?.username || 'Unknown'}</span>
-                      {conv.participant?.isOnline && <span className="online-indicator">●</span>}
+                      <span className={`conversation-name ${!conv.participant?.username ? 'deleted-user-name' : ''}`}>
+                        {conv.participant?.username || 'DELETED USER'}
+                      </span>
+                      {conv.participant?.username && conv.participant?.isOnline && <span className="online-indicator">●</span>}
                     </div>
                     <span className="conversation-last-message">
                       {conv.lastMessage ? (
@@ -616,7 +676,7 @@ const Messages = ({ currentUser }) => {
       </div>
 
       <div className={`messages-main ${isChatOpen ? 'chat-open' : ''}`}>
-        {selectedConversation && selectedConversation.participant ? (
+        {selectedConversation ? (
           <>
             <div className="chat-header">
               <button className="back-btn mobile-only" onClick={backToConversations}>
@@ -626,22 +686,33 @@ const Messages = ({ currentUser }) => {
               </button>
               <div 
                 className="chat-header-content"
-                onClick={() => navigate(`/profile/${selectedConversation.participant.username}`)}
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', flex: 1 }}
+                onClick={() => {
+                  if (selectedConversation.participant?.username) {
+                    navigate(`/profile/${selectedConversation.participant.username}`);
+                  }
+                }}
+                style={{ 
+                  cursor: selectedConversation.participant?.username ? 'pointer' : 'default', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  flex: 1 
+                }}
               >
                 <img 
-                  src={getAvatarUrl(selectedConversation.participant.avatar)} 
-                  alt={selectedConversation.participant.username}
-                  className="chat-avatar"
+                  src={getAvatarUrl(selectedConversation.participant?.avatar)} 
+                  alt={selectedConversation.participant?.username}
+                  className={`chat-avatar ${!selectedConversation.participant?.username ? 'deleted-user-avatar' : ''}`}
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = '/default-avatar.png';
                   }}
                 />
                 <div className="chat-user-info">
-                  <span className="chat-username">{selectedConversation.participant.username}</span>
-                  {(() => {
-                    const statusText = formatLastSeen(selectedConversation.participant.lastActive, selectedConversation.participant.isOnline);
+                  <span className={`chat-username ${!selectedConversation.participant?.username ? 'deleted-user-name' : ''}`}>
+                    {selectedConversation.participant?.username || 'DELETED USER'}
+                  </span>
+                  {selectedConversation.participant?.username && (() => {
+                    const statusText = formatLastSeen(selectedConversation.participant?.lastActive, selectedConversation.participant?.isOnline);
                     const isOnline = statusText === 'Online';
                     return (
                       <span className={`chat-status ${isOnline ? 'online' : 'offline'}`}>
@@ -654,6 +725,17 @@ const Messages = ({ currentUser }) => {
             </div>
 
             <div className="messages-area">
+              {totalMessages > messages.length && (
+                <div className="load-older-messages">
+                  <button 
+                    className="load-older-btn"
+                    onClick={loadOlderMessages}
+                    disabled={loadingOlderMessages}
+                  >
+                    {loadingOlderMessages ? 'Loading...' : `Show older messages (${totalMessages - messages.length})`}
+                  </button>
+                </div>
+              )}
               {messages.map((message) => (
                 <div
                   key={message._id}
@@ -733,11 +815,7 @@ const Messages = ({ currentUser }) => {
                       )}
                     </div>
                     <span className="message-time">
-                      {new Date(message.createdAt || Date.now()).toLocaleTimeString('en-GB', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: false
-                      })}
+                      {formatMessageTime(message.createdAt || Date.now())}
                     </span>
                   </div>
                 </div>
@@ -753,47 +831,53 @@ const Messages = ({ currentUser }) => {
                 </button>
               </div>
             )}
-            <form className="message-input-form" onSubmit={sendMessage}>
-              <div className="message-input-wrapper">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  style={{ display: 'none' }}
-                  id="image-upload"
-                  ref={fileInputRef}
-                  disabled={isSending}
-                />
-                <label htmlFor="image-upload" className="image-btn">
-                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                    <circle cx="8.5" cy="8.5" r="1.5"/>
-                    <polyline points="21,15 16,10 5,21"/>
-                  </svg>
-                </label>
-                <textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Write a message..."
-                  className="message-input"
-                  rows={1}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage(e);
-                    }
-                  }}
-                  disabled={isSending}
-                />
-                <button 
-                  type="submit" 
-                  disabled={!newMessage.trim() && !imageToSend}
-                  className="send-btn"
-                >
-                  {isSending ? 'Sending...' : 'Send'}
-                </button>
+            {selectedConversation.participant?.username ? (
+              <form className="message-input-form" onSubmit={sendMessage}>
+                <div className="message-input-wrapper">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    style={{ display: 'none' }}
+                    id="image-upload"
+                    ref={fileInputRef}
+                    disabled={isSending}
+                  />
+                  <label htmlFor="image-upload" className="image-btn">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21,15 16,10 5,21"/>
+                    </svg>
+                  </label>
+                  <textarea
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Write a message..."
+                    className="message-input"
+                    rows={1}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(e);
+                      }
+                    }}
+                    disabled={isSending}
+                  />
+                  <button 
+                    type="submit" 
+                    disabled={!newMessage.trim() && !imageToSend}
+                    className="send-btn"
+                  >
+                    {isSending ? 'Sending...' : 'Send'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="deleted-user-message">
+                <p>This user has been deleted</p>
               </div>
-            </form>
+            )}
           </>
         ) : (
           <div className="no-chat-selected">
