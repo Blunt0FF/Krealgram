@@ -15,7 +15,6 @@
 
 .App-header {
   background-color: #282c34;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -38,12 +37,10 @@
 }
 
 .app {
-  min-height: 100vh;
   background-color: #fff;
 }
 
 .main-content {
-  min-height: 100vh;
   background: #fff;
 }
 
@@ -55,7 +52,6 @@
 .main-content-with-sidebar {
   margin-left: 244px;
   width: 100%;
-  min-height: 100vh;
   transition: margin-left 0.3s ease-out;
 }
 
@@ -63,12 +59,12 @@
 /* Мобильные устройства с padding-bottom */
 @media (max-width: 680px) {
   .main-content {
-    min-height: calc(100vh - 60px);
+    /* Убрано min-height */
   }
   
   .main-content-with-sidebar {
     margin-left: 0;
-    min-height: calc(100vh - 60px);
+    /* Убрано min-height */
   }
   
   /* Скрываем сайдбар на мобильных */
@@ -80,12 +76,12 @@
 /* Планшеты без padding-bottom */
 @media (min-width: 681px) and (max-width: 900px) {
   .main-content {
-    min-height: 100vh;
+    /* Убрано min-height */
   }
   
   .main-content-with-sidebar {
     margin-left: 0;
-    min-height: 100vh;
+    /* Убрано min-height */
   }
   
   /* Скрываем сайдбар на планшетах */

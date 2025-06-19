@@ -107,8 +107,6 @@
   border: 1px solid #e1f3ff;
 }
 
-
-
 .create-post-error {
   color: #ed4956;
   font-size: 14px;
@@ -129,4 +127,75 @@
 
 .char-count.danger {
   color: #ed4956;
+}
+
+/* Переключатель режимов загрузки */
+.upload-mode-switcher {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  justify-content: center;
+}
+
+.mode-btn {
+  padding: 10px 20px;
+  border: 2px solid #dbdbdb;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.mode-btn:hover {
+  border-color: #0095f6;
+}
+
+.mode-btn.active {
+  background: #0095f6;
+  color: white;
+  border-color: #0095f6;
+}
+
+/* Поле для URL */
+.url-input-container {
+  margin-bottom: 15px;
+}
+
+.url-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #dbdbdb;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.url-input:focus {
+  outline: none;
+  border-color: #0095f6;
+}
+
+.parsed-video-info {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.platform-badge {
+  display: inline-block;
+  background: #0095f6;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+  width: fit-content;
+}
+
+.platform-note {
+  font-size: 12px;
+  color: #8e8e8e;
+  font-style: italic;
 } 

@@ -6,6 +6,7 @@ import EditPostModal from '../Post/EditPostModal';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { getMediaThumbnail } from '../../utils/videoUtils';
 import { API_URL } from '../../config';
 import { formatLastSeen } from '../../utils/timeUtils';
 import './Profile.css';
@@ -83,15 +84,50 @@ const PostThumbnail = ({ post, onClick }) => {
     }
   }, [post._id, post.imageUrl, imageLoaded, image]);
 
+  const getThumbnailSrc = () => {
+    // Для видео всегда показываем thumbnail или placeholder
+    if (post.mediaType === 'video') {
+      // Используем videoUtils для получения правильного thumbnail
+      const thumbnail = getMediaThumbnail(post, { width: 400, height: 400 });
+      console.log('Video thumbnail for post:', post._id, thumbnail);
+      
+      // Если thumbnail не определен или это placeholder, возвращаем placeholder
+      if (!thumbnail || thumbnail === '/video-placeholder.svg') {
+        return '/video-placeholder.svg';
+      }
+      
+      return thumbnail;
+    }
+    // Для обычных изображений
+    const imageSrc = image || post.imageUrl;
+    console.log('Image thumbnail for post:', post._id, imageSrc);
+    return imageSrc || '/video-placeholder.svg';
+  };
+
   return (
     <div className="post-thumbnail" onClick={onClick}>
-      {image ? (
-        <img src={image} alt={post.caption || 'Post'} loading="lazy" />
-      ) : (
-        <div className="thumbnail-placeholder">
-          <div className="loading-spinner"></div>
-        </div>
-      )}
+      <div className="thumbnail-container">
+        <img 
+          src={getThumbnailSrc()} 
+          alt={post.caption || 'Post'} 
+          loading="lazy"
+          onError={(e) => {
+            // Если thumbnail не загрузился, показываем placeholder
+            if (post.mediaType === 'video') {
+              e.target.src = '/video-placeholder.svg';
+            } else {
+              e.target.style.display = 'none';
+            }
+          }}
+        />
+        {post.mediaType === 'video' && (
+          <div className="video-indicator">
+            <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+        )}
+      </div>
       <div className="post-overlay">
         <div className="post-stats">
           <span className="stat-item">
@@ -231,6 +267,11 @@ const Profile = ({ user: currentUserProp }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const handlePostClick = (post) => {
+    console.log('Profile: Clicking post:', post);
+    console.log('Profile: Post mediaType:', post.mediaType);
+    console.log('Profile: Post videoUrl:', post.videoUrl);
+    console.log('Profile: Post youtubeData:', post.youtubeData);
+    
     const postWithLikeStatus = {
       ...post,
       isLikedByCurrentUser: post.isLikedByCurrentUser
@@ -666,7 +707,7 @@ const Profile = ({ user: currentUserProp }) => {
 
         {selectedPost && (
           <PostModal
-            isOpen={!!selectedPost}
+            isOpen={isModalOpen}
             onClose={closeModal}
             post={selectedPost}
             currentUser={currentUserProp}

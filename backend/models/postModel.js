@@ -8,7 +8,7 @@ const postSchema = new mongoose.Schema({
   },
   image: {
     type: String, // Путь к загруженному файлу изображения или видео
-    required: [true, 'Post must have media content']
+    required: false // Будем проверять в контроллере
   },
   mediaType: {
     type: String,
@@ -34,13 +34,20 @@ const postSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  // Дополнительная информация для YouTube видео
+  // Дополнительная информация для YouTube видео и других платформ
   youtubeData: {
     videoId: String,
     embedUrl: String,
     thumbnailUrl: String,
     title: String,
-    duration: String
+    duration: String,
+    platform: String,
+    originalUrl: String,
+    note: String
+  },
+  videoUrl: {
+    type: String,
+    trim: true
   }
 }, { 
   timestamps: true // Добавляет createdAt и updatedAt

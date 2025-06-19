@@ -7,7 +7,7 @@ const authMiddleware = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
-      return res.status(401).json({ message: 'Требуется авторизация.' });
+      return res.status(401).json({ message: 'Authorization required.' });
     }
 
     // Проверяем токен
@@ -17,13 +17,19 @@ const authMiddleware = async (req, res, next) => {
     const user = await User.findById(decoded.id);
     
     if (!user) {
-      return res.status(401).json({ message: 'Пользователь не найден.' });
+      return res.status(401).json({ message: 'User not found.' });
     }
 
-    // Обновляем только lastActive, но не isOnline
-    // isOnline управляется только через WebSocket подключения и logout
-    user.lastActive = new Date();
-    await user.save();
+    // Обновляем lastActive только если прошло больше 5 минут с последнего обновления
+    const now = new Date();
+    const lastActiveTime = user.lastActive ? new Date(user.lastActive) : new Date(0);
+    const timeDifference = now - lastActiveTime;
+    const fiveMinutes = 5 * 60 * 1000; // 5 минут в миллисекундах
+
+    if (timeDifference > fiveMinutes) {
+      user.lastActive = now;
+      await user.save();
+    }
 
     // Добавляем пользователя в объект запроса
     req.user = user;
@@ -32,13 +38,13 @@ const authMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ message: 'Неверный токен.' });
+      return res.status(401).json({ message: 'Invalid token.' });
     }
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Токен истек.' });
+      return res.status(401).json({ message: 'Token expired.' });
     }
-    console.error('Ошибка аутентификации:', error);
-    res.status(500).json({ message: 'На сервере произошла ошибка при аутентификации.', error: error.message });
+    console.error('Authentication error:', error);
+    res.status(500).json({ message: 'Server authentication error.', error: error.message });
   }
 };
 

@@ -40,7 +40,25 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
   let content = null;
   let linkTo = '#';
 
+  const markAsRead = async (notificationId) => {
+    if (notification.read) return; // Уже прочитано
+    
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/notifications/${notificationId}/mark-read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
   const handleItemClickInternal = () => {
+    // Помечаем как прочитанное при переходе
+    if (!notification.read) {
+      markAsRead(notification._id);
+    }
     onClose();
     navigate(linkTo);
   };
@@ -55,7 +73,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
     case 'like':
       content = (
         <>
-          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(`/profile/${sender.username}`); }}>
             {sender.username}
           </Link>
           {` liked your post.`}
@@ -66,7 +84,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
     case 'comment':
       content = (
         <>
-          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(`/profile/${sender.username}`); }}>
             {sender.username}
           </Link>
           {` commented on your post${notification.comment?.text ? ": \"" + notification.comment.text.substring(0,30) + (notification.comment.text.length > 30 ? "...\"" : '"') : '.'}`}
@@ -77,7 +95,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
     case 'follow':
       content = (
         <>
-          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+          <Link to={`/profile/${sender.username}`} className="notification-sender" onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(`/profile/${sender.username}`); }}>
             {sender.username}
           </Link>
           {` started following you.`}
@@ -95,7 +113,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
       onClick={handleItemClickInternal}
     >
       <div className={`notification-item ${!notification.read ? 'unread' : ''}`}>
-        <Link to={`/profile/${sender.username}`} className="notification-avatar-link" onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/profile/${sender.username}`); }}>
+        <Link to={`/profile/${sender.username}`} className="notification-avatar-link" onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(`/profile/${sender.username}`); }}>
           <img 
             src={getAvatarUrl(sender.avatar)} 
             alt={sender.username} 
@@ -113,7 +131,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
           </div>
         </div>
         {post && (post.image || post.imageUrl) && (type === 'like' || type === 'comment') && (
-          <Link to={linkTo} onClick={(e) => { e.stopPropagation(); onClose(); navigate(linkTo); }}>
+          <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(linkTo); }}>
             <img 
               src={post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`)} 
               alt="Post thumbnail" 

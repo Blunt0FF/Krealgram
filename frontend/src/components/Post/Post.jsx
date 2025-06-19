@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import LikesModal from './LikesModal';
 import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
+
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { getMediaThumbnail } from '../../utils/videoUtils';
 import { API_URL } from '../../config';
 import './Post.css';
 
@@ -77,14 +79,24 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
+    const now = new Date();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const day = date.getDate();
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+    const currentYear = now.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    if (year === currentYear) {
+      return `${month} ${day} at ${hours}:${minutes}`;
+    } else {
+      return `${month} ${day}, ${year} at ${hours}:${minutes}`;
+    }
   };
 
   const handleLike = async () => {
@@ -279,16 +291,102 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
       </div>
 
       <div className="post-image-container">
-        {post.mediaType === 'video' ? (
+        {post.youtubeData && post.youtubeData.embedUrl ? (
+          <iframe
+            width="100%"
+            height="500"
+            src={post.youtubeData.embedUrl}
+            title="YouTube video player"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ borderRadius: '0', cursor: 'pointer' }}
+            onClick={() => onImageClick(post)}
+          />
+        ) : post.videoUrl && post.videoUrl.includes('youtube') ? (
+          <iframe
+            width="100%"
+            height="500"
+            src={post.videoUrl.replace('watch?v=', 'embed/')}
+            title="YouTube video player"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ borderRadius: '0', cursor: 'pointer' }}
+            onClick={() => onImageClick(post)}
+          />
+        ) : post.mediaType === 'video' ? (
           <video 
             src={getImageSrc()}
+            poster={getMediaThumbnail(post)}
             className="post-image"
-            style={{ cursor: 'pointer' }}
-            controls
-            onDoubleClick={handleLike}
+            controls={true}
+            muted={false}
+            playsInline
+            preload="metadata"
+            style={{ 
+              cursor: 'pointer', 
+              width: '100%', 
+              height: 'auto',
+              maxHeight: '900px',
+              backgroundColor: '#000'
+            }}
             onClick={() => onImageClick(post)}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
+            onDoubleClick={handleLike}
+          >
+            Your browser does not support the video tag.
+          </video>
+        ) : post.mediaType === 'video' && post.videoUrl ? (
+          <div 
+            className="post-video-placeholder"
+            style={{ 
+              minHeight: '300px',
+              maxHeight: '900px',
+              aspectRatio: '16/9',
+              background: `url(${getMediaThumbnail(post)}) center/contain no-repeat`,
+              cursor: 'pointer',
+              position: 'relative',
+              backgroundColor: '#000'
+            }}
+            onClick={() => onImageClick(post)}
+            onDoubleClick={handleLike}
+          >
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              background: 'rgba(0,0,0,0.7)',
+              borderRadius: '50%',
+              width: '60px',
+              height: '60px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
+            {post.videoUrl && (
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '10px',
+                right: '10px',
+                background: 'rgba(0,0,0,0.8)',
+                color: 'white',
+                padding: '8px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                textAlign: 'center'
+              }}>
+                {post.videoUrl.includes('tiktok') ? 'TikTok Video' : 
+                 post.videoUrl.includes('vk.com') ? 'VK Video' : 
+                 post.videoUrl.includes('instagram') ? 'Instagram Video' : 'External Video'}
+              </div>
+            )}
+          </div>
         ) : (
           <img 
             src={getImageSrc()}

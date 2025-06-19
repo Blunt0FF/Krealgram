@@ -9,6 +9,11 @@ router.get('/', authMiddleware, notificationController.getNotifications);
 // Маршрут для пометки всех уведомлений как прочитанных
 router.post('/mark-all-read', authMiddleware, notificationController.markAllNotificationsAsRead);
 
+// @route   DELETE /api/notifications/deleted-users
+// @desc    Очистить все уведомления от удаленных пользователей
+// @access  Private
+router.delete('/deleted-users', authMiddleware, notificationController.clearDeletedUserNotifications);
+
 // @route   POST /api/notifications/:notificationId/mark-read
 // @desc    Пометить конкретное уведомление как прочитанное
 // @access  Private

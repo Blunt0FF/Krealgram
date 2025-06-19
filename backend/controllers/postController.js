@@ -9,32 +9,97 @@ const Like = require('../models/likeModel'); // Import the Like model
 // @access  Private
 exports.createPost = async (req, res) => {
   try {
-    const { caption } = req.body;
+    const { caption, videoUrl, videoData } = req.body;
     const authorId = req.user.id; // User ID from authMiddleware
 
-    if (!req.file) {
-      return res.status(400).json({ message: 'Image is required for the post.' });
+    console.log('=== CREATE POST DEBUG ===');
+    console.log('Request body:', req.body);
+    console.log('Has file:', !!req.file);
+    console.log('Author ID:', authorId);
+
+    let imagePath = null;
+    let mediaType = 'image';
+    let youtubeData = null;
+
+    // Проверяем, есть ли URL видео
+    if (videoUrl) {
+      console.log('Processing video URL:', videoUrl);
+      console.log('Video data:', videoData);
+      
+      // Для всех видео URL устанавливаем placeholder
+      imagePath = '/video-placeholder.svg';
+      mediaType = 'video';
+      
+      if (videoData) {
+        const parsedVideoData = typeof videoData === 'string' ? JSON.parse(videoData) : videoData;
+        console.log('Parsed video data:', parsedVideoData);
+        
+        if (parsedVideoData.platform === 'youtube') {
+          // Для YouTube сохраняем данные для встраивания
+          youtubeData = {
+            videoId: parsedVideoData.videoId,
+            embedUrl: parsedVideoData.embedUrl,
+            thumbnailUrl: parsedVideoData.thumbnailUrl,
+            title: '', // Можно добавить получение через YouTube API
+            duration: ''
+          };
+          // Используем thumbnail как изображение если есть
+          if (parsedVideoData.thumbnailUrl) {
+            imagePath = parsedVideoData.thumbnailUrl;
+          }
+        } else {
+          // Для других платформ (TikTok, VK, Instagram)
+          youtubeData = {
+            platform: parsedVideoData.platform,
+            videoId: parsedVideoData.videoId,
+            originalUrl: parsedVideoData.originalUrl,
+            note: parsedVideoData.note || 'External video content'
+          };
+        }
+      } else {
+        // Если нет videoData, создаем базовую структуру
+        youtubeData = {
+          platform: 'unknown',
+          originalUrl: videoUrl,
+          note: 'External video content'
+        };
+      }
+    } else if (req.file) {
+      // Обычная загрузка файла
+      imagePath = req.file.path || req.file.filename;
+      mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
     }
 
-    // Get the image path - either Cloudinary URL or local file
-    const imagePath = req.file.path || req.file.filename; // Cloudinary returns path, local returns filename
-    
-    // Определяем тип медиа файла
-    const mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+    // Проверяем что у нас есть хотя бы что-то для отображения
+    if (!imagePath && !videoUrl) {
+      console.log('No video URL and no file provided');
+      return res.status(400).json({ message: 'Media content is required for the post.' });
+    }
+
+    console.log('Final post data:', {
+      imagePath,
+      mediaType,
+      youtubeData,
+      videoUrl,
+      caption
+    });
 
     const newPost = new Post({
       author: authorId,
-      image: imagePath, // Save relative path or filename
-      mediaType: mediaType, // Сохраняем тип медиа
-      caption: caption || ''
+      image: imagePath,
+      mediaType: mediaType,
+      caption: caption || '',
+      videoUrl: videoUrl || null,
+      youtubeUrl: videoUrl || null, // Для обратной совместимости
+      youtubeData: youtubeData
     });
 
     const savedPost = await newPost.save();
 
-    // Add post to user's posts array (optional, but was in the old User model)
+    // Add post to user's posts array
     await User.findByIdAndUpdate(authorId, { $push: { posts: savedPost._id } });
 
-    // To return the post with author data
+    // Return the post with author data
     const populatedPost = await Post.findById(savedPost._id).populate('author', 'username avatar');
 
     res.status(201).json({
@@ -44,16 +109,16 @@ exports.createPost = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating post:', error);
-    // If the error is related to file upload (e.g., type), multer will pass it.
-    // More specific multer error handling can be added if uploadMiddleware is configured for it.
+    
+    // Clean up uploaded file if DB error occurred
     if (req.file && req.file.path) {
-        // Attempt to delete the uploaded file if a DB error occurred after upload
-        fs.unlink(path.join(__dirname, '..', 'uploads', req.file.filename), (err) => {
-            if (err) console.error("Error deleting file on failed post creation:", err);
-        });
+      fs.unlink(path.join(__dirname, '..', 'uploads', req.file.filename), (err) => {
+        if (err) console.error("Error deleting file on failed post creation:", err);
+      });
     }
+    
     if (error.name === 'ValidationError') {
-        return res.status(400).json({ message: 'Validation Error: ' + error.message });
+      return res.status(400).json({ message: 'Validation Error: ' + error.message });
     }
     res.status(500).json({ message: 'Server error while creating post.', error: error.message });
   }
@@ -103,7 +168,16 @@ exports.getAllPosts = async (req, res) => {
 
     // Add full URL for images and information about likes
     const postsWithFullInfo = posts.map(post => {
-        const imageUrl = post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+        let imageUrl;
+        
+        // Для видео с внешними URL (TikTok, VK, Instagram) или placeholder
+        if (post.image === '/video-placeholder.svg' || post.image.startsWith('/')) {
+          imageUrl = post.image; // Оставляем как есть для статических файлов
+        } else if (post.image.startsWith('http')) {
+          imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
+        } else {
+          imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+        }
         
         return {
           ...post,
@@ -156,7 +230,16 @@ exports.getPostById = async (req, res) => {
       ) : false;
 
     // Add full URL for the post image and likes information
-    const imageUrl = post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+    let imageUrl;
+    
+    // Для видео с внешними URL (TikTok, VK, Instagram) или placeholder
+    if (post.image === '/video-placeholder.svg' || post.image.startsWith('/')) {
+      imageUrl = post.image; // Оставляем как есть для статических файлов
+    } else if (post.image.startsWith('http')) {
+      imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
+    } else {
+      imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+    }
     
     const postWithImageUrl = {
         ...post,
@@ -332,10 +415,23 @@ exports.getUserPosts = async (req, res) => {
 
     const totalPosts = await Post.countDocuments({ author: userId });
 
-    const postsWithImageUrls = posts.map(post => ({
-      ...post,
-      imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`
-    }));
+    const postsWithImageUrls = posts.map(post => {
+      let imageUrl;
+      
+      // Для видео с внешними URL (TikTok, VK, Instagram) или placeholder
+      if (post.image === '/video-placeholder.svg' || post.image.startsWith('/')) {
+        imageUrl = post.image; // Оставляем как есть для статических файлов
+      } else if (post.image.startsWith('http')) {
+        imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
+      } else {
+        imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+      }
+      
+      return {
+        ...post,
+        imageUrl: imageUrl
+      };
+    });
 
     res.status(200).json({
       message: `Posts for user ${userExists.username} fetched successfully`,
@@ -384,5 +480,136 @@ exports.getPostLikes = async (req, res) => {
         return res.status(400).json({ message: 'Invalid Post ID.' });
     }
     res.status(500).json({ message: 'Server error while fetching likes.', error: error.message });
+  }
+};
+
+// @desc    Получить пользователей, которые загружали видео
+// @route   GET /api/posts/video-users
+// @access  Private
+exports.getVideoUsers = async (req, res) => {
+  try {
+    console.log('Getting video users...');
+    
+    const videoUsers = await Post.aggregate([
+      {
+        $match: {
+          $or: [
+            { mediaType: 'video' },
+            { youtubeData: { $exists: true, $ne: null } },
+            { videoUrl: { $exists: true, $ne: null } }
+          ]
+        }
+      },
+      {
+        $group: {
+          _id: '$author',
+          videoCount: { $sum: 1 },
+          lastVideoDate: { $max: '$createdAt' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      {
+        $match: {
+          'userInfo.0': { $exists: true } // Только если пользователь существует
+        }
+      },
+      {
+        $unwind: '$userInfo'
+      },
+      {
+        $project: {
+          _id: '$userInfo._id',
+          username: '$userInfo.username',
+          avatar: '$userInfo.avatar',
+          videoCount: 1,
+          lastVideoDate: 1
+        }
+      },
+      {
+        $sort: { lastVideoDate: -1 }
+      },
+      {
+        $limit: 20
+      }
+    ]);
+
+    console.log(`Found ${videoUsers.length} video users`);
+    res.json({ success: true, users: videoUsers });
+  } catch (error) {
+    console.error('Error fetching video users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching video users',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Получить все видео конкретного пользователя
+// @route   GET /api/posts/user/:userId/videos
+// @access  Private
+exports.getUserVideos = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const userVideos = await Post.find({
+      author: userId,
+      $or: [
+        { mediaType: 'video' },
+        { youtubeData: { $exists: true, $ne: null } }
+      ]
+    })
+      .populate('author', 'username avatar')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, posts: userVideos });
+  } catch (error) {
+    console.error('Error fetching user videos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
+// @desc    Тестовый endpoint для проверки
+// @route   GET /api/posts/test-video-users
+// @access  Private
+exports.testVideoUsers = async (req, res) => {
+  try {
+    console.log('Test video users endpoint called');
+    console.log('User from middleware:', req.user);
+    
+    // Простой тест - найти все посты с видео
+    const videoPosts = await Post.find({
+      $or: [
+        { mediaType: 'video' },
+        { youtubeData: { $exists: true, $ne: null } },
+        { videoUrl: { $exists: true, $ne: null } }
+      ]
+    }).populate('author', 'username avatar').limit(5);
+    
+    console.log(`Found ${videoPosts.length} video posts`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Test endpoint working',
+      videoPosts: videoPosts.length,
+      user: req.user ? req.user.username : 'No user'
+    });
+  } catch (error) {
+    console.error('Test video users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Test endpoint error',
+      error: error.message
+    });
   }
 }; 

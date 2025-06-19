@@ -45,7 +45,50 @@ const SearchPage = () => {
   useEffect(() => {
     // Прокручиваем в верх при переходе на страницу поиска
     window.scrollTo(0, 0);
-    setRecentUsers(getRecentUsers());
+    
+    // Проверяем существование недавних пользователей
+    const validateRecentUsers = async () => {
+      const recent = getRecentUsers();
+      if (recent.length === 0) {
+        setRecentUsers([]);
+        return;
+      }
+      
+      try {
+        const token = localStorage.getItem('token');
+        const validUsers = [];
+        
+        for (const user of recent) {
+          try {
+            const res = await fetch(`${API_URL}/api/users/profile/${user.username}`, {
+              headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            
+            if (res.ok) {
+              const data = await res.json();
+              if (data.user) {
+                validUsers.push(user);
+              }
+            }
+          } catch (e) {
+            // Пользователь не существует, пропускаем
+            console.log(`User ${user.username} no longer exists`);
+          }
+        }
+        
+        // Обновляем localStorage только валидными пользователями
+        if (validUsers.length !== recent.length) {
+          localStorage.setItem('recentUsers', JSON.stringify(validUsers));
+        }
+        
+        setRecentUsers(validUsers);
+      } catch (error) {
+        console.error('Error validating recent users:', error);
+        setRecentUsers(recent); // Fallback к оригинальному списку
+      }
+    };
+    
+    validateRecentUsers();
   }, []);
 
   const handleUserClick = (user) => {

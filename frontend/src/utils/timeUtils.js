@@ -55,21 +55,30 @@ export const formatMessageTime = (timestamp) => {
     return timeString; // Только время для сегодняшних сообщений
   }
   
+  // Вчера
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = messageDate.toDateString() === yesterday.toDateString();
+  
+  if (isYesterday) {
+    return `Yesterday ${timeString}`;
+  }
+  
   // Проверяем, в этом ли году
   const isThisYear = messageDate.getFullYear() === now.getFullYear();
   
   const months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
   
   const day = messageDate.getDate();
   const month = months[messageDate.getMonth()];
   
   if (isThisYear) {
-    return `${timeString} ${day} ${month}`;
+    return `${day} ${month} ${timeString}`;
   } else {
     const year = messageDate.getFullYear();
-    return `${timeString} ${day} ${month} ${year}`;
+    return `${day} ${month} ${year} ${timeString}`;
   }
 }; 

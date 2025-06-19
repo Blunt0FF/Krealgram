@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 import LikesModal from './LikesModal';
+
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { getMediaThumbnail } from '../../utils/videoUtils';
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';
 import { API_URL } from '../../config';
 import './PostModal.css';
@@ -78,6 +80,13 @@ const PostModal = ({
     setComments(initialPost?.comments || []);
     setCommentsToShow(4);
     setIsCaptionExpanded(false);
+
+    console.log('PostModal: Received post data:', initialPost);
+    console.log('PostModal: Post mediaType:', initialPost?.mediaType);
+    console.log('PostModal: Post videoUrl:', initialPost?.videoUrl);
+    console.log('PostModal: Post youtubeData:', initialPost?.youtubeData);
+    console.log('PostModal: Post imageUrl:', initialPost?.imageUrl);
+    console.log('PostModal: Post image:', initialPost?.image);
 
     if (currentUser && initialPost) {
       const userLiked = initialPost.likes?.includes(currentUser._id) || 
@@ -225,14 +234,24 @@ const PostModal = ({
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
+    const now = new Date();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const day = date.getDate();
+    const month = monthNames[date.getMonth()];
+    const year = date.getFullYear();
+    const currentYear = now.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    if (year === currentYear) {
+      return `${month} ${day} at ${hours}:${minutes}`;
+    } else {
+      return `${month} ${day}, ${year} at ${hours}:${minutes}`;
+    }
   };
 
   const toggleLike = async () => {
@@ -461,43 +480,109 @@ const PostModal = ({
         ref={modalContentRef}
         className="post-modal-content"
       >
-
         <div className="post-modal-image">
-          {postData.youtubeData ? (
+          {/* Кнопки навигации */}
+          {canGoPrevious && (
+            <button className="modal-nav-btn modal-prev-btn" onClick={onPrevious} onTouchStart={(e) => e.stopPropagation()}>
+              ‹
+            </button>
+          )}
+          {canGoNext && (
+            <button className="modal-nav-btn modal-next-btn" onClick={onNext} onTouchStart={(e) => e.stopPropagation()}>
+              ›
+            </button>
+          )}
+          
+          {postData.youtubeData && postData.youtubeData.embedUrl ? (
             <iframe
               width="100%"
-              height="100%"
+              height="600"
               src={postData.youtubeData.embedUrl}
               title="YouTube video player"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              style={{ minHeight: '500px' }}
+              style={{ borderRadius: '0' }}
+            />
+          ) : postData.videoUrl && postData.videoUrl.includes('youtube') ? (
+            <iframe
+              width="100%"
+              height="600"
+              src={postData.videoUrl.replace('watch?v=', 'embed/')}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ borderRadius: '0' }}
             />
           ) : postData.mediaType === 'video' ? (
             <video 
-              src={postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`)}
-              controls
-              style={{ width: '100%', height: '100%', minHeight: '500px', objectFit: 'contain' }}
-            />
-          ) : postData.imageUrl ? (
-            <img src={postData.imageUrl} alt={postData.caption || 'Post'} />
-          ) : postData.image ? (
-            <img src={postData.image.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`} alt={postData.caption || 'Post'} />
+              src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
+              poster={getMediaThumbnail(postData)}
+              className="post-modal-image"
+              controls={true}
+              muted={false}
+              playsInline
+              preload="metadata"
+              style={{ width: '100%', height: 'auto', maxHeight: '60vh', minHeight: '300px', backgroundColor: '#000' }}
+            >
+              Your browser does not support the video tag.
+            </video>
+          ) : postData.mediaType === 'video' && postData.videoUrl ? (
+            <div 
+              className="modal-video-placeholder"
+              style={{ 
+                height: '600px', 
+                background: `url(${getMediaThumbnail(postData)}) center/contain no-repeat`,
+                backgroundColor: '#000',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}
+            >
+              <div style={{
+                background: 'rgba(0,0,0,0.7)',
+                borderRadius: '50%',
+                width: '80px',
+                height: '80px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </div>
+              {postData.videoUrl && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '20px',
+                  left: '20px',
+                  right: '20px',
+                  background: 'rgba(0,0,0,0.8)',
+                  color: 'white',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  textAlign: 'center'
+                }}>
+                  {postData.videoUrl.includes('tiktok') ? 'TikTok Video' : 
+                   postData.videoUrl.includes('vk.com') ? 'VK Video' : 
+                   postData.videoUrl.includes('instagram') ? 'Instagram Video' : 
+                   `External video: ${postData.videoUrl}`}
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="image-placeholder">Media not available</div>
-          )}
-
-          {/* Навигационные кнопки */}
-          {onPrevious && canGoPrevious && (
-            <button className="modal-nav-btn modal-prev-btn" onClick={onPrevious} onTouchStart={(e) => e.stopPropagation()}>
-              &#10094;
-            </button>
-          )}
-          {onNext && canGoNext && (
-            <button className="modal-nav-btn modal-next-btn" onClick={onNext} onTouchStart={(e) => e.stopPropagation()}>
-              &#10095;
-            </button>
+            <img 
+              src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
+              alt="Post" 
+              className="post-modal-image"
+              onError={(e) => { 
+                e.target.style.display = 'none'; 
+              }}
+            />
           )}
         </div>
 

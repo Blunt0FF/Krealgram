@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Post from '../Post/Post';
 import PostModal from '../Post/PostModal';
+import VideoStories from '../VideoStories/VideoStories';
 import { API_URL } from '../../config';
 import './Feed.css';
 
@@ -85,6 +86,12 @@ const Feed = ({ user }) => {
   };
 
   const handleImageClick = async (post) => {
+    // Останавливаем все видео в ленте
+    const videos = document.querySelectorAll('.feed video');
+    videos.forEach(video => {
+      video.pause();
+    });
+
     setIsModalOpen(true);
     setIsModalLoading(true);
     setSelectedPost(post);
@@ -147,6 +154,7 @@ const Feed = ({ user }) => {
 
   return (
     <div className="feed-container">
+      <VideoStories />
       <div className="feed">
         {posts.length > 0 ? (
           posts.map((post, index) => (
