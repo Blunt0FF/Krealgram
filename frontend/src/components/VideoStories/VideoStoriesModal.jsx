@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
+import ShareModal from '../Post/ShareModal';
 import { API_URL } from '../../config';
 import './VideoStoriesModal.css';
 
@@ -10,10 +11,21 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   
+  // Лайки и комментарии
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [showComments, setShowComments] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  
   // Swipe functionality
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const modalRef = useRef(null);
+  
+  // Share modal
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const currentVideo = videos[currentIndex];
 
@@ -35,6 +47,17 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       videoManager.pauseAllFeedVideos();
     }
   }, [isOpen]);
+
+  // Обновляем лайки и комментарии при смене видео
+  useEffect(() => {
+    if (currentVideo) {
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      setIsLiked(currentVideo.likes?.includes(currentUser._id) || false);
+      setLikesCount(currentVideo.likesCount || currentVideo.likes?.length || 0);
+      setComments(currentVideo.comments || []);
+      setShowComments(false);
+    }
+  }, [currentVideo]);
 
   const fetchUserVideos = async () => {
     try {
@@ -72,6 +95,77 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     if (e.key === 'ArrowRight') handleNext();
     if (e.key === 'ArrowLeft') handlePrevious();
     if (e.key === 'Escape') onClose();
+  };
+
+  // Функция лайка
+  const handleLike = async () => {
+    if (!currentVideo) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/likes/${currentVideo._id}/toggle`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsLiked(data.liked);
+        setLikesCount(data.likeCount);
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  // Функция добавления комментария
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim() || !currentVideo || isSubmittingComment) return;
+
+    setIsSubmittingComment(true);
+    try {
+      const token = localStorage.getItem('token');
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      const response = await fetch(`${API_URL}/api/comments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: newComment,
+          postId: currentVideo._id
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Создаем комментарий с правильной структурой если API не вернул полную информацию
+        const newCommentObj = data.comment || {
+          _id: Date.now().toString(),
+          text: newComment,
+          user: currentUser,
+          author: currentUser,
+          createdAt: new Date().toISOString()
+        };
+        
+        setComments(prev => [...prev, newCommentObj]);
+        setNewComment('');
+      } else {
+        console.error('Failed to add comment:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    } finally {
+      setIsSubmittingComment(false);
+    }
   };
 
   // Touch handlers for swipe
@@ -224,15 +318,104 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
               )}
             </div>
 
-            {/* Caption внизу */}
-            {currentVideo?.caption && (
-              <div className="stories-caption">
-                {currentVideo.caption}
+            {/* Instagram-style интерфейс внизу */}
+            <div className="stories-bottom-interface">
+              {/* Кнопки действий */}
+              <div className="stories-actions">
+                <div className="stories-actions-left">
+                  <button 
+                    className={`stories-like-btn ${isLiked ? 'liked' : ''}`}
+                    onClick={handleLike}
+                  >
+                    <svg width="24" height="24" fill={isLiked ? "#ed4956" : "none"} stroke={isLiked ? "#ed4956" : "white"} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </button>
+                  
+                  {/* Счетчик лайков рядом с иконкой */}
+                  {likesCount > 0 && (
+                    <span className="stories-likes-count">
+                      {likesCount} {likesCount === 1 ? 'like' : 'likes'}
+                    </span>
+                  )}
+                </div>
+
+                <button 
+                  className="stories-share-btn"
+                  onClick={() => setShowShareModal(true)}
+                >
+                  <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                    <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
               </div>
-            )}
+
+              {/* Описание */}
+              {currentVideo?.caption && (
+                <div className="stories-description">
+                  <span className="stories-username-bold">{user.username}</span> {currentVideo.caption}
+                </div>
+              )}
+
+              {/* Комментарии - всегда показываем если есть */}
+              {comments.length > 0 && (
+                <div className="stories-comments-list">
+                  {comments.slice(-3).map((comment, index) => {
+                    const username = comment.author?.username || comment.user?.username || comment.username || 'User';
+                    return (
+                      <div key={comment._id || index} className="stories-comment">
+                        <span className="comment-username">{username}</span>
+                        <span style={{ color: 'white' }}>{comment.text}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Кнопка для просмотра всех комментариев (если их больше 3) */}
+              {comments.length > 3 && !showComments && (
+                <button 
+                  className="stories-view-comments"
+                  onClick={() => setShowComments(!showComments)}
+                >
+                  View all {comments.length} comments
+                </button>
+              )}
+
+              {/* Поле добавления комментария */}
+              <form className="stories-add-comment" onSubmit={handleAddComment}>
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="stories-comment-input"
+                  disabled={isSubmittingComment}
+                />
+                {newComment.trim() && (
+                  <button 
+                    type="submit" 
+                    className="stories-comment-submit"
+                    disabled={isSubmittingComment}
+                  >
+                    {isSubmittingComment ? '...' : 'Post'}
+                  </button>
+                )}
+              </form>
+            </div>
           </>
         )}
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && currentVideo && (
+        <ShareModal
+          postId={currentVideo._id}
+          post={currentVideo}
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </div>
   );
 };

@@ -607,7 +607,10 @@
 
 .follower-link.deleted-user {
   cursor: default;
-  opacity: 0.6;
+  opacity: 1;
+  display: flex !important;
+  align-items: center;
+  color: #8e8e8e;
 }
 
 .follower-avatar {
@@ -625,14 +628,18 @@
 }
 
 .follower-username.deleted-username {
-  color: #8e8e8e;
+  color: #8e8e8e !important;
   font-style: italic;
   font-weight: 400;
+  display: inline !important;
+  visibility: visible !important;
 }
 
 .follower-avatar.deleted-avatar {
-  opacity: 0.6;
+  opacity: 1;
   filter: grayscale(100%);
+  display: block !important;
+  visibility: visible !important;
 }
 
 .remove-follower-btn {

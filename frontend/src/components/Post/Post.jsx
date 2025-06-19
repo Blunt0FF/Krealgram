@@ -5,8 +5,9 @@ import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
-import { getMediaThumbnail } from '../../utils/videoUtils';
+import { getMediaThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
+import VideoPreview from './VideoPreview';
 import { API_URL } from '../../config';
 import './Post.css';
 
@@ -304,11 +305,13 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
             style={{ borderRadius: '0', cursor: 'pointer' }}
             onClick={() => onImageClick(post)}
           />
-        ) : post.videoUrl && post.videoUrl.includes('youtube') ? (
+        ) : post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')) ? (
           <iframe
             width="100%"
             height="500"
-            src={post.videoUrl.replace('watch?v=', 'embed/')}
+            src={post.videoUrl.includes('youtu.be') 
+              ? post.videoUrl.replace('youtu.be/', 'youtube.com/embed/')
+              : post.videoUrl.replace('watch?v=', 'embed/').replace('&', '?')}
             title="YouTube video player"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -316,106 +319,14 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
             style={{ borderRadius: '0', cursor: 'pointer' }}
             onClick={() => onImageClick(post)}
           />
-        ) : post.mediaType === 'video' && !post.videoUrl ? (
-          <video 
-            src={getImageSrc()}
-            poster={getMediaThumbnail(post)}
-            className="post-image"
-            controls={true}
-            muted={false}
-            playsInline
-            preload="metadata"
-            style={{ 
-              cursor: 'pointer', 
-              width: '100%', 
-              height: '400px',
-              objectFit: 'cover',
-              backgroundColor: '#000'
-            }}
+        ) : (post.mediaType === 'video' || 
+              (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
+              (post.image && (post.image.includes('.mp4') || post.image.includes('video/')))) ? (
+          <VideoPreview 
+            post={post}
             onClick={() => onImageClick(post)}
             onDoubleClick={handleLike}
-            onPlay={(e) => videoManager.setCurrentVideo(e.target)}
-            onPause={(e) => {
-              if (videoManager.getCurrentVideo() === e.target) {
-                videoManager.pauseCurrentVideo();
-              }
-            }}
-          >
-            Your browser does not support the video tag.
-          </video>
-        ) : post.mediaType === 'video' && post.videoUrl ? (
-          <div 
-            className="post-video-placeholder"
-            style={{ 
-              minHeight: '300px',
-              maxHeight: '900px',
-              aspectRatio: '16/9',
-              background: `url(${getMediaThumbnail(post)}) center/contain no-repeat`,
-              cursor: 'pointer',
-              position: 'relative',
-              backgroundColor: '#000'
-            }}
-            onClick={() => onImageClick(post)}
-            onDoubleClick={handleLike}
-          >
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              background: 'rgba(0,0,0,0.7)',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z"/>
-              </svg>
-            </div>
-            {post.videoUrl && (
-              <div style={{
-                position: 'absolute',
-                bottom: '10px',
-                left: '10px',
-                right: '10px',
-                background: 'rgba(0,0,0,0.8)',
-                color: 'white',
-                padding: '8px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                textAlign: 'center',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <span>
-                  {post.videoUrl.includes('tiktok') ? 'TikTok Video' : 
-                   post.videoUrl.includes('vk.com') ? 'VK Video' : 
-                   post.videoUrl.includes('instagram') ? 'Instagram Video' : 'External Video'}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.open(post.videoUrl, '_blank');
-                  }}
-                  style={{
-                    background: 'rgba(255,255,255,0.2)',
-                    border: 'none',
-                    color: 'white',
-                    padding: '4px 8px',
-                    borderRadius: '4px',
-                    fontSize: '10px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Open
-                </button>
-              </div>
-            )}
-          </div>
+          />
         ) : (
           <img 
             src={getImageSrc()}
@@ -475,7 +386,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
         <div className="post-actions-right">
           <button className="action-button" onClick={handleSharePost}>
             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12h15M13.5 18l6-6-6-6" />
+              <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         </div>
@@ -547,7 +458,9 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
           className="comment-input"
           maxLength="280"
         />
-        <button type="submit" className="comment-submit" disabled={!commentText.trim()}>Post</button>
+        <button type="submit" className="comment-submit" disabled={!commentText.trim()}>
+          Post
+        </button>
       </form>
 
       {isLikesModalVisible && post._id && (

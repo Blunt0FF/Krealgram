@@ -96,14 +96,30 @@
   background: black;
 }
 
-.post-modal-image video {
+.post-modal-image video,
+.post-modal-video {
   width: 100%;
   height: auto;
-  max-height: 60vh; /* Уменьшаем максимальную высоту */
+  max-height: 80vh; /* Увеличиваем максимальную высоту для мобильных */
   min-height: 300px;
   object-fit: contain;
   background: #000;
   border-radius: 8px;
+}
+
+.modal-video-placeholder {
+  width: 100%;
+  height: auto;
+  max-height: 900px;
+  min-height: 300px;
+  background-color: #000;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .image-placeholder {
@@ -498,7 +514,7 @@
 
   .post-modal-image {
     flex-shrink: 0; /* Изображение не сжимается */
-    max-height: 55vh; /* Ограничиваем высоту изображения */
+    max-height: 60vh; /* Увеличиваем высоту изображения */
   }
 
   .post-modal-sidebar {
@@ -530,7 +546,7 @@
   }
 
   .post-modal-image video {
-    max-height: 60vh;
+    max-height: 70vh;
     min-height: 250px;
     border-radius: 4px;
   }
@@ -557,7 +573,7 @@
 
   .post-modal-image {
     flex-shrink: 0; /* Изображение не сжимается */
-    max-height: 55vh; /* Ограничиваем высоту изображения */
+    max-height: 60vh; /* Увеличиваем высоту изображения */
   }
 
   .post-modal-sidebar {
@@ -592,7 +608,7 @@
   }
 
   .post-modal-image video {
-    max-height: 60vh;
+    max-height: 70vh;
     min-height: 250px;
     border-radius: 4px;
   }

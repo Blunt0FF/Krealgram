@@ -360,24 +360,25 @@ exports.getFollowersList = async (req, res) => {
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
-    // Обрабатываем подписчиков - показываем удаленных как "DELETED USER"
-    const processedFollowers = user.followers.map(follower => {
-      if (follower === null || !follower) {
-        // Создаем объект для удаленного пользователя
-        return {
-          _id: null,
-          username: null,
-          avatar: null,
-          bio: null,
-          isDeleted: true
-        };
-      }
-      return follower;
-    });
+    // Фильтруем только существующих пользователей
+    const validFollowers = user.followers.filter(follower => follower !== null && follower);
+    
+    // Если есть удаленные пользователи, очищаем их из базы
+    if (validFollowers.length !== user.followers.length) {
+      await User.updateOne(
+        { _id: userId },
+        { 
+          $pull: { 
+            followers: null 
+          }
+        }
+      );
+      console.log(`Cleaned ${user.followers.length - validFollowers.length} deleted followers from user ${userId}`);
+    }
 
     res.status(200).json({
       message: 'Список подписчиков успешно получен',
-      followers: processedFollowers
+      followers: validFollowers
     });
   } catch (error) {
     console.error('Ошибка получения списка подписчиков:', error);
@@ -405,24 +406,25 @@ exports.getFollowingList = async (req, res) => {
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
-    // Обрабатываем подписки - показываем удаленных как "DELETED USER"
-    const processedFollowing = user.following.map(following => {
-      if (following === null || !following) {
-        // Создаем объект для удаленного пользователя
-        return {
-          _id: null,
-          username: null,
-          avatar: null,
-          bio: null,
-          isDeleted: true
-        };
-      }
-      return following;
-    });
+    // Фильтруем только существующих пользователей
+    const validFollowing = user.following.filter(following => following !== null && following);
+    
+    // Если есть удаленные пользователи, очищаем их из базы
+    if (validFollowing.length !== user.following.length) {
+      await User.updateOne(
+        { _id: userId },
+        { 
+          $pull: { 
+            following: null 
+          }
+        }
+      );
+      console.log(`Cleaned ${user.following.length - validFollowing.length} deleted following from user ${userId}`);
+    }
 
     res.status(200).json({
       message: 'Список подписок успешно получен',
-      following: processedFollowing
+      following: validFollowing
     });
   } catch (error) {
     console.error('Ошибка получения списка подписок:', error);

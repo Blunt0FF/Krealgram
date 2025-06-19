@@ -62,72 +62,109 @@ const MobileBottomNav = ({ user }) => {
 
 // Компонент для превью поста с асинхронной загрузкой изображения
 const PostThumbnail = ({ post, onClick }) => {
-  const [image, setImage] = useState(post.imageUrl || null);
-  const [imageLoaded, setImageLoaded] = useState(!!post.imageUrl);
+  const image = post.imageUrl || post.image;
 
-  useEffect(() => {
-    if (post._id && !imageLoaded && !post.imageUrl) {
-      const token = localStorage.getItem('token');
-      fetch(`${API_URL}/api/posts/${post._id}/image`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.imageUrl) {
-            setImage(data.imageUrl);
-            setImageLoaded(true);
-          }
-        })
-        .catch(err => console.error('Error loading thumbnail:', err));
-    } else if (post.imageUrl && !image) {
-      setImage(post.imageUrl);
-      setImageLoaded(true);
-    }
-  }, [post._id, post.imageUrl, imageLoaded, image]);
-
-  const getThumbnailSrc = () => {
+  const getThumbnailSrc = React.useMemo(() => {
     // Для видео всегда показываем thumbnail или placeholder
     if (post.mediaType === 'video') {
       // Если есть videoUrl (внешнее видео), получаем thumbnail через videoUtils
       if (post.videoUrl) {
-        const thumbnail = getMediaThumbnail(post);
-        console.log('External video thumbnail for post:', post._id, thumbnail);
+        const thumbnail = getMediaThumbnail(post, { forProfile: true, width: 300, height: 300 });
         return thumbnail || '/video-placeholder.svg';
       }
       
-      // Для загруженных видео используем изображение поста как thumbnail
+      // Для загруженных видео показываем GIF всегда, но с разными настройками
       if (post.imageUrl || image) {
-        const videoThumbnail = image || post.imageUrl;
-        console.log('Uploaded video thumbnail for post:', post._id, videoThumbnail);
-        return videoThumbnail;
+        const videoUrl = image || post.imageUrl;
+        
+        // Если это Cloudinary видео
+        if (videoUrl && videoUrl.includes('cloudinary.com')) {
+          // Проверяем размер экрана
+          const isMobile = window.innerWidth <= 768;
+          
+          if (isMobile) {
+            // На мобильных: зацикленные 10 сек, 30 FPS
+            const gifUrl = videoUrl.replace(
+              '/video/upload/',
+              `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
+            );
+            return gifUrl;
+          } else {
+            // На десктопе: зацикленные 10 сек, 30 FPS
+            const gifUrl = videoUrl.replace(
+              '/video/upload/',
+              `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
+            );
+            return gifUrl;
+          }
+        }
+        
+        return videoUrl;
       }
       
       return '/video-placeholder.svg';
     }
     
+    // Определяем видео по URL если mediaType не указан
+    if (image && image.includes('cloudinary.com') && image.includes('/video/')) {
+      // Это Cloudinary видео без правильного mediaType
+      const isMobile = window.innerWidth <= 768;
+      
+      if (isMobile) {
+        // На мобильных: зацикленные 10 сек, 30 FPS
+        const gifUrl = image.replace(
+          '/video/upload/',
+          `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
+        );
+        return gifUrl;
+      } else {
+        // На десктопе: зацикленные 10 сек, 30 FPS
+        const gifUrl = image.replace(
+          '/video/upload/',
+          `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
+        );
+        return gifUrl;
+      }
+    }
+    
     // Для обычных изображений
     const imageSrc = image || post.imageUrl;
-    console.log('Image thumbnail for post:', post._id, imageSrc);
     return imageSrc || '/video-placeholder.svg';
-  };
+  }, [post._id, post.mediaType, post.videoUrl, post.imageUrl, image]);
+
+  // Определяем, является ли это видео для показа индикатора
+  const isVideo = React.useMemo(() => {
+    return post.mediaType === 'video' || 
+           (image && image.includes('cloudinary.com') && image.includes('/video/')) ||
+           post.videoUrl;
+  }, [post.mediaType, post.videoUrl, image]);
 
   return (
     <div className="post-thumbnail" onClick={onClick}>
       <div className="thumbnail-container">
         <img 
-          src={getThumbnailSrc()} 
+          src={getThumbnailSrc} 
           alt={post.caption || 'Post'} 
           loading="lazy"
           onError={(e) => {
-            // Если thumbnail не загрузился, показываем placeholder
-            if (post.mediaType === 'video') {
+            // Если thumbnail не загрузился, пробуем альтернативные варианты
+            if (isVideo) {
+              // Для Cloudinary видео пробуем другой формат
+              if (e.target.src.includes('cloudinary.com') && !e.target.src.includes('f_auto')) {
+                const fallbackUrl = e.target.src.replace('f_jpg', 'f_auto');
+                e.target.src = fallbackUrl;
+                return;
+              }
+              
+              // Если все не работает, показываем placeholder
               e.target.src = '/video-placeholder.svg';
             } else {
+              // Для изображений скрываем элемент
               e.target.style.display = 'none';
             }
           }}
         />
-        {post.mediaType === 'video' && (
+        {isVideo && (
           <div className="video-indicator">
             <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z"/>
@@ -274,19 +311,12 @@ const Profile = ({ user: currentUserProp }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const handlePostClick = (post) => {
-    console.log('PROFILE CLICK: post =', post);
-    console.log('PROFILE CLICK: mediaType =', post.mediaType);
-    console.log('PROFILE CLICK: videoUrl =', post.videoUrl);
-    
     const postWithLikeStatus = {
       ...post,
       isLikedByCurrentUser: post.isLikedByCurrentUser
     };
     setSelectedPost(postWithLikeStatus);
     setIsModalOpen(true);
-    
-    console.log('PROFILE CLICK: selectedPost set to =', postWithLikeStatus);
-    console.log('PROFILE CLICK: isModalOpen set to =', true);
   };
 
   const goToPreviousPost = () => {
@@ -768,7 +798,7 @@ const Profile = ({ user: currentUserProp }) => {
         )}
         
         {/* ОТЛАДКА */}
-        {selectedPost && console.log('PROFILE RENDER: selectedPost =', selectedPost, 'isModalOpen =', isModalOpen)}
+  
 
         <FollowersModal
           isOpen={isFollowersModalOpen}

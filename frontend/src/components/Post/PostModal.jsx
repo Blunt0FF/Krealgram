@@ -77,17 +77,12 @@ const PostModal = ({
   const token = localStorage.getItem('token');
 
   useEffect(() => {
+    if (!initialPost) return;
+    
     setPostData(initialPost);
     setComments(initialPost?.comments || []);
     setCommentsToShow(4);
     setIsCaptionExpanded(false);
-
-    console.log('PostModal: Received post data:', initialPost);
-    console.log('PostModal: Post mediaType:', initialPost?.mediaType);
-    console.log('PostModal: Post videoUrl:', initialPost?.videoUrl);
-    console.log('PostModal: Post youtubeData:', initialPost?.youtubeData);
-    console.log('PostModal: Post imageUrl:', initialPost?.imageUrl);
-    console.log('PostModal: Post image:', initialPost?.image);
 
     if (currentUser && initialPost) {
       const userLiked = initialPost.likes?.includes(currentUser._id) || 
@@ -470,12 +465,9 @@ const PostModal = ({
   };
 
   if (!isOpen) {
-    console.log('PostModal: NOT OPEN - isOpen =', isOpen, 'postData =', postData);
     return null;
   }
   
-  console.log('PostModal: RENDERING - isOpen =', isOpen, 'postData =', postData);
-
   return (
     <div
       ref={overlayRef}
@@ -518,27 +510,30 @@ const PostModal = ({
               allowFullScreen
               style={{ borderRadius: '0' }}
             />
-          ) : postData.videoUrl && postData.videoUrl.includes('youtube') ? (
+          ) : postData.videoUrl && (postData.videoUrl.includes('youtube') || postData.videoUrl.includes('youtu.be')) ? (
             <iframe
               width="100%"
               height="600"
-              src={postData.videoUrl.replace('watch?v=', 'embed/')}
+              src={postData.videoUrl.includes('youtu.be') 
+                ? postData.videoUrl.replace('youtu.be/', 'youtube.com/embed/')
+                : postData.videoUrl.replace('watch?v=', 'embed/').replace('&', '?')}
               title="YouTube video player"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
               style={{ borderRadius: '0' }}
             />
-          ) : postData.mediaType === 'video' && !postData.videoUrl ? (
+          ) : (postData.mediaType === 'video' || 
+                (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
+                (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && !postData.videoUrl ? (
             <video 
               src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
-              poster={getMediaThumbnail(postData)}
-              className="post-modal-image"
+              className="post-modal-video"
               controls={true}
               muted={false}
               playsInline
               preload="metadata"
-              style={{ width: '100%', height: 'auto', maxHeight: '70vh', minHeight: '400px', backgroundColor: '#000' }}
+              style={{ width: '100%', height: 'auto', maxHeight: '900px', backgroundColor: '#000', objectFit: 'contain' }}
               onPlay={(e) => videoManager.setCurrentVideo(e.target)}
               onPause={(e) => {
                 if (videoManager.getCurrentVideo() === e.target) {
@@ -548,11 +543,16 @@ const PostModal = ({
             >
               Your browser does not support the video tag.
             </video>
-          ) : postData.mediaType === 'video' && postData.videoUrl ? (
+          ) : (postData.mediaType === 'video' || 
+                (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
+                (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && postData.videoUrl ? (
             <div 
               className="modal-video-placeholder"
               style={{ 
-                height: '600px', 
+                width: '100%',
+                height: 'auto',
+                maxHeight: '900px',
+                minHeight: '300px',
                 background: `url(${getMediaThumbnail(postData)}) center/contain no-repeat`,
                 backgroundColor: '#000',
                 display: 'flex',
@@ -580,18 +580,18 @@ const PostModal = ({
                   bottom: '20px',
                   left: '20px',
                   right: '20px',
-                  background: 'rgba(0,0,0,0.8)',
+                  background: 'rgba(0,0,0,0.9)',
                   color: 'white',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  fontSize: '15px',
                   textAlign: 'center'
                 }}>
-                  <div style={{ marginBottom: '8px' }}>
-                    {postData.videoUrl.includes('tiktok') ? 'TikTok Video' : 
-                     postData.videoUrl.includes('vk.com') ? 'VK Video' : 
-                     postData.videoUrl.includes('instagram') ? 'Instagram Video' : 
-                     'External Video'}
+                  <div style={{ marginBottom: '10px', fontWeight: '600' }}>
+                    🎥 External Video
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '12px' }}>
+                    Click to open in new tab
                   </div>
                   <button
                     onClick={() => window.open(postData.videoUrl, '_blank')}
@@ -599,13 +599,14 @@ const PostModal = ({
                       background: '#0095f6',
                       color: 'white',
                       border: 'none',
-                      padding: '6px 12px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      cursor: 'pointer'
+                      padding: '8px 20px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      fontWeight: '600'
                     }}
                   >
-                    Open
+                    Open Video
                   </button>
                 </div>
               )}
@@ -725,7 +726,9 @@ const PostModal = ({
 
             <div className="post-actions-right">
               <button className="action-button" onClick={handleSharePost}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.5 12h15M13.5 18l6-6-6-6"></path></svg>
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
             </div>
           </div>
@@ -823,7 +826,9 @@ const PostModal = ({
                 placeholder="Add a comment..."
                 className="comment-input"
               />
-              <button type="submit" className="comment-submit" disabled={!newComment.trim()}>Post</button>
+              <button type="submit" className="comment-submit" disabled={!newComment.trim()}>
+                Post
+              </button>
             </form>
           </div>
         </div>

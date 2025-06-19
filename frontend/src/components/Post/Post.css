@@ -112,11 +112,25 @@
 .post-image[controls] {
   /* Стили для видео элементов */
   width: 100%;
-  height: 400px;
+  height: auto;
   max-height: 900px;
   background: #000;
   border-radius: 0;
-  object-fit: cover;
+  object-fit: contain;
+}
+
+.post-video-placeholder {
+  width: 100%;
+  height: 500px;
+  background-color: #000;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
 }
 
 .post-image-placeholder {
@@ -175,7 +189,6 @@
   gap: 12px;
 }
 
-
 .likes-count-inline {
   font-size: 14px;
   font-weight: 600;
@@ -188,10 +201,10 @@
   color: #8e8e8e;
 }
 
-/* .post-actions-right {
+.post-actions-right {
   display: flex;
   gap: 16px;
-} */
+}
 
 .action-button {
   background: none;
@@ -539,15 +552,13 @@
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  padding: 6px 12px;
-  border-radius: 4px;
-  min-width: 50px;
+  padding: 6px 16px;
+  border-radius: 6px;
   text-shadow: none;
 }
 
 .comment-submit:hover:not(:disabled) {
   background: #1877f2;
-  transform: none;
   opacity: 1;
 }
 

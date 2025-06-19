@@ -69,39 +69,7 @@ const CreatePost = () => {
       };
     }
 
-    // TikTok
-    const tiktokRegex = /(?:https?:\/\/)?(?:www\.|vm\.|m\.)?tiktok\.com\/(?:@[\w\.-]+\/video\/(\d+)|v\/(\d+)|[\w\.-]+|t\/[\w\.-]+)/;
-    const tiktokMatch = url.match(tiktokRegex);
-    if (tiktokMatch || url.includes('tiktok.com') || url.includes('vm.tiktok.com')) {
-      return {
-        platform: 'tiktok',
-        videoId: tiktokMatch?.[1] || tiktokMatch?.[2] || 'unknown',
-        originalUrl: url,
-        note: 'TikTok video will be displayed as external link'
-      };
-    }
 
-    // VK Video
-    const vkRegex = /(?:https?:\/\/)?(?:www\.|m\.)?(?:vk\.com\/(?:video|clip)(-?\d+_\d+)|vkvideo\.ru\/video(-?\d+_\d+))/;
-    const vkMatch = url.match(vkRegex);
-    if (vkMatch || url.includes('vk.com/video') || url.includes('vk.com/clip') || url.includes('vkvideo.ru')) {
-      return {
-        platform: 'vk',
-        videoId: vkMatch?.[1] || vkMatch?.[2] || 'unknown',
-        originalUrl: url
-      };
-    }
-
-    // Instagram
-    const instagramRegex = /(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|reel|tv)\/([A-Za-z0-9_-]+)/;
-    const instagramMatch = url.match(instagramRegex);
-    if (instagramMatch || url.includes('instagram.com')) {
-      return {
-        platform: 'instagram',
-        videoId: instagramMatch?.[1] || 'unknown',
-        originalUrl: url
-      };
-    }
 
     return null;
   };
@@ -124,7 +92,7 @@ const CreatePost = () => {
         }
       } else {
         setParsedVideoData(null);
-        setError('Unsupported URL. Supported: YouTube, TikTok, VK (vk.com, vkvideo.ru), Instagram');
+        setError('Unsupported URL. Only YouTube videos are supported');
       }
     } else {
       setParsedVideoData(null);
@@ -153,7 +121,7 @@ const CreatePost = () => {
     const parsedVideoInfo = isUrlMode ? parseVideoUrl(videoUrl) : null;
     
     if (isUrlMode && !parsedVideoInfo) {
-      setError('Unsupported URL. Supported: YouTube, TikTok, VK, Instagram');
+      setError('Unsupported URL. Only YouTube videos are supported');
       return;
     }
 
@@ -266,7 +234,7 @@ const CreatePost = () => {
                 type="text"
                 value={videoUrl}
                 onChange={handleUrlChange}
-                placeholder="Paste video link (YouTube, TikTok, VK, Instagram)"
+                placeholder="Paste YouTube video link"
                 className="url-input"
                 disabled={loading}
               />

@@ -1,15 +1,15 @@
 const User = require('../models/userModel');
 
-// Функция для установки пользователей как offline, если они не были активны более 5 минут
+// Функция для установки пользователей как offline, если они не были активны более 15 минут
 const updateInactiveUsers = async () => {
   try {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000); // 5 минут назад
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000); // 15 минут назад
     
-    // Находим всех пользователей, которые онлайн, но не были активны более 5 минут
+    // Находим всех пользователей, которые онлайн, но не были активны более 15 минут
     await User.updateMany(
       {
         isOnline: true,
-        lastActive: { $lt: fiveMinutesAgo }
+        lastActive: { $lt: fifteenMinutesAgo }
       },
       {
         $set: { isOnline: false }
@@ -24,8 +24,8 @@ const updateInactiveUsers = async () => {
 
 // Функция для запуска периодического обновления статуса
 const startUserStatusUpdater = () => {
-  // Запускаем каждые 2 минуты
-  setInterval(updateInactiveUsers, 2 * 60 * 1000);
+  // Запускаем каждые 10 минут (уменьшаем нагрузку на MongoDB)
+  setInterval(updateInactiveUsers, 10 * 60 * 1000);
   console.log('User status updater started');
 };
 

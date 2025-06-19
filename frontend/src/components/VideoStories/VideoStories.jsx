@@ -19,37 +19,25 @@ const VideoStories = () => {
       const token = localStorage.getItem('token');
       
       if (!token) {
-        console.error('VideoStories: No auth token found');
         setLoading(false);
         return;
       }
       
-      console.log('VideoStories: Fetching video users...');
       const response = await fetch(`${API_URL}/api/posts/video-users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-
-      console.log('VideoStories: Response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('VideoStories: Response data:', data);
         setVideoUsers(data.users || []);
       } else {
         const errorText = await response.text().catch(() => 'No error text');
-        console.error('VideoStories: Video users error:', response.status, errorText);
-        try {
-          const errorData = JSON.parse(errorText);
-          console.error('VideoStories: Parsed error:', errorData);
-        } catch (e) {
-          console.error('VideoStories: Raw error text:', errorText);
-        }
       }
     } catch (error) {
-      console.error('VideoStories: Error fetching video users:', error);
+      console.error('Error fetching video users:', error);
     } finally {
       setLoading(false);
     }
@@ -78,15 +66,10 @@ const VideoStories = () => {
     );
   }
 
-  console.log('VideoStories: Rendering, videoUsers:', videoUsers);
-  
   // Временно отключаем VideoStories если есть проблемы с API
   if (videoUsers.length === 0) {
-    console.log('VideoStories: No video users found, hiding component');
     return null; // Не показываем ленту если нет видео
   }
-  
-  console.log('VideoStories: Showing component with', videoUsers.length, 'users');
 
   return (
     <>
