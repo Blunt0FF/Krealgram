@@ -70,7 +70,7 @@ const messageStorage = new CloudinaryStorage({
 const uploadPost = multer({ 
   storage: postStorage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 50 * 1024 * 1024, // 50MB для видео
   },
 });
 

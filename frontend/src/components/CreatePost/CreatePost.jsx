@@ -124,7 +124,7 @@ const CreatePost = () => {
         }
       } else {
         setParsedVideoData(null);
-        setError('Неподдерживаемый URL. Поддерживаются: YouTube, TikTok, VK (vk.com, vkvideo.ru), Instagram');
+        setError('Unsupported URL. Supported: YouTube, TikTok, VK (vk.com, vkvideo.ru), Instagram');
       }
     } else {
       setParsedVideoData(null);

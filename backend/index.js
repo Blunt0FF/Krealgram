@@ -75,6 +75,77 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Database health check
+app.get('/api/db-health', async (req, res) => {
+  try {
+    const dbState = mongoose.connection.readyState;
+    const states = {
+      0: 'disconnected',
+      1: 'connected', 
+      2: 'connecting',
+      3: 'disconnecting'
+    };
+    
+    res.status(200).json({
+      database: states[dbState] || 'unknown',
+      readyState: dbState,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      database: 'error',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Test post creation endpoint
+app.post('/api/test-post', async (req, res) => {
+  try {
+    console.log('=== TEST POST CREATION ===');
+    console.log('Request body:', req.body);
+    console.log('Request headers:', req.headers);
+    
+    const Post = require('./models/postModel');
+    const User = require('./models/userModel');
+    
+    // Найдем первого пользователя
+    const user = await User.findOne();
+    if (!user) {
+      return res.status(400).json({ error: 'No users found in database' });
+    }
+    
+    console.log('Found user:', user.username);
+    
+    // Создадим простой пост
+    const testPost = new Post({
+      author: user._id,
+      image: '/video-placeholder.svg',
+      mediaType: 'image',
+      caption: req.body.caption || 'Test post'
+    });
+    
+    console.log('Attempting to save post...');
+    const savedPost = await testPost.save();
+    console.log('Post saved successfully:', savedPost._id);
+    
+    res.json({ 
+      success: true, 
+      postId: savedPost._id,
+      message: 'Test post created successfully'
+    });
+    
+  } catch (error) {
+    console.error('Test post creation error:', error);
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+  }
+});
+
 // TODO: Подключить маршруты (routes)
 const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');

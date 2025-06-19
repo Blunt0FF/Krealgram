@@ -64,7 +64,7 @@ const messageMediaFilter = (req, file, cb) => {
 const uploadPost = multer({
   storage: postStorage,
   limits: {
-    fileSize: 1024 * 1024 * 10 // Лимит размера файла: 10MB
+    fileSize: 1024 * 1024 * 50 // Лимит размера файла: 50MB для видео
   },
   fileFilter: postFileFilter
 });

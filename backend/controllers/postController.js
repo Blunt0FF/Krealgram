@@ -71,9 +71,21 @@ exports.createPost = async (req, res) => {
     }
 
     // Проверяем что у нас есть хотя бы что-то для отображения
-    if (!imagePath && !videoUrl) {
-      console.log('No video URL and no file provided');
-      return res.status(400).json({ message: 'Media content is required for the post.' });
+    if (!imagePath && !videoUrl && !caption?.trim()) {
+      console.log('No video URL, no file, and no caption provided');
+      return res.status(400).json({ message: 'Media content or caption is required for the post.' });
+    }
+
+    // Если нет imagePath но есть videoUrl, устанавливаем placeholder
+    if (!imagePath && videoUrl) {
+      imagePath = '/video-placeholder.svg';
+      mediaType = 'video';
+    }
+    
+    // Если нет медиа вообще, но есть подпись, используем текстовый пост
+    if (!imagePath && !videoUrl && caption?.trim()) {
+      imagePath = '/text-post-placeholder.svg';
+      mediaType = 'image';
     }
 
     console.log('Final post data:', {
@@ -109,6 +121,9 @@ exports.createPost = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating post:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Request body:', req.body);
+    console.error('Request file:', req.file);
     
     // Clean up uploaded file if DB error occurred
     if (req.file && req.file.path) {
@@ -120,7 +135,17 @@ exports.createPost = async (req, res) => {
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Validation Error: ' + error.message });
     }
-    res.status(500).json({ message: 'Server error while creating post.', error: error.message });
+    
+    // Более подробная информация об ошибке
+    const errorMessage = error.message || 'Unknown error occurred';
+    const errorCode = error.code || 'UNKNOWN_ERROR';
+    
+    res.status(500).json({ 
+      message: 'Server error while creating post.', 
+      error: errorMessage,
+      code: errorCode,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 

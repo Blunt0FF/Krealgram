@@ -7,6 +7,7 @@ import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
+import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import { formatLastSeen } from '../../utils/timeUtils';
 import './Profile.css';
@@ -87,17 +88,23 @@ const PostThumbnail = ({ post, onClick }) => {
   const getThumbnailSrc = () => {
     // Для видео всегда показываем thumbnail или placeholder
     if (post.mediaType === 'video') {
-      // Используем videoUtils для получения правильного thumbnail
-      const thumbnail = getMediaThumbnail(post, { width: 400, height: 400 });
-      console.log('Video thumbnail for post:', post._id, thumbnail);
-      
-      // Если thumbnail не определен или это placeholder, возвращаем placeholder
-      if (!thumbnail || thumbnail === '/video-placeholder.svg') {
-        return '/video-placeholder.svg';
+      // Если есть videoUrl (внешнее видео), получаем thumbnail через videoUtils
+      if (post.videoUrl) {
+        const thumbnail = getMediaThumbnail(post);
+        console.log('External video thumbnail for post:', post._id, thumbnail);
+        return thumbnail || '/video-placeholder.svg';
       }
       
-      return thumbnail;
+      // Для загруженных видео используем изображение поста как thumbnail
+      if (post.imageUrl || image) {
+        const videoThumbnail = image || post.imageUrl;
+        console.log('Uploaded video thumbnail for post:', post._id, videoThumbnail);
+        return videoThumbnail;
+      }
+      
+      return '/video-placeholder.svg';
     }
+    
     // Для обычных изображений
     const imageSrc = image || post.imageUrl;
     console.log('Image thumbnail for post:', post._id, imageSrc);
@@ -219,8 +226,8 @@ const FollowersModal = ({ isOpen, onClose, title, users, loading, currentUser, o
                     </div>
                   )}
                   
-                  {/* Показываем кнопку удаления только для подписчиков и только владельцу профиля */}
-                  {title === 'Followers' && currentUser && onRemoveFollower && user._id && (
+                  {/* Показываем кнопку удаления для подписчиков (включая удаленных) и только владельцу профиля */}
+                  {title === 'Followers' && currentUser && onRemoveFollower && (
                     <button
                       className="remove-follower-btn"
                       onClick={(e) => {
@@ -228,7 +235,7 @@ const FollowersModal = ({ isOpen, onClose, title, users, loading, currentUser, o
                         e.stopPropagation();
                         handleRemoveFollower(user);
                       }}
-                      title="Remove follower"
+                      title={user.username ? "Remove follower" : "Remove deleted user"}
                     >
                       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -267,10 +274,9 @@ const Profile = ({ user: currentUserProp }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const handlePostClick = (post) => {
-    console.log('Profile: Clicking post:', post);
-    console.log('Profile: Post mediaType:', post.mediaType);
-    console.log('Profile: Post videoUrl:', post.videoUrl);
-    console.log('Profile: Post youtubeData:', post.youtubeData);
+    console.log('PROFILE CLICK: post =', post);
+    console.log('PROFILE CLICK: mediaType =', post.mediaType);
+    console.log('PROFILE CLICK: videoUrl =', post.videoUrl);
     
     const postWithLikeStatus = {
       ...post,
@@ -278,6 +284,9 @@ const Profile = ({ user: currentUserProp }) => {
     };
     setSelectedPost(postWithLikeStatus);
     setIsModalOpen(true);
+    
+    console.log('PROFILE CLICK: selectedPost set to =', postWithLikeStatus);
+    console.log('PROFILE CLICK: isModalOpen set to =', true);
   };
 
   const goToPreviousPost = () => {
@@ -305,7 +314,26 @@ const Profile = ({ user: currentUserProp }) => {
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedPost(null);
+    // Восстанавливаем скролл
+    document.body.style.overflow = 'unset';
   };
+
+  // Блокировка скролла и остановка фоновых видео при открытии модалки
+  useEffect(() => {
+    if (isModalOpen) {
+      // Блокируем скролл
+      document.body.style.overflow = 'hidden';
+      
+      // Останавливаем все видео в ленте при открытии модалки
+      videoManager.pauseAllFeedVideos();
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isModalOpen]);
 
   const handlePostUpdate = (postId, updates) => {
     setPosts(prevPosts => prevPosts.map(p =>
@@ -404,11 +432,20 @@ const Profile = ({ user: currentUserProp }) => {
   };
 
   const removeFollower = async (followerToRemove) => {
-    if (!isOwner || !followerToRemove._id || !profile?.user?._id) return;
+    if (!isOwner || !profile?.user?._id) return;
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/users/${profile.user._id}/followers/${followerToRemove._id}`, {
+      
+      // Для удаленных пользователей используем специальный ID
+      const followerId = followerToRemove._id || (followerToRemove.isDeleted ? 'deleted' : null);
+      
+      if (!followerId) {
+        console.error('No valid follower ID found');
+        return;
+      }
+      
+      const response = await fetch(`${API_URL}/api/users/${profile.user._id}/followers/${followerId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -416,8 +453,13 @@ const Profile = ({ user: currentUserProp }) => {
       if (response.ok) {
         const data = await response.json();
         
-        // Удаляем пользователя из списка модалки
-        setModalUsers(prevUsers => prevUsers.filter(user => user._id !== followerToRemove._id));
+        // Для удаленных пользователей удаляем всех с isDeleted: true
+        if (followerToRemove.isDeleted) {
+          setModalUsers(prevUsers => prevUsers.filter(user => !user.isDeleted));
+        } else {
+          // Для обычных пользователей удаляем по ID
+          setModalUsers(prevUsers => prevUsers.filter(user => user._id !== followerToRemove._id));
+        }
         
         // Обновляем счетчики из ответа API
         setFollowInfo(prev => ({
@@ -540,7 +582,12 @@ const Profile = ({ user: currentUserProp }) => {
               likesCount: p.likes?.length || 0,
               commentsCount: p.comments?.length || 0,
               imageUrl: getImageUrl(p.imageUrl || p.image),
-              isLikedByCurrentUser: isLikedByCurrentUser
+              isLikedByCurrentUser: isLikedByCurrentUser,
+              // Сохраняем все данные о видео
+              mediaType: p.mediaType,
+              videoUrl: p.videoUrl,
+              youtubeData: p.youtubeData,
+              author: p.author || p.user
             };
           });
           setPosts(processedPosts);
@@ -719,6 +766,9 @@ const Profile = ({ user: currentUserProp }) => {
             canGoNext={posts.findIndex(p => p._id === selectedPost._id) < posts.length - 1}
           />
         )}
+        
+        {/* ОТЛАДКА */}
+        {selectedPost && console.log('PROFILE RENDER: selectedPost =', selectedPost, 'isModalOpen =', isModalOpen)}
 
         <FollowersModal
           isOpen={isFollowersModalOpen}

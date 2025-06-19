@@ -9,12 +9,20 @@ exports.getNotifications = async (req, res) => {
   const skip = (page - 1) * limit;
 
   try {
+    console.log(`Fetching notifications for user: ${userId}`);
+    
     const userNotifications = await UserNotifications.findOne({ userId })
       .populate('notifications.sender', 'username avatar')
       .populate('notifications.post', '_id caption image')
       .lean();
 
+    console.log(`Found user notifications document:`, !!userNotifications);
+    if (userNotifications) {
+      console.log(`Total notifications in document: ${userNotifications.notifications.length}`);
+    }
+
     if (!userNotifications) {
+      console.log('No notifications document found for user');
       return res.json({
         notifications: [],
         currentPage: page,
@@ -24,20 +32,28 @@ exports.getNotifications = async (req, res) => {
       });
     }
 
-    // Агрессивно фильтруем уведомления - удаляем те, где sender = null, не существует или не загружен
+    // Фильтруем только реально битые уведомления
     const validNotifications = userNotifications.notifications.filter(notification => {
-      // Проверяем все возможные случаи проблемных sender'ов
+      // Убираем только уведомления где sender полностью null или undefined
       if (!notification.sender) return false;
-      if (typeof notification.sender === 'string') return false; // ObjectId но не populated
-      if (!notification.sender._id) return false;
-      if (!notification.sender.username) return false;
-      if (notification.sender.username === 'DELETED USER') return false;
+      
+      // Если это строка (ObjectId), значит populate не сработал, но уведомление валидное
+      if (typeof notification.sender === 'string') return true;
+      
+      // Если это объект без _id, то это проблема
+      if (typeof notification.sender === 'object' && !notification.sender._id) return false;
+      
       return true;
     });
 
-    // Если есть уведомления от удаленных пользователей, агрессивно удаляем их из базы
+    console.log(`Valid notifications after filtering: ${validNotifications.length}`);
+    console.log(`Original notifications: ${userNotifications.notifications.length}`);
+    
+    // Если есть уведомления от удаленных пользователей, удаляем их из базы
     if (validNotifications.length !== userNotifications.notifications.length) {
-      // Также очищаем все старые уведомления с null sender
+      console.log(`Cleaning ${userNotifications.notifications.length - validNotifications.length} invalid notifications`);
+      
+      // Обновляем документ с валидными уведомлениями
       await UserNotifications.updateOne(
         { userId },
         { 
@@ -48,24 +64,7 @@ exports.getNotifications = async (req, res) => {
         }
       );
       
-      // Дополнительно удаляем уведомления где sender это строка (не populated ObjectId)
-      await UserNotifications.updateOne(
-        { userId },
-        { 
-          $pull: {
-            notifications: {
-              $or: [
-                { sender: null },
-                { sender: { $exists: false } },
-                { 'sender.username': { $exists: false } },
-                { 'sender.username': null }
-              ]
-            }
-          }
-        }
-      );
-      
-      console.log(`Cleaned ${userNotifications.notifications.length - validNotifications.length} notifications from deleted users for user ${userId}`);
+      console.log(`Cleaned notifications for user ${userId}`);
     }
 
     // Sort notifications by creation date (newest first) and apply pagination

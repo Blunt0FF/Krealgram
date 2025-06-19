@@ -8,10 +8,10 @@ export const getCloudinaryVideoThumbnail = (videoUrl, options = {}) => {
 
   const { width = 400, height = 400, quality = 'auto' } = options;
   
-  // Заменяем /video/upload/ на версию с thumbnail
+  // Заменяем /video/upload/ на версию с thumbnail (статичное изображение)
   return videoUrl.replace(
     '/video/upload/',
-    `/video/upload/w_${width},h_${height},c_fill,q_${quality},f_jpg/`
+    `/video/upload/w_${width},h_${height},c_fill,q_${quality},f_jpg,so_0/`
   );
 };
 

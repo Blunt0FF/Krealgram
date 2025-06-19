@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import VideoPlayer from '../VideoPlayer/VideoPlayer';
+import React, { useState, useEffect, useRef } from 'react';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
+import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import './VideoStoriesModal.css';
 
@@ -9,12 +9,32 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const [videos, setVideos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  // Swipe functionality
+  const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const modalRef = useRef(null);
+
+  const currentVideo = videos[currentIndex];
 
   useEffect(() => {
     if (isOpen && user) {
       fetchUserVideos();
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
     }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, [isOpen, user]);
+
+  useEffect(() => {
+    if (isOpen) {
+      videoManager.pauseAllFeedVideos();
+    }
+  }, [isOpen]);
 
   const fetchUserVideos = async () => {
     try {
@@ -54,12 +74,48 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     if (e.key === 'Escape') onClose();
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
+  // Touch handlers for swipe
+  const handleTouchStart = (e) => {
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
     });
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+    
+    const currentY = e.targetTouches[0].clientY;
+    const deltaY = currentY - touchStart.y;
+    
+    // Only handle vertical swipes for closing
+    if (Math.abs(deltaY) > 50) {
+      if (modalRef.current) {
+        const opacity = Math.max(0.3, 1 - Math.abs(deltaY) / 300);
+        modalRef.current.style.transform = `translateY(${deltaY}px)`;
+        modalRef.current.style.opacity = opacity;
+      }
+    }
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!isDragging) return;
+    
+    const deltaY = e.changedTouches[0].clientY - touchStart.y;
+    
+    // Close if swiped down/up more than 100px
+    if (Math.abs(deltaY) > 100) {
+      onClose();
+    } else {
+      // Reset position
+      if (modalRef.current) {
+        modalRef.current.style.transform = '';
+        modalRef.current.style.opacity = '';
+      }
+    }
+    
+    setIsDragging(false);
   };
 
   if (!isOpen) return null;
@@ -71,127 +127,110 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
-      <div className="video-stories-modal-content" onClick={(e) => e.stopPropagation()}>
+      <div 
+        ref={modalRef}
+        className="video-stories-modal-content" 
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         
-        {/* Header */}
-        <div className="video-stories-modal-header">
-          <div className="modal-user-info">
-            <img 
-              src={getAvatarUrl(user.avatar)} 
-              alt={user.username}
-              className="modal-user-avatar"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/default-avatar.png';
-              }}
-            />
-            <span className="modal-user-username">{user.username}</span>
-            {videos.length > 0 && (
-              <span className="modal-video-date">
-                {formatDate(videos[currentIndex]?.createdAt)}
-              </span>
-            )}
-          </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            ✕
-          </button>
-        </div>
+        {/* Кнопка закрытия */}
+        <button className="stories-close-btn" onClick={onClose}>
+          ✕
+        </button>
 
         {/* Progress bar */}
-        {videos.length > 1 && (
-          <div className="video-progress-container">
-            {videos.map((_, index) => (
-              <div 
-                key={index}
-                className={`progress-segment ${index <= currentIndex ? 'active' : ''}`}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Video content */}
-        <div className="video-stories-modal-body">
-          {loading ? (
-            <div className="modal-loading">Loading videos...</div>
-          ) : videos.length === 0 ? (
-            <div className="modal-no-videos">No videos found</div>
-          ) : (
-            <div className="video-container">
-              {/* Navigation buttons */}
-              {currentIndex > 0 && (
-                <button 
-                  className="nav-btn nav-prev" 
-                  onClick={handlePrevious}
-                >
-                  ‹
-                </button>
-              )}
-              {currentIndex < videos.length - 1 && (
-                <button 
-                  className="nav-btn nav-next" 
-                  onClick={handleNext}
-                >
-                  ›
-                </button>
-              )}
-
-              {/* Video display */}
-              {videos[currentIndex]?.youtubeData ? (
-                <iframe
-                  width="100%"
-                  height="400"
-                  src={videos[currentIndex].youtubeData.embedUrl}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  style={{ borderRadius: '8px' }}
-                />
-              ) : videos[currentIndex]?.videoUrl && videos[currentIndex].videoUrl.includes('youtube') ? (
-                <iframe
-                  width="100%"
-                  height="400"
-                  src={videos[currentIndex].videoUrl.replace('watch?v=', 'embed/')}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  style={{ borderRadius: '8px' }}
-                />
-              ) : videos[currentIndex]?.mediaType === 'video' ? (
-                <VideoPlayer 
-                  src={videos[currentIndex].imageUrl || videos[currentIndex].image}
-                  poster={getMediaThumbnail(videos[currentIndex])}
-                  className="modal-video-player"
-                  autoplay={false}
-                  controls={true}
-                />
-              ) : (
-                <div className="modal-no-video">
-                  <p>Video not available</p>
-                  <p style={{ fontSize: '12px', color: '#a8a8a8', marginTop: '10px' }}>
-                    This video format is not supported or the link is no longer valid
-                  </p>
-                </div>
-              )}
-
-              {/* Video info */}
-              {videos[currentIndex]?.caption && (
-                <div className="video-caption">
-                  {videos[currentIndex].caption}
-                </div>
-              )}
-            </div>
-          )}
+        <div className="stories-progress-bar">
+          {videos.map((_, index) => (
+            <div 
+              key={index} 
+              className={`progress-segment ${index <= currentIndex ? 'active' : ''}`}
+            />
+          ))}
         </div>
 
-        {/* Footer with counter */}
-        {videos.length > 0 && (
-          <div className="video-stories-modal-footer">
-            <span className="video-counter">
-              {currentIndex + 1} / {videos.length}
-            </span>
-          </div>
+        {/* Header с пользователем */}
+        <div className="stories-header">
+          <img
+            src={getAvatarUrl(user.avatar)}
+            alt={user.username}
+            className="stories-avatar"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/default-avatar.png';
+            }}
+          />
+          <span className="stories-username">{user.username}</span>
+          <span className="stories-time">now</span>
+        </div>
+
+        {loading ? (
+          <div className="stories-loading">Loading...</div>
+        ) : videos.length === 0 ? (
+          <div className="stories-no-videos">No videos found</div>
+        ) : (
+          <>
+            {/* Стрелки навигации */}
+            {currentIndex > 0 && (
+              <button className="stories-nav-btn stories-prev-btn" onClick={handlePrevious}>
+                ‹
+              </button>
+            )}
+            {currentIndex < videos.length - 1 && (
+              <button className="stories-nav-btn stories-next-btn" onClick={handleNext}>
+                ›
+              </button>
+            )}
+            
+            {/* Основное видео */}
+            <div className="stories-video-container">
+              {currentVideo?.youtubeData ? (
+                <iframe
+                  src={currentVideo.youtubeData.embedUrl}
+                  className="stories-video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : currentVideo?.videoUrl && currentVideo.videoUrl.includes('youtube') ? (
+                <iframe
+                  src={currentVideo.videoUrl.replace('watch?v=', 'embed/')}
+                  className="stories-video"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : currentVideo?.mediaType === 'video' ? (
+                <video
+                  src={currentVideo.imageUrl || currentVideo.image}
+                  className="stories-video"
+                  controls={true}
+                  muted={false}
+                  playsInline
+                  preload="metadata"
+                  onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+                  onPause={(e) => {
+                    if (videoManager.getCurrentVideo() === e.target) {
+                      videoManager.pauseCurrentVideo();
+                    }
+                  }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : (
+                <div className="stories-no-video">Video not available</div>
+              )}
+            </div>
+
+            {/* Caption внизу */}
+            {currentVideo?.caption && (
+              <div className="stories-caption">
+                {currentVideo.caption}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

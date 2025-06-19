@@ -6,6 +6,7 @@ import LikesModal from './LikesModal';
 
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
+import videoManager from '../../utils/videoManager';
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';
 import { API_URL } from '../../config';
 import './PostModal.css';
@@ -139,6 +140,9 @@ const PostModal = ({
   useEffect(() => {
     if (isOpen || showEditModal) {
       lockBodyScroll();
+      
+      // Останавливаем все видео в ленте при открытии модалки
+      videoManager.pauseAllFeedVideos();
     } else {
       unlockBodyScroll();
       // Очищаем transform при закрытии модалки
@@ -225,6 +229,9 @@ const PostModal = ({
   if (!isOpen || !postData) return null;
 
   const { _id: postId, author, caption } = postData;
+  
+  // Fallback для author если не определен
+  const postAuthor = author || postData.user || postData.author;
 
   // Логика для "more/less" кнопки
   const needsMoreButton = useMemo(() => {
@@ -462,6 +469,13 @@ const PostModal = ({
     onClose();
   };
 
+  if (!isOpen) {
+    console.log('PostModal: NOT OPEN - isOpen =', isOpen, 'postData =', postData);
+    return null;
+  }
+  
+  console.log('PostModal: RENDERING - isOpen =', isOpen, 'postData =', postData);
+
   return (
     <div
       ref={overlayRef}
@@ -515,7 +529,7 @@ const PostModal = ({
               allowFullScreen
               style={{ borderRadius: '0' }}
             />
-          ) : postData.mediaType === 'video' ? (
+          ) : postData.mediaType === 'video' && !postData.videoUrl ? (
             <video 
               src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
               poster={getMediaThumbnail(postData)}
@@ -524,7 +538,13 @@ const PostModal = ({
               muted={false}
               playsInline
               preload="metadata"
-              style={{ width: '100%', height: 'auto', maxHeight: '60vh', minHeight: '300px', backgroundColor: '#000' }}
+              style={{ width: '100%', height: 'auto', maxHeight: '70vh', minHeight: '400px', backgroundColor: '#000' }}
+              onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+              onPause={(e) => {
+                if (videoManager.getCurrentVideo() === e.target) {
+                  videoManager.pauseCurrentVideo();
+                }
+              }}
             >
               Your browser does not support the video tag.
             </video>
@@ -567,10 +587,26 @@ const PostModal = ({
                   fontSize: '14px',
                   textAlign: 'center'
                 }}>
-                  {postData.videoUrl.includes('tiktok') ? 'TikTok Video' : 
-                   postData.videoUrl.includes('vk.com') ? 'VK Video' : 
-                   postData.videoUrl.includes('instagram') ? 'Instagram Video' : 
-                   `External video: ${postData.videoUrl}`}
+                  <div style={{ marginBottom: '8px' }}>
+                    {postData.videoUrl.includes('tiktok') ? 'TikTok Video' : 
+                     postData.videoUrl.includes('vk.com') ? 'VK Video' : 
+                     postData.videoUrl.includes('instagram') ? 'Instagram Video' : 
+                     'External Video'}
+                  </div>
+                  <button
+                    onClick={() => window.open(postData.videoUrl, '_blank')}
+                    style={{
+                      background: '#0095f6',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Open
+                  </button>
                 </div>
               )}
             </div>
@@ -590,10 +626,10 @@ const PostModal = ({
           {/* Исправленный блок post-header */}
           <div className="post-header">
             <div className="author-details-wrapper"> {/* Новый контейнер для аватара и имени */}
-              <Link to={`/profile/${author?.username}`} onClick={handleCaptionUsernameClick}>
+              <Link to={`/profile/${postAuthor?.username}`} onClick={handleCaptionUsernameClick}>
                 <img
-                  src={getAvatarUrl(author?.avatar)}
-                  alt={author?.username}
+                  src={getAvatarUrl(postAuthor?.avatar)}
+                  alt={postAuthor?.username}
                   className="author-avatar"
                   onError={(e) => {
                     e.target.onerror = null;
@@ -601,12 +637,12 @@ const PostModal = ({
                   }}
                 />
               </Link>
-              <Link to={`/profile/${author?.username}`} onClick={handleCaptionUsernameClick} className="author-username">
-                {author?.username}
+              <Link to={`/profile/${postAuthor?.username}`} onClick={handleCaptionUsernameClick} className="author-username">
+                {postAuthor?.username}
               </Link>
             </div>
 
-            {currentUser && author && currentUser._id === author._id && (
+            {currentUser && postAuthor && currentUser._id === postAuthor._id && (
               <div className="post-options">
                 <button
                   className="options-button"

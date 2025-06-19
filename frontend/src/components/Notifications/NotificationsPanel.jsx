@@ -24,7 +24,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
   const { sender, type, post, createdAt } = notification;
   const navigate = useNavigate();
 
-  if (!sender) {
+  if (!sender || !sender.username) {
     return (
       <div className="notification-item-link">
         <div className="notification-item">
@@ -32,6 +32,11 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
             <div className="notification-text">Notification from deleted user</div>
             <div className="notification-time">{timeAgo(createdAt)}</div>
           </div>
+          <button className="notification-delete-btn" onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(notification._id);
+          }}>×</button>
         </div>
       </div>
     );

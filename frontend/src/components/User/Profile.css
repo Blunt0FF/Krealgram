@@ -400,12 +400,15 @@
   .profile-actions {
     margin-top: 8px;
     width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .follow-btn, .message-btn, .edit-profile-btn, .logout-btn {
     flex: 1;
     font-size: 13px;
     padding: 6px 12px;
+    min-width: 100px;
   }
 
   .mobile-only {

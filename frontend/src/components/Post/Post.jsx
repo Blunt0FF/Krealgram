@@ -6,6 +6,7 @@ import EditPostModal from './EditPostModal';
 
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
+import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import './Post.css';
 
@@ -315,7 +316,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
             style={{ borderRadius: '0', cursor: 'pointer' }}
             onClick={() => onImageClick(post)}
           />
-        ) : post.mediaType === 'video' ? (
+        ) : post.mediaType === 'video' && !post.videoUrl ? (
           <video 
             src={getImageSrc()}
             poster={getMediaThumbnail(post)}
@@ -327,12 +328,18 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
             style={{ 
               cursor: 'pointer', 
               width: '100%', 
-              height: 'auto',
-              maxHeight: '900px',
+              height: '400px',
+              objectFit: 'cover',
               backgroundColor: '#000'
             }}
             onClick={() => onImageClick(post)}
             onDoubleClick={handleLike}
+            onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+            onPause={(e) => {
+              if (videoManager.getCurrentVideo() === e.target) {
+                videoManager.pauseCurrentVideo();
+              }
+            }}
           >
             Your browser does not support the video tag.
           </video>
@@ -379,11 +386,33 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                 padding: '8px',
                 borderRadius: '4px',
                 fontSize: '12px',
-                textAlign: 'center'
+                textAlign: 'center',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
               }}>
-                {post.videoUrl.includes('tiktok') ? 'TikTok Video' : 
-                 post.videoUrl.includes('vk.com') ? 'VK Video' : 
-                 post.videoUrl.includes('instagram') ? 'Instagram Video' : 'External Video'}
+                <span>
+                  {post.videoUrl.includes('tiktok') ? 'TikTok Video' : 
+                   post.videoUrl.includes('vk.com') ? 'VK Video' : 
+                   post.videoUrl.includes('instagram') ? 'Instagram Video' : 'External Video'}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(post.videoUrl, '_blank');
+                  }}
+                  style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    border: 'none',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Open
+                </button>
               </div>
             )}
           </div>
