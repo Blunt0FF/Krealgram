@@ -23,9 +23,20 @@ const postStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'krealgram/posts',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm'],
+    resource_type: 'auto', // Автоматически определяет тип (image/video)
     transformation: [
       { width: 1080, height: 1080, crop: 'limit', quality: 'auto' }
+    ],
+    // Для видео создаем превью
+    eager: [
+      { 
+        resource_type: 'video',
+        format: 'jpg',
+        transformation: [
+          { width: 400, height: 400, crop: 'fill', gravity: 'center' }
+        ]
+      }
     ],
   },
 });

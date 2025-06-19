@@ -35,13 +35,19 @@ if (useCloudinary) {
   });
 }
 
-// Фильтр для файлов постов (принимаем только изображения)
+// Фильтр для файлов постов (принимаем изображения И видео)
 const postFileFilter = (req, file, cb) => {
   // Проверяем тип файла
-  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/gif') {
+  if (file.mimetype === 'image/jpeg' || 
+      file.mimetype === 'image/png' || 
+      file.mimetype === 'image/gif' || 
+      file.mimetype === 'image/webp' ||
+      file.mimetype === 'video/mp4' ||
+      file.mimetype === 'video/mov' ||
+      file.mimetype === 'video/webm') {
     cb(null, true); // Принимаем файл
   } else {
-    cb(new Error('Unsupported file type! Please upload only images (jpeg, png, gif).'), false); // Отклоняем файл
+    cb(new Error('Unsupported file type! Please upload images (jpeg, png, gif, webp) or videos (mp4, mov, webm).'), false); // Отклоняем файл
   }
 };
 

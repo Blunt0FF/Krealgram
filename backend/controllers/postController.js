@@ -18,10 +18,14 @@ exports.createPost = async (req, res) => {
 
     // Get the image path - either Cloudinary URL or local file
     const imagePath = req.file.path || req.file.filename; // Cloudinary returns path, local returns filename
+    
+    // Определяем тип медиа файла
+    const mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
 
     const newPost = new Post({
       author: authorId,
       image: imagePath, // Save relative path or filename
+      mediaType: mediaType, // Сохраняем тип медиа
       caption: caption || ''
     });
 

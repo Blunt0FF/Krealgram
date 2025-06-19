@@ -20,9 +20,9 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: 'Пользователь не найден.' });
     }
 
-    // Обновляем lastActive и isOnline
+    // Обновляем только lastActive, но не isOnline
+    // isOnline управляется только через WebSocket подключения и logout
     user.lastActive = new Date();
-    user.isOnline = true;
     await user.save();
 
     // Добавляем пользователя в объект запроса

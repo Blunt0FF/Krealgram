@@ -279,7 +279,18 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
       </div>
 
       <div className="post-image-container">
-        <img 
+        {post.mediaType === 'video' ? (
+          <video 
+            src={getImageSrc()}
+            className="post-image"
+            style={{ cursor: 'pointer' }}
+            controls
+            onDoubleClick={handleLike}
+            onClick={() => onImageClick(post)}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        ) : (
+          <img 
             src={getImageSrc()}
             alt="Post" 
             className="post-image"
@@ -287,7 +298,8 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
             onDoubleClick={handleLike}
             onClick={() => onImageClick(post)}
             onError={(e) => { e.target.style.display = 'none'; }}
-        />
+          />
+        )}
       </div>
       
       <div className="post-info">
@@ -369,13 +381,23 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
           {displayedComments.length > 0 ? (
             displayedComments.map((comment) => (
               <div key={comment._id} className={`comment ${comment.isNew ? 'new-comment' : ''}`}>
-                <Link to={`/profile/${comment.user?.username}`}>
-                  <img src={getAvatarUrl(comment.user?.avatar)} alt={comment.user?.username || '...'} className="comment-avatar" onError={(e) => { e.target.src = '/default-avatar.png'; }} />
-                </Link>
-                <div className="comment-content">
-                  <Link to={`/profile/${comment.user?.username}`} className="comment-username-link">
-                    {comment.user?.username || 'DELETED USER'}
+                {comment.user ? (
+                  <Link to={`/profile/${comment.user.username}`}>
+                    <img src={getAvatarUrl(comment.user.avatar)} alt={comment.user.username} className="comment-avatar" onError={(e) => { e.target.src = '/default-avatar.png'; }} />
                   </Link>
+                ) : (
+                  <img src="/default-avatar.png" alt="Deleted User" className="comment-avatar" />
+                )}
+                <div className="comment-content">
+                  {comment.user ? (
+                    <Link to={`/profile/${comment.user.username}`} className="comment-username-link">
+                      {comment.user.username}
+                    </Link>
+                  ) : (
+                    <span className="comment-username-link deleted-user">
+                      DELETED USER
+                    </span>
+                  )}
                   <span className="comment-text">{comment.text}</span>
                 </div>
                 {currentUser && (comment.user?._id === currentUser._id || post.author?._id === currentUser._id) && (

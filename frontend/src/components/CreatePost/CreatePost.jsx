@@ -13,6 +13,7 @@ const CreatePost = () => {
   const [compressedFile, setCompressedFile] = useState(null);
   const [originalFileName, setOriginalFileName] = useState('');
   const [compressing, setCompressing] = useState(false);
+  const [mediaType, setMediaType] = useState('image');
 
   useEffect(() => {
     // Прокручиваем в верх при переходе на страницу создания поста
@@ -22,20 +23,30 @@ const CreatePost = () => {
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
+      const fileType = file.type.startsWith('video/') ? 'video' : 'image';
+      setMediaType(fileType);
       setPreviewUrl(URL.createObjectURL(file));
       setOriginalFileName(file.name);
       setError('');
-      setCompressing(true);
-      setCompressedFile(null);
       
-      try {
-        const compressedBlob = await compressPostImage(file);
-        setCompressedFile(compressedBlob);
-        console.log(`Оригинал: ${file.size} байт, Сжатый Blob: ${compressedBlob.size} байт, Тип: ${compressedBlob.type}`);
-      } catch (err) {
-        setError('Ошибка сжатия изображения');
-        console.error('Compression error:', err);
-      } finally {
+      // Сжатие применяем только для изображений
+      if (fileType === 'image') {
+        setCompressing(true);
+        setCompressedFile(null);
+        
+        try {
+          const compressedBlob = await compressPostImage(file);
+          setCompressedFile(compressedBlob);
+          console.log(`Оригинал: ${file.size} байт, Сжатый Blob: ${compressedBlob.size} байт, Тип: ${compressedBlob.type}`);
+        } catch (err) {
+          setError('Ошибка сжатия изображения');
+          console.error('Compression error:', err);
+        } finally {
+          setCompressing(false);
+        }
+      } else {
+        // Для видео используем оригинальный файл без сжатия
+        setCompressedFile(file);
         setCompressing(false);
       }
     }
@@ -92,17 +103,30 @@ const CreatePost = () => {
         <h2>Create new post</h2>
         <form className="create-post-form" onSubmit={handleSubmit}>
           <label className="file-input-label">
-            Choose Image
-            <input type="file" accept="image/*" onChange={handleImageChange} disabled={compressing} />
+            {mediaType === 'video' ? 'Choose Video' : 'Choose Image'}
+            <input 
+              type="file" 
+              accept="image/*,video/mp4,video/mov,video/webm" 
+              onChange={handleImageChange} 
+              disabled={compressing} 
+            />
           </label>
           {compressing && (
             <div className="compression-status">
-              Compressing image...
+              {mediaType === 'video' ? 'Processing video...' : 'Compressing image...'}
             </div>
           )}
           {previewUrl && (
             <div className="image-preview">
-              <img src={previewUrl} alt="Preview" />
+              {mediaType === 'video' ? (
+                <video 
+                  src={previewUrl} 
+                  controls 
+                  style={{ maxWidth: '100%', maxHeight: '400px' }}
+                />
+              ) : (
+                <img src={previewUrl} alt="Preview" />
+              )}
             </div>
           )}
 

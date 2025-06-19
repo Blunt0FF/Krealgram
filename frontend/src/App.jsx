@@ -28,12 +28,24 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUser(null);
-    setUnreadCount(0);
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`${API_URL}/api/auth/logout`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      }
+    } catch (error) {
+      console.error('Logout API error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setIsAuthenticated(false);
+      setUser(null);
+      setUnreadCount(0);
+    }
   };
 
   const fetchUnreadCount = async (authToken) => {

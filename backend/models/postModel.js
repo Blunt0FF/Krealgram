@@ -7,8 +7,13 @@ const postSchema = new mongoose.Schema({
     required: [true, 'Post must have an author']
   },
   image: {
-    type: String, // Путь к загруженному файлу изображения
-    required: [true, 'Post must have an image']
+    type: String, // Путь к загруженному файлу изображения или видео
+    required: [true, 'Post must have media content']
+  },
+  mediaType: {
+    type: String,
+    enum: ['image', 'video'],
+    default: 'image'
   },
   caption: {
     type: String,
@@ -28,6 +33,14 @@ const postSchema = new mongoose.Schema({
   youtubeUrl: {
     type: String,
     trim: true
+  },
+  // Дополнительная информация для YouTube видео
+  youtubeData: {
+    videoId: String,
+    embedUrl: String,
+    thumbnailUrl: String,
+    title: String,
+    duration: String
   }
 }, { 
   timestamps: true // Добавляет createdAt и updatedAt

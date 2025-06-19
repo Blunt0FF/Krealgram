@@ -122,11 +122,23 @@
   min-width: 0;
 }
 
+.conversation-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
 .conversation-name {
   font-weight: 600;
   font-size: 14px;
   color: #262626;
-  margin-bottom: 2px;
+}
+
+.online-indicator {
+  color: #00d26a;
+  font-size: 8px;
+  line-height: 1;
 }
 
 .conversation-last-message {

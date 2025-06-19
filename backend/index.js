@@ -6,6 +6,8 @@ const path = require('path'); // Добавим path для работы с пу
 const http = require('http');
 const { Server } = require('socket.io');
 const connectDB = require('./config/db'); // Мы создадим этот файл далее
+const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
+const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
 
 // Загружаем переменные окружения
 dotenv.config();
@@ -82,6 +84,7 @@ const searchRoutes = require('./routes/searchRoutes');
 const likeRoutes = require('./routes/likeRoutes');
 const conversationRoutes = require('./routes/conversationRoutes'); // Добавляем маршруты для диалогов
 const notificationRoutes = require('./routes/notificationRoutes'); // Импортируем маршруты уведомлений
+const adminRoutes = require('./routes/adminRoutes'); // Админские маршруты
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
@@ -91,20 +94,53 @@ app.use('/api/search', searchRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/conversations', conversationRoutes); // Подключаем маршруты для диалогов
 app.use('/api/notifications', notificationRoutes); // Подключаем маршруты для уведомлений
+app.use('/api/admin', adminRoutes); // Подключаем админские маршруты
 
 // Настройка Socket.IO
-io.on('connection', (socket) => {
+io.on('connection', async (socket) => {
   // Присоединение к комнате по userId
   const userId = socket.handshake.query.userId;
   if (userId) {
     socket.join(userId);
+    
+    // Устанавливаем пользователя как онлайн
+    try {
+      const User = require('./models/userModel');
+      await User.findByIdAndUpdate(userId, {
+        isOnline: true,
+        lastActive: new Date()
+      });
+    } catch (error) {
+      console.error('Error updating user online status:', error);
+    }
   }
 
-  socket.on('disconnect', () => {
-    // Ничего не логируем при отключении
+  socket.on('disconnect', async () => {
+    // Устанавливаем пользователя как оффлайн при отключении
+    if (userId) {
+      try {
+        const User = require('./models/userModel');
+        await User.findByIdAndUpdate(userId, {
+          isOnline: false,
+          lastActive: new Date()
+        });
+      } catch (error) {
+        console.error('Error updating user offline status:', error);
+      }
+    }
   });
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Сбрасываем всех пользователей в offline при запуске сервера
+resetAllUsersToOffline().then(() => {
+  console.log('All users set to offline on server start');
+}).catch((error) => {
+  console.error('Failed to reset user statuses:', error);
+});
+
+// Запускаем сервис обновления статуса пользователей
+startUserStatusUpdater();
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`)); 

@@ -28,4 +28,9 @@ router.post('/reset-password', authController.resetPassword);
 // @access  Private (защищено authMiddleware)
 router.get('/me', authMiddleware, authController.getCurrentUser);
 
+// @route   POST api/auth/logout
+// @desc    Выход пользователя из системы
+// @access  Private (защищено authMiddleware)
+router.post('/logout', authMiddleware, authController.logout);
+
 module.exports = router; 

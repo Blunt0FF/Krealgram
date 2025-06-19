@@ -474,12 +474,18 @@ const PostModal = ({
               allowFullScreen
               style={{ minHeight: '500px' }}
             />
+          ) : postData.mediaType === 'video' ? (
+            <video 
+              src={postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`)}
+              controls
+              style={{ width: '100%', height: '100%', minHeight: '500px', objectFit: 'contain' }}
+            />
           ) : postData.imageUrl ? (
             <img src={postData.imageUrl} alt={postData.caption || 'Post'} />
           ) : postData.image ? (
             <img src={postData.image.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`} alt={postData.caption || 'Post'} />
           ) : (
-            <div className="image-placeholder">Image not available</div>
+            <div className="image-placeholder">Media not available</div>
           )}
 
           {/* Навигационные кнопки */}

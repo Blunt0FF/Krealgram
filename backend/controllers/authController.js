@@ -72,6 +72,26 @@ exports.register = async (req, res) => {
   }
 };
 
+// User logout
+exports.logout = async (req, res) => {
+  try {
+    const user = req.user;
+    
+    // Устанавливаем пользователя как offline
+    user.isOnline = false;
+    user.lastActive = new Date();
+    await user.save();
+
+    res.status(200).json({
+      message: 'Logout successful',
+    });
+
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ message: 'A server error occurred during logout.', error: error.message });
+  }
+};
+
 // User login
 exports.login = async (req, res) => {
   try {
@@ -102,9 +122,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid password or invalid credentials.' });
     }
 
-    // Update lastActive and isOnline
+    // Update only lastActive on login
+    // isOnline will be set when WebSocket connects
     user.lastActive = new Date();
-    user.isOnline = true;
     await user.save();
 
     const token = jwt.sign(

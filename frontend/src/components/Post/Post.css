@@ -390,6 +390,16 @@
   text-decoration: underline;
 }
 
+.comment-username-link.deleted-user {
+  color: #8e8e8e !important;
+  cursor: default !important;
+  text-decoration: none !important;
+}
+
+.comment-username-link.deleted-user:hover {
+  text-decoration: none !important;
+}
+
 .comment-text {
   font-size: 14px;
   line-height: 1.4;

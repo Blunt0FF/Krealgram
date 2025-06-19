@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
 import { getAvatarUrl } from '../../utils/imageUtils';
+import { formatLastSeen } from '../../utils/timeUtils';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import SharedPost from './SharedPost';
@@ -56,6 +57,7 @@ const Messages = ({ currentUser }) => {
   const fileInputRef = useRef(null); // Реф для инпута файла
   const [isPostModalOpen, setPostModalOpen] = useState(false);
   const [selectedPostForModal, setSelectedPostForModal] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Обработка пересылаемого поста
   useEffect(() => {
@@ -86,6 +88,15 @@ const Messages = ({ currentUser }) => {
       setRecentUsers(getRecentUsers());
     }
   }, [showNewMessageModal]);
+
+  // Обновляем время каждую минуту для корректного отображения последней активности
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // 60 секунд
+
+    return () => clearInterval(timer);
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -496,7 +507,10 @@ const Messages = ({ currentUser }) => {
                     }}
                   />
                   <div className="conversation-info">
-                    <span className="conversation-name">{conv.participant?.username || 'Unknown'}</span>
+                    <div className="conversation-name-row">
+                      <span className="conversation-name">{conv.participant?.username || 'Unknown'}</span>
+                      {conv.participant?.isOnline && <span className="online-indicator">●</span>}
+                    </div>
                     <span className="conversation-last-message">
                       {conv.lastMessage ? (
                         isMyMessage(conv.lastMessage) ? (
@@ -557,6 +571,9 @@ const Messages = ({ currentUser }) => {
                 />
                 <div className="chat-user-info">
                   <span className="chat-username">{selectedConversation.participant.username}</span>
+                  <span className="chat-status">
+                    {formatLastSeen(selectedConversation.participant.lastActive, selectedConversation.participant.isOnline)}
+                  </span>
                 </div>
               </div>
             </div>
