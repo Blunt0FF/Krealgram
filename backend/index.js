@@ -19,15 +19,26 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:4000",
-      "http://localhost:4001",
-      "http://127.0.0.1:4000",
-      "http://127.0.0.1:4001",
-      "https://krealgram.vercel.app",
-      "https://krealgram.com",
-      "https://www.krealgram.com"
-    ],
+    origin: function (origin, callback) {
+      // Разрешаем запросы без origin (для локальных файлов)
+      if (!origin) return callback(null, true);
+      
+      const allowedOrigins = [
+        "http://localhost:4000",
+        "http://localhost:4001", 
+        "http://127.0.0.1:4000",
+        "http://127.0.0.1:4001",
+        "https://krealgram.vercel.app",
+        "https://krealgram.com",
+        "https://www.krealgram.com"
+      ];
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
   }
@@ -37,15 +48,26 @@ app.set('io', io); // Сделаем io доступным в контролле
 
 // Настройки CORS для Express
 const corsOptions = {
-  origin: [
-    'http://localhost:4000',
-    'http://localhost:4001',
-    'http://127.0.0.1:4000',
-    'http://127.0.0.1:4001',
-    'https://krealgram.vercel.app',
-    'https://krealgram.com',
-    'https://www.krealgram.com'
-  ],
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (для локальных файлов)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:4000',
+      'http://localhost:4001',
+      'http://127.0.0.1:4000',
+      'http://127.0.0.1:4001',
+      'https://krealgram.vercel.app',
+      'https://krealgram.com',
+      'https://www.krealgram.com'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
@@ -160,6 +182,7 @@ const likeRoutes = require('./routes/likeRoutes');
 const conversationRoutes = require('./routes/conversationRoutes'); // Добавляем маршруты для диалогов
 const notificationRoutes = require('./routes/notificationRoutes'); // Импортируем маршруты уведомлений
 const adminRoutes = require('./routes/adminRoutes'); // Админские маршруты
+const videoDownloaderRoutes = require('./routes/videoDownloader'); // Маршруты для загрузки видео
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
@@ -170,6 +193,7 @@ app.use('/api/likes', likeRoutes);
 app.use('/api/conversations', conversationRoutes); // Подключаем маршруты для диалогов
 app.use('/api/notifications', notificationRoutes); // Подключаем маршруты для уведомлений
 app.use('/api/admin', adminRoutes); // Подключаем админские маршруты
+app.use('/api/video-downloader', videoDownloaderRoutes); // Подключаем маршруты для загрузки видео
 
 // Настройка Socket.IO
 io.on('connection', async (socket) => {
