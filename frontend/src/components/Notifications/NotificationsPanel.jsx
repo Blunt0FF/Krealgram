@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './NotificationsPanel.css';
 import { getAvatarUrl } from '../../utils/imageUtils';
+import { getMediaThumbnail } from '../../utils/videoUtils';
 import { API_URL } from '../../config';
 
 const timeAgo = (date) => {
@@ -135,13 +136,69 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
             <span className="notification-time">{timeAgo(createdAt)}</span>
           </div>
         </div>
-        {post && (post.image || post.imageUrl) && (type === 'like' || type === 'comment') && (
+        {post && (post.image || post.imageUrl || post.videoUrl || post.mediaType === 'video') && (type === 'like' || type === 'comment') && (
           <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(linkTo); }}>
-            <img 
-              src={post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`)} 
-              alt="Post thumbnail" 
-              className="notification-post-image" 
-            />
+            {(() => {
+              // Проверяем, является ли пост видео
+              const isVideo = post.mediaType === 'video' || 
+                             post.videoUrl || 
+                             (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
+                             (post.image && (post.image.includes('.mp4') || post.image.includes('video/')));
+              
+              if (isVideo) {
+                const thumbnailUrl = getMediaThumbnail(post, { width: 64 });
+                
+                return (
+                  <div style={{ position: 'relative' }}>
+                    <img 
+                      src={thumbnailUrl}
+                      alt="Video thumbnail" 
+                      className="notification-post-image" 
+                      onError={(e) => {
+                        // Fallback для YouTube видео
+                        if (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be'))) {
+                          const extractYouTubeId = (url) => {
+                            const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+                            const match = url.match(youtubeRegex);
+                            return match ? match[1] : null;
+                          };
+                          const youtubeId = extractYouTubeId(post.videoUrl);
+                          if (youtubeId) {
+                            e.target.src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+                          }
+                        }
+                      }}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      background: 'rgba(0,0,0,0.7)',
+                      borderRadius: '50%',
+                      width: '24px',
+                      height: '24px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <svg width="12" height="12" fill="white" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Обычные изображения
+              return (
+                <img 
+                  src={post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`)} 
+                  alt="Post thumbnail" 
+                  className="notification-post-image" 
+                />
+              );
+            })()}
           </Link>
         )}
         <button className="notification-delete-btn" onClick={handleDelete}>×</button>
