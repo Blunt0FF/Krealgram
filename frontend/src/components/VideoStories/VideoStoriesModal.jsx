@@ -301,6 +301,17 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
             
             {/* Основное видео */}
             <div className="stories-video-container">
+              {(() => {
+                console.log('🎬 Current video data:', {
+                  currentVideo,
+                  youtubeData: currentVideo?.youtubeData,
+                  videoUrl: currentVideo?.videoUrl,
+                  imageUrl: currentVideo?.imageUrl,
+                  image: currentVideo?.image,
+                  mediaType: currentVideo?.mediaType
+                });
+                return null;
+              })()}
               {currentVideo?.youtubeData ? (
                 <iframe
                   src={currentVideo.youtubeData.embedUrl}
@@ -335,7 +346,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                 />
               ) : currentVideo?.mediaType === 'video' ? (
                 <video
-                  src={currentVideo.imageUrl || currentVideo.image}
+                  src={currentVideo.imageUrl || currentVideo.image || currentVideo.videoUrl}
                   className="stories-video"
                   controls={true}
                   muted={false}
@@ -358,12 +369,58 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                   }}
                   onLoadStart={() => console.log('Stories video loading started')}
                   onCanPlay={() => console.log('Stories video can play')}
-                  onError={(e) => console.error('Stories video error:', e)}
+                  onError={(e) => {
+                    console.error('Stories video error:', e);
+                    console.error('Failed video src:', e.target.src);
+                  }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : currentVideo?.videoUrl || currentVideo?.imageUrl || currentVideo?.image ? (
+                // Fallback для случаев когда mediaType не 'video', но есть видео данные
+                <video
+                  src={currentVideo.videoUrl || currentVideo.imageUrl || currentVideo.image}
+                  className="stories-video"
+                  controls={true}
+                  muted={false}
+                  playsInline={true}
+                  webkit-playsinline="true"
+                  x5-playsinline="true"
+                  x5-video-player-type="h5"
+                  x5-video-player-fullscreen="true"
+                  x5-video-orientation="portraint"
+                  preload="metadata"
+                  style={{
+                    display: 'block',
+                    backgroundColor: '#000'
+                  }}
+                  onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+                  onPause={(e) => {
+                    if (videoManager.getCurrentVideo() === e.target) {
+                      videoManager.pauseCurrentVideo();
+                    }
+                  }}
+                  onLoadStart={() => console.log('Stories fallback video loading started')}
+                  onCanPlay={() => console.log('Stories fallback video can play')}
+                  onError={(e) => {
+                    console.error('Stories fallback video error:', e);
+                    console.error('Failed fallback video src:', e.target.src);
+                  }}
                 >
                   Your browser does not support the video tag.
                 </video>
               ) : (
-                <div className="stories-no-video">Video not available</div>
+                <div className="stories-no-video">
+                  Video not available
+                  <br />
+                  <small>Debug: {JSON.stringify({
+                    mediaType: currentVideo?.mediaType,
+                    hasVideoUrl: !!currentVideo?.videoUrl,
+                    hasImageUrl: !!currentVideo?.imageUrl,
+                    hasImage: !!currentVideo?.image,
+                    hasYoutubeData: !!currentVideo?.youtubeData
+                  }, null, 2)}</small>
+                </div>
               )}
             </div>
 
