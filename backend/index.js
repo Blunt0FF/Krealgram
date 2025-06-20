@@ -21,7 +21,9 @@ const io = new Server(server, {
   cors: {
     origin: [
       "http://localhost:4000",
+      "http://localhost:4001",
       "http://127.0.0.1:4000",
+      "http://127.0.0.1:4001",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
       "https://www.krealgram.com"
@@ -37,7 +39,9 @@ app.set('io', io); // Сделаем io доступным в контролле
 const corsOptions = {
   origin: [
     'http://localhost:4000',
+    'http://localhost:4001',
     'http://127.0.0.1:4000',
+    'http://127.0.0.1:4001',
     'https://krealgram.vercel.app',
     'https://krealgram.com',
     'https://www.krealgram.com'

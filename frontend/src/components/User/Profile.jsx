@@ -272,7 +272,7 @@ const Profile = ({ user: currentUserProp }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const handlePostClick = (post) => {
-    console.log('handlePostClick called with post:', post);
+    // console.log('handlePostClick called with post:', post);
     
     // Создаем YouTube данные если это YouTube видео - проверяем все поля
     let postToOpen = { ...post, isLikedByCurrentUser: post.isLikedByCurrentUser };
@@ -312,13 +312,7 @@ const Profile = ({ user: currentUserProp }) => {
     };
 
     // Проверяем все поля на YouTube
-    console.log('Checking post fields:', {
-      videoUrl: post.videoUrl,
-      youtubeUrl: post.youtubeUrl,
-      image: post.image,
-      imageUrl: post.imageUrl,
-      fullPost: post
-    });
+    // console.log('Checking post fields:', { videoUrl: post.videoUrl, youtubeUrl: post.youtubeUrl, image: post.image, imageUrl: post.imageUrl });
     
     // Функция для извлечения videoId из YouTube thumbnail URL
     const extractVideoIdFromThumbnail = (url) => {
@@ -338,7 +332,7 @@ const Profile = ({ user: currentUserProp }) => {
       if (videoId) {
         // Восстанавливаем оригинальный YouTube URL из videoId
         originalYouTubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        console.log('Restored YouTube URL from thumbnail:', originalYouTubeUrl);
+        // console.log('Restored YouTube URL from thumbnail:', originalYouTubeUrl);
       }
     }
     
@@ -350,8 +344,8 @@ const Profile = ({ user: currentUserProp }) => {
       }
     }
 
-    console.log('Final videoId:', videoId);
-    console.log('Original YouTube URL:', originalYouTubeUrl);
+    // console.log('Final videoId:', videoId);
+    // console.log('Original YouTube URL:', originalYouTubeUrl);
 
     if (videoId) {
       postToOpen.youtubeData = {
@@ -363,7 +357,7 @@ const Profile = ({ user: currentUserProp }) => {
       postToOpen.videoUrl = originalYouTubeUrl;
       // Помечаем как YouTube видео
       postToOpen.mediaType = 'youtube';
-      console.log('YouTube post prepared:', postToOpen);
+      // console.log('YouTube post prepared:', postToOpen);
     }
 
     setSelectedPost(postToOpen);
