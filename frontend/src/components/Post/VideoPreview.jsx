@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { getMediaThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
+import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
   const [imageError, setImageError] = useState(false);
@@ -9,7 +9,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const videoRef = useRef(null);
   const clickTimeoutRef = useRef(null);
   
-  const gifUrl = getMediaThumbnail(post);
+  const gifUrl = getVideoPreviewThumbnail(post);
   const staticUrl = getStaticThumbnail(post);
 
   const handleImageError = () => {
@@ -29,25 +29,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       return;
     }
 
-    // Для мобильных устройств - всегда открываем модалку сразу
-    if (window.innerWidth <= 768) {
-      onClick && onClick();
-      return;
-    }
-
-    // Для десктопа используем логику двойного клика
-    if (clickTimeoutRef.current) {
-      // Второй клик - открываем модалку
-      clearTimeout(clickTimeoutRef.current);
-      clickTimeoutRef.current = null;
-      onClick && onClick();
-    } else {
-      // Первый клик - воспроизводим видео
-      clickTimeoutRef.current = setTimeout(() => {
-        clickTimeoutRef.current = null;
-        handleVideoPlay();
-      }, 300);
-    }
+    // Для загруженных видео - только воспроизведение, НЕ модалка
+    handleVideoPlay();
   };
 
   const handleVideoPlay = () => {
@@ -77,8 +60,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         className={`post-video-placeholder ${className}`}
         style={{ 
           width: '100%',
-          height: '500px',
-          backgroundColor: '#000',
+          height: 'auto',
+          maxHeight: '900px',
           cursor: 'pointer',
           position: 'relative',
           display: 'flex',
@@ -111,10 +94,13 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       className={`post-video-placeholder ${className}`}
       style={{ 
         width: '100%',
-        height: '500px',
+        height: 'auto',
+        maxHeight: '600px',
         cursor: 'pointer',
         position: 'relative',
-        backgroundColor: '#000',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         ...style
       }}
       onClick={handleVideoClick}
@@ -127,12 +113,10 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           src={post.imageUrl || post.image}
           style={{
             width: '100%',
-            height: '100%',
+            height: 'auto',
+            maxHeight: '600px',
             objectFit: 'contain',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            zIndex: 2
+            display: 'block'
           }}
           controls
           playsInline
@@ -152,11 +136,10 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           alt="Video preview"
           style={{
             width: '100%',
-            height: '100%',
+            height: 'auto',
+            maxHeight: '600px',
             objectFit: 'contain',
-            position: 'absolute',
-            top: 0,
-            left: 0
+            display: 'block'
           }}
           onError={handleImageError}
         />
@@ -169,11 +152,10 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           alt="Video preview"
           style={{
             width: '100%',
-            height: '100%',
+            height: 'auto',
+            maxHeight: '600px',
             objectFit: 'contain',
-            position: 'absolute',
-            top: 0,
-            left: 0
+            display: 'block'
           }}
           onError={handleStaticError}
         />

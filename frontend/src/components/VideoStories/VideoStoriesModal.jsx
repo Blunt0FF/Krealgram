@@ -358,45 +358,43 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
               {/* Описание */}
               {currentVideo?.caption && (
                 <div className="stories-description">
-                  <span className="stories-username-bold">{user.username}</span> {currentVideo.caption}
+                  {currentVideo.caption}
                 </div>
               )}
 
-              {/* Комментарии - показываем 3 или все */}
+              {/* Комментарии - показываем только по кнопке */}
               {comments.length > 0 && (
                 <div className="stories-comments-list">
-                  {/* Кнопка для просмотра всех комментариев (если их больше 3) */}
-                  {comments.length > 3 && !showComments && (
-                    <button 
-                      className="stories-view-comments"
-                      onClick={() => setShowComments(true)}
-                    >
-                      View all {comments.length} comments
-                    </button>
-                  )}
-                  
-                  {/* Показываем первые 3 или все комментарии */}
-                  {(showComments ? comments : comments.slice(0, 3)).map((comment, index) => {
-
-                    
+                  {/* Показываем комментарии только если showComments = true */}
+                  {showComments && comments.map((comment, index) => {
                     const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
                     return (
                       <div key={comment._id || index} className="stories-comment">
-                        <span className="comment-username">{username}</span>
+                        <span 
+                          className="comment-username clickable-username"
+                          onClick={() => {
+                            if (username !== 'Unknown User') {
+                              window.location.href = `/profile/${username}`;
+                            }
+                          }}
+                        >
+                          {username}
+                        </span>
                         <span className="stories-comment-text">{comment.text}</span>
                       </div>
                     );
                   })}
                   
-                  {/* Кнопка скрыть комментарии если показаны все */}
-                  {comments.length > 3 && showComments && (
-                    <button 
-                      className="stories-view-comments"
-                      onClick={() => setShowComments(false)}
-                    >
-                      Hide comments
-                    </button>
-                  )}
+                  {/* Кнопка показать/скрыть комментарии */}
+                  <button 
+                    className="stories-view-comments"
+                    onClick={() => setShowComments(!showComments)}
+                  >
+                    {showComments 
+                      ? 'Hide comments' 
+                      : `Show comments (${comments.length})`
+                    }
+                  </button>
                 </div>
               )}
 

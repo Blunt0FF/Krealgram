@@ -6,7 +6,7 @@ import EditPostModal from '../Post/EditPostModal';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
-import { getMediaThumbnail } from '../../utils/videoUtils';
+import { getProfileGifThumbnail } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import { formatLastSeen } from '../../utils/timeUtils';
@@ -65,90 +65,32 @@ const PostThumbnail = ({ post, onClick }) => {
   const image = post.imageUrl || post.image;
 
   const getThumbnailSrc = React.useMemo(() => {
-    // Проверяем YouTube видео первым делом - всегда показываем thumbnail
-    if (post.youtubeData || (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')))) {
-      // Для YouTube видео ВСЕГДА показываем статичный thumbnail, НЕ iframe
-      const thumbnail = getMediaThumbnail(post, { forProfile: true, width: 300, height: 300 });
-
-      return thumbnail || '/video-placeholder.svg';
-    }
-    
-    // Для видео всегда показываем thumbnail или placeholder
-    if (post.mediaType === 'video') {
-      // Если есть videoUrl (внешнее видео), получаем thumbnail через videoUtils
-      if (post.videoUrl) {
-        const thumbnail = getMediaThumbnail(post, { forProfile: true, width: 300, height: 300 });
-        return thumbnail || '/video-placeholder.svg';
-      }
-      
-      // Для загруженных видео показываем GIF всегда, но с разными настройками
-      if (post.imageUrl || image) {
-        const videoUrl = image || post.imageUrl;
-        
-        // Если это Cloudinary видео
-        if (videoUrl && videoUrl.includes('cloudinary.com')) {
-          // Проверяем размер экрана
-          const isMobile = window.innerWidth <= 768;
-          
-          if (isMobile) {
-            // На мобильных: зацикленные 10 сек, 30 FPS
-            const gifUrl = videoUrl.replace(
-              '/video/upload/',
-              `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
-            );
-
-            return gifUrl;
-          } else {
-            // На десктопе: зацикленные 10 сек, 30 FPS
-            const gifUrl = videoUrl.replace(
-              '/video/upload/',
-              `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
-            );
-
-            return gifUrl;
-          }
-        }
-        
-        return videoUrl;
-      }
-      
-      return '/video-placeholder.svg';
-    }
-    
-    // Определяем видео по URL если mediaType не указан
-    if (image && image.includes('cloudinary.com') && image.includes('/video/')) {
-      // Это Cloudinary видео без правильного mediaType
-      const isMobile = window.innerWidth <= 768;
-      
-      if (isMobile) {
-        // На мобильных: зацикленные 10 сек, 30 FPS
-        const gifUrl = image.replace(
-          '/video/upload/',
-          `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
-        );
-        return gifUrl;
-      } else {
-        // На десктопе: зацикленные 10 сек, 30 FPS
-        const gifUrl = image.replace(
-          '/video/upload/',
-          `/video/upload/w_300,h_300,c_fill,q_auto,f_gif,so_0,eo_10,fps_30,fl_loop/`
-        );
-        return gifUrl;
-      }
-    }
-    
-    // Для обычных изображений
-    const imageSrc = image || post.imageUrl;
-    return imageSrc || '/video-placeholder.svg';
-  }, [post._id, post.mediaType, post.videoUrl, post.imageUrl, image]);
+    // Используем специальную функцию для GIF превью в профиле
+    const thumbnailSrc = getProfileGifThumbnail(post);
+    return thumbnailSrc;
+  }, [post]);
 
   // Определяем, является ли это видео для показа индикатора
   const isVideo = React.useMemo(() => {
-    return post.mediaType === 'video' || 
-           (image && image.includes('cloudinary.com') && image.includes('/video/')) ||
-           post.videoUrl ||
-           post.youtubeData;
-  }, [post.mediaType, post.videoUrl, post.youtubeData, image]);
+    // Проверяем YouTube URL во всех возможных полях
+    const checkYouTubeUrl = (url) => {
+      if (!url) return false;
+      const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      return youtubeRegex.test(url);
+    };
+
+    const hasYouTubeUrl = checkYouTubeUrl(post.videoUrl) || 
+                         checkYouTubeUrl(post.youtubeUrl) || 
+                         checkYouTubeUrl(post.video) ||
+                         checkYouTubeUrl(post.image) ||
+                         checkYouTubeUrl(post.imageUrl);
+
+    // Проверяем загруженные видео (Cloudinary)
+    const hasCloudinaryVideo = (image && image.includes('cloudinary.com') && image.includes('/video/')) ||
+                              post.mediaType === 'video';
+
+    return hasYouTubeUrl || hasCloudinaryVideo || post.youtubeData;
+  }, [post.mediaType, post.videoUrl, post.youtubeUrl, post.video, post.youtubeData, image]);
 
   return (
     <div className="post-thumbnail" onClick={onClick}>
@@ -169,8 +111,8 @@ const PostThumbnail = ({ post, onClick }) => {
               }
               
               // Для Cloudinary видео пробуем другой формат
-              if (e.target.src.includes('cloudinary.com') && !e.target.src.includes('f_auto')) {
-                const fallbackUrl = e.target.src.replace('f_jpg', 'f_auto');
+              if (e.target.src.includes('cloudinary.com') && e.target.src.includes('f_gif')) {
+                const fallbackUrl = e.target.src.replace('f_gif', 'f_auto');
                 e.target.src = fallbackUrl;
                 return;
               }
@@ -330,11 +272,80 @@ const Profile = ({ user: currentUserProp }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const handlePostClick = (post) => {
-    const postWithLikeStatus = {
-      ...post,
-      isLikedByCurrentUser: post.isLikedByCurrentUser
+    console.log('handlePostClick called with post:', post);
+    
+    // Создаем YouTube данные если это YouTube видео - проверяем все поля
+    let postToOpen = { ...post, isLikedByCurrentUser: post.isLikedByCurrentUser };
+    
+    // Функция для проверки YouTube URL
+    const checkYouTubeUrl = (url) => {
+      if (!url) return null;
+      console.log('Checking YouTube URL:', url);
+      
+      // Более простая проверка - если содержит youtube или youtu.be
+      if (url.includes('youtube') || url.includes('youtu.be')) {
+        console.log('URL contains YouTube');
+        
+        // Пытаемся извлечь videoId разными способами
+        let videoId = null;
+        
+        // Стандартный YouTube URL
+        if (url.includes('youtube.com/watch?v=')) {
+          const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+          videoId = match ? match[1] : null;
+        }
+        // Короткий YouTube URL
+        else if (url.includes('youtu.be/')) {
+          const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+          videoId = match ? match[1] : null;
+        }
+        // Embed URL
+        else if (url.includes('youtube.com/embed/')) {
+          const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+          videoId = match ? match[1] : null;
+        }
+        
+        console.log('Extracted videoId:', videoId);
+        return videoId;
+      }
+      return null;
     };
-    setSelectedPost(postWithLikeStatus);
+
+    // Проверяем все поля на YouTube
+    console.log('Checking post fields:', {
+      videoUrl: post.videoUrl,
+      youtubeUrl: post.youtubeUrl,
+      image: post.image,
+      imageUrl: post.imageUrl
+    });
+    
+    const videoId = checkYouTubeUrl(post.videoUrl) || 
+                   checkYouTubeUrl(post.youtubeUrl) || 
+                   checkYouTubeUrl(post.image) || 
+                   checkYouTubeUrl(post.imageUrl);
+
+    console.log('Final videoId:', videoId);
+
+    if (videoId) {
+      postToOpen.youtubeData = {
+        videoId: videoId,
+        embedUrl: `https://www.youtube.com/embed/${videoId}`,
+        thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      };
+      // Сохраняем оригинальный URL для PostModal
+      if (!postToOpen.videoUrl && !postToOpen.youtubeUrl) {
+        // Находим какое поле содержит YouTube URL и сохраняем его
+        if (checkYouTubeUrl(post.image)) {
+          postToOpen.videoUrl = post.image;
+        } else if (checkYouTubeUrl(post.imageUrl)) {
+          postToOpen.videoUrl = post.imageUrl;
+        }
+      }
+      // Помечаем как YouTube видео
+      postToOpen.mediaType = 'youtube';
+    }
+
+    setSelectedPost(postToOpen);
     setIsModalOpen(true);
   };
 

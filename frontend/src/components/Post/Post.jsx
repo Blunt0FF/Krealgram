@@ -293,51 +293,154 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
       </div>
 
       <div className="post-image-container">
-        {post.youtubeData && post.youtubeData.embedUrl ? (
-          <iframe
-            width="100%"
-            height="500"
-            src={post.youtubeData.embedUrl}
-            title="YouTube video player"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{ borderRadius: '0', cursor: 'pointer' }}
-            onClick={() => onImageClick(post)}
-          />
-        ) : post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')) ? (
-          <iframe
-            width="100%"
-            height="500"
-            src={post.videoUrl.includes('youtu.be') 
-              ? post.videoUrl.replace('youtu.be/', 'youtube.com/embed/')
-              : post.videoUrl.replace('watch?v=', 'embed/').replace('&', '?')}
-            title="YouTube video player"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{ borderRadius: '0', cursor: 'pointer' }}
-            onClick={() => onImageClick(post)}
-          />
-        ) : (post.mediaType === 'video' || 
-              (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
-              (post.image && (post.image.includes('.mp4') || post.image.includes('video/')))) ? (
-          <VideoPreview 
-            post={post}
-            onClick={() => onImageClick(post)}
-            onDoubleClick={handleLike}
-          />
-        ) : (
-          <img 
-            src={getImageSrc()}
-            alt="Post" 
-            className="post-image"
-            style={{ cursor: 'pointer' }}
-            onDoubleClick={handleLike}
-            onClick={() => onImageClick(post)}
-            onError={(e) => { e.target.style.display = 'none'; }}
-          />
-        )}
+        {(() => {
+          if (post.youtubeData && post.youtubeData.embedUrl) {
+            return (
+              <iframe
+                width="100%"
+                height="500"
+                src={post.youtubeData.embedUrl}
+                title="YouTube video player"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ borderRadius: '0', cursor: 'pointer' }}
+                onClick={() => onImageClick(post)}
+              />
+            );
+          } else if (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be'))) {
+            // Улучшенная обработка YouTube URL
+            const createYouTubeEmbedUrl = (url) => {
+              const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+              const match = url.match(youtubeRegex);
+              if (match && match[1]) {
+                const embedUrl = `https://www.youtube.com/embed/${match[1]}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1`;
+                return embedUrl;
+              }
+              // Fallback для старой логики
+              if (url.includes('youtu.be/')) {
+                const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+                return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1`;
+              }
+              const videoId = url.split('v=')[1]?.split('&')[0];
+              return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1`;
+            };
+            
+            const extractYouTubeId = (url) => {
+              const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+              const match = url.match(youtubeRegex);
+              return match ? match[1] : null;
+            };
+            
+            const youtubeId = extractYouTubeId(post.videoUrl);
+            const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+            
+            return (
+              <div style={{ position: 'relative', width: '100%', height: '500px', cursor: 'pointer' }} onClick={() => onImageClick(post)}>
+                <iframe
+                  width="100%"
+                  height="500"
+                  src={createYouTubeEmbedUrl(post.videoUrl)}
+                  title="YouTube video player"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  style={{ borderRadius: '0', pointerEvents: 'none' }}
+                  onError={(e) => {
+                    console.error('YouTube iframe failed to load in feed');
+                    // Показываем fallback с превью
+                    e.target.style.display = 'none';
+                    const fallback = e.target.nextElementSibling;
+                    if (fallback) fallback.style.display = 'flex';
+                  }}
+                />
+                <div 
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    background: `url(${thumbnailUrl}) center/cover no-repeat`,
+                    backgroundColor: '#000',
+                    display: 'none',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(0,0,0,0.7)',
+                    borderRadius: '50%',
+                    width: '60px',
+                    height: '60px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            );
+          } else if (post.mediaType === 'video' || 
+                     (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
+                     (post.image && (post.image.includes('.mp4') || post.image.includes('video/')))) {
+             
+             // На мобильных используем VideoPreview для превью
+             if (window.innerWidth <= 768) {
+               return (
+                 <VideoPreview 
+                   post={post}
+                   onClick={post.videoUrl || post.youtubeData ? () => onImageClick(post) : undefined}
+                   onDoubleClick={handleLike}
+                 />
+               );
+             }
+             
+             // На десктопе обычное видео
+             return (
+               <video 
+                 src={getImageSrc()}
+                 className="post-video"
+                 controls={true}
+                 muted={false}
+                 playsInline
+                 preload="metadata"
+                 style={{ 
+                   width: '100%', 
+                   height: 'auto', 
+                   maxHeight: '900px', 
+                   cursor: 'default',
+                   objectFit: 'contain'
+                 }}
+                 onDoubleClick={handleLike}
+                 onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+                 onPause={(e) => {
+                   if (videoManager.getCurrentVideo() === e.target) {
+                     videoManager.pauseCurrentVideo();
+                   }
+                 }}
+               >
+                 Your browser does not support the video tag.
+               </video>
+             );
+           } else {
+             return (
+               <img 
+                 src={getImageSrc()}
+                 alt="Post" 
+                 className="post-image"
+                 style={{ cursor: 'pointer' }}
+                 onDoubleClick={handleLike}
+                 onClick={() => onImageClick(post)}
+                 onError={(e) => { e.target.style.display = 'none'; }}
+               />
+             );
+           }
+        })()}
       </div>
       
       <div className="post-info">

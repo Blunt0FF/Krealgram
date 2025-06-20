@@ -41,176 +41,231 @@ export const getStaticThumbnail = (post) => {
   return '/video-placeholder.svg';
 };
 
-// Получение превью для любого типа медиа
+// Получение GIF превью ТОЛЬКО для профиля
+export const getProfileGifThumbnail = (post, options = {}) => {
+  if (!post) return '/video-placeholder.svg';
+
+  // YouTube видео - возвращаем статичный thumbnail
+  if (post.youtubeData && post.youtubeData.thumbnailUrl) {
+    return post.youtubeData.thumbnailUrl;
+  }
+
+  // Проверяем YouTube URL в разных полях
+  const checkYouTubeUrl = (url) => {
+    if (!url) return null;
+    
+    // Улучшенная регулярка для YouTube URL
+    let videoId = null;
+    
+    // Стандартный YouTube URL
+    if (url.includes('youtube.com/watch?v=')) {
+      const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+      videoId = match ? match[1] : null;
+    }
+    // Короткий YouTube URL
+    else if (url.includes('youtu.be/')) {
+      const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      videoId = match ? match[1] : null;
+    }
+    // Embed URL
+    else if (url.includes('youtube.com/embed/')) {
+      const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+      videoId = match ? match[1] : null;
+    }
+    
+    return videoId;
+  };
+
+  // Проверяем все возможные поля с YouTube URL
+  const youtubeId = checkYouTubeUrl(post.videoUrl) || 
+                   checkYouTubeUrl(post.youtubeUrl) || 
+                   checkYouTubeUrl(post.video) ||
+                   checkYouTubeUrl(post.image) ||
+                   checkYouTubeUrl(post.imageUrl);
+
+  if (youtubeId) {
+    return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+  }
+
+  // Для Cloudinary видео создаем GIF превью
+  const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
+  if (videoUrl && videoUrl.includes('cloudinary.com')) {
+    // Полная длина видео БЕЗ fl_loop (он вызывает ошибку 400)
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+      // Мобильные: полная длина без зацикливания
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_300,c_scale,f_gif,q_70/`
+      );
+      return gifUrl;
+    } else {
+      // Десктоп: полная длина без зацикливания
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_400,c_scale,f_gif,q_80/`
+      );
+      return gifUrl;
+    }
+  }
+
+  // Для обычных изображений
+  return post.image || post.imageUrl || '/video-placeholder.svg';
+};
+
+// Получение превью для любого типа медиа (для модалки и фоновых изображений)
 export const getMediaThumbnail = (post, options = {}) => {
   if (!post) return '/video-placeholder.svg';
 
   // YouTube видео - проверяем все возможные источники
   if (post.youtubeData && post.youtubeData.thumbnailUrl) {
-
     return post.youtubeData.thumbnailUrl;
   }
 
   // Видео URL напрямую
   if (post.videoUrl) {
-    // YouTube URL - улучшенная регулярка
-    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const youtubeMatch = post.videoUrl.match(youtubeRegex);
-    if (youtubeMatch) {
+    // YouTube URL - улучшенная проверка
+    let youtubeId = null;
+    
+    // Стандартный YouTube URL
+    if (post.videoUrl.includes('youtube.com/watch?v=')) {
+      const match = post.videoUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+      youtubeId = match ? match[1] : null;
+    }
+    // Короткий YouTube URL
+    else if (post.videoUrl.includes('youtu.be/')) {
+      const match = post.videoUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      youtubeId = match ? match[1] : null;
+    }
+    // Embed URL
+    else if (post.videoUrl.includes('youtube.com/embed/')) {
+      const match = post.videoUrl.match(/embed\/([a-zA-Z0-9_-]{11})/);
+      youtubeId = match ? match[1] : null;
+    }
+    
+    if (youtubeId) {
       // Используем maxresdefault для лучшего качества, fallback на hqdefault
-      const thumbnail = `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
+      const thumbnail = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
       return thumbnail;
     }
+    
+    // Для внешних видео возвращаем placeholder
+    return '/video-placeholder.svg';
   }
 
-  // Дополнительная проверка для YouTube URL в разных полях
+  // Для загруженных видео возвращаем статичное JPG превью (надежнее для фона)
+  const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
+  if (videoUrl && videoUrl.includes('cloudinary.com')) {
+    // Статичное JPG превью для модалки и фоновых изображений
+    const thumbnail = videoUrl.replace(
+      '/video/upload/',
+      `/video/upload/w_${options.width || 400},c_scale,f_jpg,so_0,q_auto/`
+    );
+    return thumbnail;
+  }
+
+  // Возвращаем оригинальное изображение или placeholder
+  return post.image || post.imageUrl || '/video-placeholder.svg';
+};
+
+// Получение GIF превью для VideoPreview в ленте
+export const getVideoPreviewThumbnail = (post, options = {}) => {
+  if (!post) return '/video-placeholder.svg';
+
+  // YouTube видео - возвращаем статичный thumbnail
+  if (post.youtubeData && post.youtubeData.thumbnailUrl) {
+    return post.youtubeData.thumbnailUrl;
+  }
+
+  // Проверяем YouTube URL в разных полях
   const checkYouTubeUrl = (url) => {
     if (!url) return null;
-    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(youtubeRegex);
-    if (match) {
-      return `https://img.youtube.com/vi/${match[1]}/maxresdefault.jpg`;
+    
+    // Улучшенная регулярка для YouTube URL
+    let videoId = null;
+    
+    // Стандартный YouTube URL
+    if (url.includes('youtube.com/watch?v=')) {
+      const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+      videoId = match ? match[1] : null;
     }
-    return null;
+    // Короткий YouTube URL
+    else if (url.includes('youtu.be/')) {
+      const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      videoId = match ? match[1] : null;
+    }
+    // Embed URL
+    else if (url.includes('youtube.com/embed/')) {
+      const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+      videoId = match ? match[1] : null;
+    }
+    
+    return videoId;
   };
 
-  // Проверяем YouTube URL в различных полях
-  const youtubeThumb = checkYouTubeUrl(post.videoUrl) || 
-                      checkYouTubeUrl(post.youtubeUrl) || 
-                      checkYouTubeUrl(post.image) || 
-                      checkYouTubeUrl(post.imageUrl);
-  
-  if (youtubeThumb) {
+  const youtubeId = checkYouTubeUrl(post.videoUrl) || 
+                   checkYouTubeUrl(post.youtubeUrl) || 
+                   checkYouTubeUrl(post.video) ||
+                   checkYouTubeUrl(post.image) ||
+                   checkYouTubeUrl(post.imageUrl);
 
-    return youtubeThumb;
+  if (youtubeId) {
+    return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
   }
 
-  // Продолжаем с остальными типами видео
-  if (post.videoUrl) {
+  // Для загруженных видео создаем GIF превью для ленты
+  const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
+  if (videoUrl && videoUrl.includes('cloudinary.com')) {
+    // Полная длина видео БЕЗ fl_loop (он вызывает ошибку 400)
+    const isMobile = window.innerWidth <= 768;
     
-    // TikTok URL - пытаемся извлечь thumbnail
-    if (post.videoUrl.includes('tiktok.com') || post.videoUrl.includes('vm.tiktok.com')) {
-      // Для TikTok используем placeholder, так как их API требует авторизацию
-      return '/video-placeholder.svg';
+    if (isMobile) {
+      // Мобильные: полная длина без зацикливания
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_300,c_scale,f_gif,q_70/`
+      );
+      return gifUrl;
+    } else {
+      // Десктоп: полная длина без зацикливания
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_400,c_scale,f_gif,q_80/`
+      );
+      return gifUrl;
     }
-    
-    // VK URL - пытаемся извлечь thumbnail
-    if (post.videoUrl.includes('vk.com') || post.videoUrl.includes('vkvideo.ru')) {
-      // Для VK используем placeholder, так как их API требует токен
-      return '/video-placeholder.svg';
-    }
-    
-    // Instagram URL - пытаемся извлечь thumbnail
-    if (post.videoUrl.includes('instagram.com') || post.videoUrl.includes('instagr.am')) {
-      // Для Instagram используем placeholder, так как их API ограничен
-      return '/video-placeholder.svg';
-    }
-    
-    // Для других видео URL возвращаем placeholder
-    return '/video-placeholder.svg';
   }
 
-  // Cloudinary видео - проверяем все возможные поля
-  if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
-    const videoUrl = post.imageUrl || post.image;
-    
-    // Если это placeholder, возвращаем его
-    if (videoUrl === '/video-placeholder.svg' || videoUrl?.startsWith('/video-placeholder')) {
-      return '/video-placeholder.svg';
-    }
-    
-    // Если это Cloudinary видео
-    if (videoUrl && videoUrl.includes('cloudinary.com')) {
-      // Для профиля создаем статичные превью
-      if (options.forProfile) {
-        const thumbnail = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_${options.width || 300},h_${options.height || 300},c_fill,q_auto,f_jpg,so_0/`
-        );
-        return thumbnail;
-      }
-      // Для других случаев используем анимированные превью
-      if (options.animated) {
-        const thumbnail = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_${options.width || 300},c_scale,f_gif,so_0,eo_3,dl_3/`
-        );
-        return thumbnail;
-      }
-      
-      // Для ленты (Post.jsx) используем зацикленные 10-секундные GIF с высоким FPS
-      const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-      if (isMobile) {
-        // На мобильных: зацикленные 10 сек, 30 FPS
-        const thumbnail = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,c_scale,f_gif,so_0,eo_10,fps_30,q_80,fl_loop/`
-        );
-        return thumbnail;
-      } else {
-        // На десктопе: зацикленные 10 сек, 30 FPS, высокое качество
-        const thumbnail = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,c_scale,f_gif,so_0,eo_10,fps_30,q_90,fl_loop/`
-        );
-        return thumbnail;
-      }
-    } else if (videoUrl && (videoUrl.startsWith('http://') || videoUrl.startsWith('https://'))) {
-      // Для других внешних URL пытаемся получить thumbnail
-      if (videoUrl.includes('cloudinary.com')) {
-        if (options.forProfile) {
-          const thumbnail = videoUrl.replace(
-            '/video/upload/',
-            `/video/upload/w_${options.width || 300},h_${options.height || 300},c_fill,q_auto,f_jpg,so_0/`
-          );
-          return thumbnail;
-        }
-        if (options.animated) {
-          const thumbnail = videoUrl.replace(
-            '/video/upload/',
-            `/video/upload/w_${options.width || 300},c_scale,f_gif,so_0,eo_3,dl_3/`
-          );
-          return thumbnail;
-        }
-        
-        // Для ленты используем зацикленные 10-секундные GIF с высоким FPS
-        const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-        if (isMobile) {
-          const thumbnail = videoUrl.replace(
-            '/video/upload/',
-            `/video/upload/w_400,c_scale,f_gif,so_0,eo_10,fps_30,q_80,fl_loop/`
-          );
-          return thumbnail;
-        } else {
-          const thumbnail = videoUrl.replace(
-            '/video/upload/',
-            `/video/upload/w_400,c_scale,f_gif,so_0,eo_10,fps_30,q_90,fl_loop/`
-          );
-          return thumbnail;
-        }
-      }
-      return videoUrl; // Возвращаем как есть для внешних URL
-    } else if (videoUrl && !videoUrl.startsWith('http')) {
-      // Для локальных видео файлов возвращаем placeholder
-      return '/video-placeholder.svg';
-    }
-    
-    // Fallback для видео без URL
-    return '/video-placeholder.svg';
-  }
-
-  // Обычные изображения
-  const imageUrl = post.imageUrl || post.image;
-  return imageUrl || null;
+  // Для обычных изображений
+  return post.image || post.imageUrl || '/video-placeholder.svg';
 };
 
 // Создание встраиваемого URL для YouTube
 export const createYouTubeEmbedUrl = (url) => {
-  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-  const match = url.match(regex);
+  if (!url) return url;
   
-  if (match) {
-    return `https://www.youtube.com/embed/${match[1]}`;
+  // Улучшенная проверка YouTube URL
+  let videoId = null;
+  
+  // Стандартный YouTube URL
+  if (url.includes('youtube.com/watch?v=')) {
+    const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  // Короткий YouTube URL
+  else if (url.includes('youtu.be/')) {
+    const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  // Embed URL
+  else if (url.includes('youtube.com/embed/')) {
+    const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  
+  if (videoId) {
+    return `https://www.youtube.com/embed/${videoId}`;
   }
   
   return url;

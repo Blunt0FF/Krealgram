@@ -307,7 +307,16 @@
   font-weight: 600;
   margin-right: 6px;
   color: white !important;
-  text-decoration: underline;
+  text-decoration: none; /* УБИРАЮ UNDERLINE */
+}
+
+.comment-username.clickable-username {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.comment-username.clickable-username:hover {
+  opacity: 0.8; /* ЛЕГКИЙ HOVER ЭФФЕКТ ВМЕСТО UNDERLINE */
 }
 
 .stories-comment-text {
@@ -318,10 +327,10 @@
 .stories-add-comment {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 22px;
-  padding: 8px 16px;
+  border-radius: 18px;
+  padding: 6px 12px; /* УМЕНЬШИЛ PADDING */
 }
 
 .stories-comment-input {
@@ -329,8 +338,9 @@
   background: none;
   border: none;
   color: white;
-  font-size: 14px;
+  font-size: 13px; /* УМЕНЬШИЛ РАЗМЕР ШРИФТА */
   outline: none;
+  padding: 2px 0; /* УМЕНЬШИЛ PADDING */
 }
 
 .stories-comment-input::placeholder {
@@ -341,15 +351,15 @@
   background: #0095f6;
   border: none;
   color: white;
-  width: 28px;
-  height: 28px;
+  width: 24px; /* УМЕНЬШИЛ РАЗМЕР КНОПКИ */
+  height: 24px; /* УМЕНЬШИЛ РАЗМЕР КНОПКИ */
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 12px;
+  font-size: 11px; /* УМЕНЬШИЛ РАЗМЕР ШРИФТА */
   font-weight: 600;
 }
 
@@ -451,7 +461,7 @@
   }
   
   .stories-add-comment {
-    padding: 6px 12px;
+    padding: 4px 8px; /* ЕЩЕ МЕНЬШЕ НА МОБИЛЬНЫХ */
   }
   
   .stories-comment-input {

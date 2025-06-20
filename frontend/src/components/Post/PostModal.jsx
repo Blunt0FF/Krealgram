@@ -15,9 +15,28 @@ const MAX_CAPTION_LENGTH_EDIT = 500; // Максимальная длина оп
 
 // Функция для проверки и извлечения YouTube ID
 const extractYouTubeId = (url) => {
-  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[7].length === 11) ? match[7] : null;
+  if (!url) return null;
+  
+  // Улучшенная проверка YouTube URL
+  let videoId = null;
+  
+  // Стандартный YouTube URL
+  if (url.includes('youtube.com/watch?v=')) {
+    const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  // Короткий YouTube URL
+  else if (url.includes('youtu.be/')) {
+    const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  // Embed URL
+  else if (url.includes('youtube.com/embed/')) {
+    const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  
+  return videoId;
 };
 
 // Функция для создания данных YouTube
@@ -29,7 +48,7 @@ const createYouTubeData = (url) => {
     type: 'video',
     youtubeId: videoId,
     embedUrl: `https://www.youtube.com/embed/${videoId}`,
-    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
     originalUrl: url
   };
 };
@@ -61,6 +80,7 @@ const PostModal = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [isCaptionExpanded, setIsCaptionExpanded] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
   
   const [touchStartY, setTouchStartY] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -83,6 +103,7 @@ const PostModal = ({
     setComments(initialPost?.comments || []);
     setCommentsToShow(4);
     setIsCaptionExpanded(false);
+    setIframeError(false); // Сбрасываем ошибку iframe при смене поста
 
     if (currentUser && initialPost) {
       const userLiked = initialPost.likes?.includes(currentUser._id) || 
@@ -499,128 +520,229 @@ const PostModal = ({
             </button>
           )}
           
-          {postData.youtubeData && postData.youtubeData.embedUrl ? (
-            <iframe
-              width="100%"
-              height="600"
-              src={postData.youtubeData.embedUrl}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              style={{ borderRadius: '0' }}
-            />
-          ) : postData.videoUrl && (postData.videoUrl.includes('youtube') || postData.videoUrl.includes('youtu.be')) ? (
-            <iframe
-              width="100%"
-              height="600"
-              src={postData.videoUrl.includes('youtu.be') 
-                ? postData.videoUrl.replace('youtu.be/', 'youtube.com/embed/')
-                : postData.videoUrl.replace('watch?v=', 'embed/').replace('&', '?')}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              style={{ borderRadius: '0' }}
-            />
-          ) : (postData.mediaType === 'video' || 
-                (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
-                (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && !postData.videoUrl ? (
-            <video 
-              src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
-              className="post-modal-video"
-              controls={true}
-              muted={false}
-              playsInline
-              preload="metadata"
-              style={{ width: '100%', height: 'auto', maxHeight: '900px', backgroundColor: '#000', objectFit: 'contain' }}
-              onPlay={(e) => videoManager.setCurrentVideo(e.target)}
-              onPause={(e) => {
-                if (videoManager.getCurrentVideo() === e.target) {
-                  videoManager.pauseCurrentVideo();
+          {/* Проверяем YouTube видео во всех возможных полях */}
+          {(() => {
+            // Проверяем все возможные поля на наличие YouTube URL
+            const checkYouTubeUrl = (url) => {
+              if (!url) return null;
+              const youtubeId = extractYouTubeId(url);
+              return youtubeId ? `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1` : null;
+            };
+
+            // Проверяем все возможные поля на YouTube URL
+            let youtubeEmbedUrl = null;
+            let originalYouTubeUrl = null;
+            
+            // Сначала проверяем прямые YouTube поля
+            if (postData.videoUrl && (postData.videoUrl.includes('youtube') || postData.videoUrl.includes('youtu.be'))) {
+              youtubeEmbedUrl = checkYouTubeUrl(postData.videoUrl);
+              originalYouTubeUrl = postData.videoUrl;
+            } else if (postData.youtubeUrl) {
+              youtubeEmbedUrl = checkYouTubeUrl(postData.youtubeUrl);
+              originalYouTubeUrl = postData.youtubeUrl;
+            } else if (postData.youtubeData && postData.youtubeData.embedUrl) {
+              youtubeEmbedUrl = postData.youtubeData.embedUrl;
+              originalYouTubeUrl = postData.videoUrl || postData.youtubeUrl;
+            } else {
+              // Проверяем другие поля
+              const urlsToCheck = [postData.video, postData.image, postData.imageUrl];
+              for (const url of urlsToCheck) {
+                if (url && (url.includes('youtube') || url.includes('youtu.be'))) {
+                  youtubeEmbedUrl = checkYouTubeUrl(url);
+                  originalYouTubeUrl = url;
+                  break;
                 }
-              }}
-            >
-              Your browser does not support the video tag.
-            </video>
-          ) : (postData.mediaType === 'video' || 
-                (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
-                (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && postData.videoUrl ? (
-            <div 
-              className="modal-video-placeholder"
-              style={{ 
-                width: '100%',
-                height: 'auto',
-                maxHeight: '900px',
-                minHeight: '300px',
-                background: `url(${getMediaThumbnail(postData)}) center/contain no-repeat`,
-                backgroundColor: '#000',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative'
-              }}
-            >
-              <div style={{
-                background: 'rgba(0,0,0,0.7)',
-                borderRadius: '50%',
-                width: '80px',
-                height: '80px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
-              </div>
-              {postData.videoUrl && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: '20px',
-                  left: '20px',
-                  right: '20px',
-                  background: 'rgba(0,0,0,0.9)',
-                  color: 'white',
-                  padding: '16px',
-                  borderRadius: '12px',
-                  fontSize: '15px',
-                  textAlign: 'center'
+              }
+            }
+
+            if (youtubeEmbedUrl) {
+              const originalUrl = originalYouTubeUrl;
+              const youtubeId = extractYouTubeId(originalUrl);
+              const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+              
+              console.log('YouTube detected in PostModal:', {
+                youtubeEmbedUrl,
+                originalUrl,
+                youtubeId,
+                postData: postData
+              });
+              
+              // УБИРАЕМ FALLBACK НА СКРИНШОТ - ВСЕГДА ПОКАЗЫВАЕМ IFRAME
+              
+              // Формируем ширину на основе пропорций YouTube (16:9)
+              const containerHeight = window.innerWidth <= 768 ? '60vh' : '100%';
+              const aspectRatio = 16/9;
+              
+              return (
+                <div style={{ 
+                  position: 'relative', 
+                  width: '100%', 
+                  height: '100%', 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#000'
                 }}>
-                  <div style={{ marginBottom: '10px', fontWeight: '600' }}>
-                    🎥 External Video
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '12px' }}>
-                    Click to open in new tab
-                  </div>
-                  <button
-                    onClick={() => window.open(postData.videoUrl, '_blank')}
-                    style={{
-                      background: '#0095f6',
-                      color: 'white',
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src={youtubeEmbedUrl}
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    style={{ 
+                      borderRadius: '0', 
                       border: 'none',
-                      padding: '8px 20px',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      cursor: 'pointer',
-                      fontWeight: '600'
+                      minWidth: window.innerWidth <= 768 ? '100%' : '900px',
+                      aspectRatio: '16/9'
                     }}
+                    onLoad={() => {
+                      console.log('YouTube iframe loaded successfully');
+                    }}
+                    onError={(e) => {
+                      console.error('YouTube iframe failed to load:', e);
+                      // НЕ УСТАНАВЛИВАЕМ iframeError - пусть пытается загрузиться
+                    }}
+                  />
+                  {/* Кнопка для открытия в YouTube */}
+                  <div 
+                    style={{
+                      position: 'absolute',
+                      bottom: '10px',
+                      right: '10px',
+                      background: 'rgba(0,0,0,0.8)',
+                      color: 'white',
+                      padding: '6px 10px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      zIndex: 10,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    onClick={() => window.open(originalUrl, '_blank')}
                   >
-                    Open Video
-                  </button>
+                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    YouTube
+                  </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <img 
-              src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
-              alt="Post" 
-              className="post-modal-image"
-              onError={(e) => { 
-                e.target.style.display = 'none'; 
-              }}
-            />
-          )}
+              );
+            }
+
+            // Для загруженных видео (Cloudinary)
+            if ((postData.mediaType === 'video' || 
+                (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
+                (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && 
+                !postData.videoUrl) {
+              return (
+                <video 
+                  src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
+                  className="post-modal-video"
+                  controls={true}
+                  muted={false}
+                  playsInline
+                  preload="metadata"
+                  style={{ width: '100%', height: 'auto', maxHeight: '900px', backgroundColor: '#000', objectFit: 'contain' }}
+                  onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+                  onPause={(e) => {
+                    if (videoManager.getCurrentVideo() === e.target) {
+                      videoManager.pauseCurrentVideo();
+                    }
+                  }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              );
+            }
+
+            // Для внешних видео (не YouTube)
+            if ((postData.mediaType === 'video' || 
+                (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
+                (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && 
+                postData.videoUrl) {
+              return (
+                <div 
+                  className="modal-video-placeholder"
+                  style={{ 
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: '900px',
+                    minHeight: '300px',
+                    background: `url(${getMediaThumbnail(postData)}) center/contain no-repeat`,
+                    backgroundColor: '#000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{
+                    background: 'rgba(0,0,0,0.7)',
+                    borderRadius: '50%',
+                    width: '80px',
+                    height: '80px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </div>
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '20px',
+                    right: '20px',
+                    background: 'rgba(0,0,0,0.9)',
+                    color: 'white',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    fontSize: '15px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ marginBottom: '10px', fontWeight: '600' }}>
+                      🎥 External Video
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '12px' }}>
+                      Click to open in new tab
+                    </div>
+                    <button
+                      onClick={() => window.open(postData.videoUrl, '_blank')}
+                      style={{
+                        background: '#0095f6',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 20px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Open Video
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            // Для обычных изображений
+            return (
+              <img 
+                src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
+                alt="Post" 
+                className="post-modal-image"
+                onError={(e) => { 
+                  e.target.style.display = 'none'; 
+                }}
+              />
+            );
+          })()}
         </div>
 
         <div className="post-modal-sidebar">
