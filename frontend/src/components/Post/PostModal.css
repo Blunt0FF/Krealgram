@@ -538,6 +538,12 @@
     overflow: hidden; /* ОБРЕЗАЕМ ВСЕ ЧТО ВЫХОДИТ ЗА ГРАНИЦЫ */
   }
 
+  /* Черный фон для видео и YouTube на планшетах */
+  .post-modal-image:has(video),
+  .post-modal-image:has(iframe) {
+    background: #000 !important;
+  }
+
   .post-modal-sidebar {
     flex: 1; /* Сайдбар занимает все оставшееся место */
     min-height: 0; /* Очень важно для правильного сжатия flex-item */
@@ -568,23 +574,20 @@
 
   .post-modal-image video {
     width: 100% !important;
-    height: 100% !important; /* БЛЯДЬ НА ВСЮ ВЫСОТУ КОНТЕЙНЕРА! */
+    height: auto !important;
     max-height: 100% !important;
-    min-height: none !important;
+    min-height: 250px !important;
     object-fit: contain !important;
     background: #000 !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
   }
   
   .post-modal-image iframe {
     width: 100% !important;
-    height: auto !important; /* ДИНАМИЧЕСКАЯ ВЫСОТА ДЛЯ YOUTUBE */
+    height: auto !important;
     max-height: 100% !important;
-    min-height: 200px !important; /* МИНИМАЛЬНАЯ ВЫСОТА */
-    aspect-ratio: 16/9 !important; /* СОХРАНЯЕМ ПРОПОРЦИИ YOUTUBE */
-    position: relative !important; /* НЕ ABSOLUTE ДЛЯ YOUTUBE */
+    min-height: 250px !important;
+    aspect-ratio: 16/9 !important;
+    background: #000 !important;
   }
 
   .post-modal-image img {
@@ -614,14 +617,20 @@
   .post-modal-image {
     flex-shrink: 0; /* Изображение не сжимается */
     height: auto !important; /* ДИНАМИЧЕСКАЯ ВЫСОТА ПОД КОНТЕНТ */
-    max-height: 53vh !important; /* УВЕЛИЧИЛ НА 30px ДЛЯ КОНТЕНТА */
-    min-height: 150px !important; /* МИНИМАЛЬНАЯ ВЫСОТА ДЛЯ МАЛЕНЬКИХ КАРТИНОК */
+    max-height: 55vh !important; /* УВЕЛИЧИЛ ОБРАТНО */
+    min-height: 200px !important; /* УВЕЛИЧИЛ МИНИМАЛЬНУЮ ВЫСОТУ */
     background: white; /* Белый фон для картинок */
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative; /* ВАЖНО ДЛЯ ABSOLUTE ПОЗИЦИОНИРОВАНИЯ ДЕТЕЙ */
     overflow: hidden; /* ОБРЕЗАЕМ ВСЕ ЧТО ВЫХОДИТ ЗА ГРАНИЦЫ */
+  }
+
+  /* Черный фон для видео и YouTube на мобильных */
+  .post-modal-image:has(video),
+  .post-modal-image:has(iframe) {
+    background: #000 !important;
   }
 
   .post-modal-sidebar {
@@ -657,23 +666,20 @@
 
   .post-modal-image video {
     width: 100% !important;
-    height: 100% !important; /* БЛЯДЬ НА ВСЮ ВЫСОТУ КОНТЕЙНЕРА! */
+    height: auto !important;
     max-height: 100% !important;
-    min-height: none !important;
+    min-height: 200px !important;
     object-fit: contain !important;
     background: #000 !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
   }
   
   .post-modal-image iframe {
     width: 100% !important;
-    height: auto !important; /* ДИНАМИЧЕСКАЯ ВЫСОТА ДЛЯ YOUTUBE */
+    height: auto !important;
     max-height: 100% !important;
-    min-height: 150px !important; /* МИНИМАЛЬНАЯ ВЫСОТА ДЛЯ МОБИЛЬНЫХ */
-    aspect-ratio: 16/9 !important; /* СОХРАНЯЕМ ПРОПОРЦИИ YOUTUBE */
-    position: relative !important; /* НЕ ABSOLUTE ДЛЯ YOUTUBE */
+    min-height: 200px !important;
+    aspect-ratio: 16/9 !important;
+    background: #000 !important;
   }
 
   .post-modal-image img {

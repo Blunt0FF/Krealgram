@@ -537,6 +537,8 @@ const PostModal = ({
             let youtubeEmbedUrl = null;
             let originalYouTubeUrl = null;
             
+
+            
             // Сначала проверяем прямые YouTube поля
             if (postData.videoUrl && (postData.videoUrl.includes('youtube') || postData.videoUrl.includes('youtu.be'))) {
               youtubeEmbedUrl = checkYouTubeUrl(postData.videoUrl);
@@ -548,23 +550,36 @@ const PostModal = ({
               youtubeEmbedUrl = postData.youtubeData.embedUrl;
               originalYouTubeUrl = postData.videoUrl || postData.youtubeUrl;
             } else {
-              // Проверяем другие поля
+              // Проверяем другие поля, НО исключаем thumbnail URL
               const urlsToCheck = [postData.video, postData.image, postData.imageUrl];
               for (const url of urlsToCheck) {
-                if (url && (url.includes('youtube') || url.includes('youtu.be'))) {
+                if (url && (url.includes('youtube') || url.includes('youtu.be')) && !url.includes('img.youtube.com')) {
                   youtubeEmbedUrl = checkYouTubeUrl(url);
                   originalYouTubeUrl = url;
                   break;
                 }
+                // Если это thumbnail, пытаемся извлечь ID и создать правильный URL
+                else if (url && url.includes('img.youtube.com/vi/')) {
+                  const match = url.match(/\/vi\/([^\/]+)\//);
+                  if (match && match[1]) {
+                    const videoId = match[1];
+                    const realYouTubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                    youtubeEmbedUrl = checkYouTubeUrl(realYouTubeUrl);
+                    originalYouTubeUrl = realYouTubeUrl;
+                    break;
+                  }
+                }
               }
             }
+            
+
 
             if (youtubeEmbedUrl) {
               const originalUrl = originalYouTubeUrl;
               const youtubeId = extractYouTubeId(originalUrl);
               const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
               
-              // console.log('YouTube detected in PostModal:', { youtubeEmbedUrl, originalUrl, youtubeId });
+
               
               // УБИРАЕМ FALLBACK НА СКРИНШОТ - ВСЕГДА ПОКАЗЫВАЕМ IFRAME
               
@@ -631,11 +646,12 @@ const PostModal = ({
               );
             }
 
-            // Для загруженных видео (Cloudinary)
+            // Для загруженных видео (Cloudinary) - НЕ YouTube
             if ((postData.mediaType === 'video' || 
                 (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
                 (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && 
-                !postData.videoUrl) {
+                (!postData.videoUrl || (!postData.videoUrl.includes('youtube') && !postData.videoUrl.includes('youtu.be')))) {
+
               return (
                 <video 
                   src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
@@ -657,11 +673,12 @@ const PostModal = ({
               );
             }
 
-            // Для внешних видео (не YouTube)
-            if ((postData.mediaType === 'video' || 
-                (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
-                (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && 
-                postData.videoUrl) {
+            // Для внешних видео (НЕ YouTube и НЕ загруженные файлы)
+            if (postData.videoUrl && 
+                !postData.videoUrl.includes('youtube') && 
+                !postData.videoUrl.includes('youtu.be') &&
+                !postData.videoUrl.includes('cloudinary.com')) {
+
               return (
                 <div 
                   className="modal-video-placeholder"

@@ -90,21 +90,21 @@ export const getProfileGifThumbnail = (post, options = {}) => {
   // Для Cloudinary видео создаем GIF превью
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    // Полная длина видео БЕЗ fl_loop (он вызывает ошибку 400)
+    // Зацикленный GIF с правильными параметрами (GIF по умолчанию зацикливается)
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
-      // Мобильные: полная длина без зацикливания
+      // Мобильные: зацикленный GIF 8 секунд, 25 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,q_70/`
+        `/video/upload/w_300,c_scale,f_gif,eo_8,fps_25,q_70/`
       );
       return gifUrl;
     } else {
-      // Десктоп: полная длина без зацикливания
+      // Десктоп: зацикленный GIF 10 секунд, 30 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,q_80/`
+        `/video/upload/w_400,c_scale,f_gif,eo_10,fps_30,q_80/`
       );
       return gifUrl;
     }
@@ -217,21 +217,21 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
   // Для загруженных видео создаем GIF превью для ленты
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    // Полная длина видео БЕЗ fl_loop (он вызывает ошибку 400)
+    // Зацикленный GIF с правильными параметрами (GIF по умолчанию зацикливается)
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
-      // Мобильные: полная длина без зацикливания
+      // Мобильные: зацикленный GIF 8 секунд, 25 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,q_70/`
+        `/video/upload/w_300,c_scale,f_gif,eo_8,fps_25,q_70/`
       );
       return gifUrl;
     } else {
-      // Десктоп: полная длина без зацикливания
+      // Десктоп: зацикленный GIF 10 секунд, 30 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,q_80/`
+        `/video/upload/w_400,c_scale,f_gif,eo_10,fps_30,q_80/`
       );
       return gifUrl;
     }
