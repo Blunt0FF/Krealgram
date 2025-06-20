@@ -94,29 +94,32 @@ const VideoStories = () => {
           <h3>Latest Videos</h3>
         </div>
         <div className="video-stories-list">
-          {videoUsers.map((user) => (
-            <div 
-              key={user._id} 
-              className="video-story-item"
-              onClick={() => handleUserClick(user)}
-            >
-              <div className="video-story-avatar-container">
-                <img 
-                  src={getAvatarUrl(user.avatar)} 
-                  alt={user.username}
-                  className="video-story-avatar"
-                  onError={(e) => {
-                    e.target.onerror = null;
-                    e.target.src = '/default-avatar.png';
-                  }}
-                />
-                <div className="video-count-badge">
-                  {user.videoCount}
+          {videoUsers.map((user) => {
+            const isViewed = viewedUsers.has(user._id);
+            return (
+              <div 
+                key={user._id} 
+                className="video-story-item"
+                onClick={() => handleUserClick(user)}
+              >
+                <div className="video-story-avatar-container">
+                  <img 
+                    src={getAvatarUrl(user.avatar)} 
+                    alt={user.username}
+                    className={`video-story-avatar ${isViewed ? 'viewed' : ''}`}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/default-avatar.png';
+                    }}
+                  />
+                  <div className="video-count-badge">
+                    {user.videoCount}
+                  </div>
                 </div>
+                <span className="video-story-username">{user.username}</span>
               </div>
-              <span className="video-story-username">{user.username}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

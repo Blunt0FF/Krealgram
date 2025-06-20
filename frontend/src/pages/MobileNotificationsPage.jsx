@@ -132,11 +132,28 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
         </div>
         {post && (post.image || post.imageUrl) && (type === 'like' || type === 'comment') && (
             <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
-              <img 
-                src={post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`)} 
-                alt="Post thumbnail" 
-                className="notification-post-image-mobile" 
-              />
+              {(() => {
+                const imageUrl = post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`);
+                const isGif = imageUrl && (imageUrl.toLowerCase().endsWith('.gif') || imageUrl.includes('.gif'));
+                
+                return isGif ? (
+                  <video 
+                    src={imageUrl}
+                    alt="Post thumbnail" 
+                    className="notification-post-image-mobile"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                ) : (
+                  <img 
+                    src={imageUrl} 
+                    alt="Post thumbnail" 
+                    className="notification-post-image-mobile" 
+                  />
+                );
+              })()}
             </Link>
         )}
         <button className="notification-delete-btn" onClick={handleDelete}>×</button>

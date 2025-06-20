@@ -207,9 +207,9 @@ exports.getAllPosts = async (req, res) => {
           imageUrl = null; // Не устанавливаем imageUrl, фронтенд будет использовать youtubeData
         }
         // Для видео с внешними URL (TikTok, VK, Instagram) или placeholder
-        else if (post.image === '/video-placeholder.svg' || post.image?.startsWith('/')) {
+        else if (post.image === '/video-placeholder.svg' || (post.image && post.image.startsWith('/'))) {
           imageUrl = post.image; // Оставляем как есть для статических файлов
-        } else if (post.image?.startsWith('http')) {
+        } else if (post.image && post.image.startsWith('http')) {
           imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
         } else if (post.image) {
           imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
@@ -270,13 +270,19 @@ exports.getPostById = async (req, res) => {
     // Add full URL for the post image and likes information
     let imageUrl;
     
+    // Для внешних видео с youtubeData (TikTok, YouTube и т.д.) без image
+    if (!post.image && post.youtubeData) {
+      imageUrl = null; // Не устанавливаем imageUrl, фронтенд будет использовать youtubeData
+    }
     // Для видео с внешними URL (TikTok, VK, Instagram) или placeholder
-    if (post.image === '/video-placeholder.svg' || post.image.startsWith('/')) {
+    else if (post.image === '/video-placeholder.svg' || (post.image && post.image.startsWith('/'))) {
       imageUrl = post.image; // Оставляем как есть для статических файлов
-    } else if (post.image.startsWith('http')) {
+    } else if (post.image && post.image.startsWith('http')) {
       imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
-    } else {
+    } else if (post.image) {
       imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+    } else {
+      imageUrl = null; // Нет изображения
     }
     
     const postWithImageUrl = {
@@ -669,3 +675,48 @@ exports.testVideoUsers = async (req, res) => {
     });
   }
 }; 
+// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram)
+// @route   POST /api/posts/external-video/download
+// @access  Private
+exports.downloadExternalVideo = async (req, res) => {
+  try {
+    const { url, platform } = req.body;
+    
+    if (!url || !platform) {
+      return res.status(400).json({
+        success: false,
+        message: "URL and platform are required"
+      });
+    }
+
+    // Поддерживаемые платформы для загрузки
+    const supportedPlatforms = ["tiktok", "instagram"];
+    if (!supportedPlatforms.includes(platform.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        message: `Platform ${platform} is not supported for download`
+      });
+    }
+
+    // Здесь можно добавить логику загрузки видео
+    // Пока возвращаем mock данные для тестирования
+    const mockResponse = {
+      success: true,
+      message: "Video download initiated",
+      videoUrl: `https://res.cloudinary.com/demo/video/upload/sample.mp4`, // Mock URL
+      thumbnailUrl: `https://res.cloudinary.com/demo/image/upload/sample.jpg`, // Mock thumbnail
+      publicId: `external_video_${Date.now()}`,
+      platform: platform,
+      originalUrl: url
+    };
+
+    res.json(mockResponse);
+  } catch (error) {
+    console.error("Error downloading external video:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to download external video",
+      error: error.message
+    });
+  }
+};

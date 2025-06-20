@@ -410,6 +410,31 @@
   padding: 40px;
 }
 
+/* Исправления для Safari iOS */
+@supports (-webkit-touch-callout: none) {
+  .stories-bottom-interface {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    bottom: 20px;
+  }
+  
+  .stories-view-comments {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    position: relative;
+    z-index: 10;
+  }
+  
+  .stories-comments-list {
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 16px;
+  }
+  
+  .stories-add-comment {
+    margin-bottom: 8px;
+  }
+}
+
 /* Мобильная адаптация */
 @media (max-width: 768px) {
   .stories-close-btn {

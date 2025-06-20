@@ -29,7 +29,7 @@ const optionalUpload = (req, res, next) => {
 };
 
 // @route   POST api/posts
-// @desc    Создание нового поста (с загрузкой изображения или URL видео)
+// @desc    Создать новый пост
 // @access  Private
 router.post('/', authMiddleware, optionalUpload, postController.createPost);
 
@@ -61,13 +61,13 @@ router.get('/user/:userId', authMiddleware, postController.getUserPosts);
 router.get('/:postId/likes', postController.getPostLikes);
 
 // @route   GET api/posts
-// @desc    Получение всех постов (лента с пагинацией)
+// @desc    Получить все посты
 // @access  Private
 router.get('/', authMiddleware, postController.getAllPosts);
 
 // @route   GET api/posts/:id
-// @desc    Получение одного поста по ID
-// @access  Private 
+// @desc    Получить пост по ID
+// @access  Private
 router.get('/:id', authMiddleware, postController.getPostById);
 
 // @route   PUT api/posts/:id
@@ -76,8 +76,13 @@ router.get('/:id', authMiddleware, postController.getPostById);
 router.put('/:id', authMiddleware, postController.updatePost);
 
 // @route   DELETE api/posts/:id
-// @desc    Удаление поста
-// @access  Private (только автор)
+// @desc    Удалить пост
+// @access  Private
 router.delete('/:id', authMiddleware, postController.deletePost);
+
+// @route   POST api/posts/external-video/download
+// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram)
+// @access  Private
+router.post('/external-video/download', authMiddleware, postController.downloadExternalVideo);
 
 module.exports = router; 

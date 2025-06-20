@@ -55,9 +55,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
       setIsLiked(currentVideo.likes?.includes(currentUser._id) || false);
       setLikesCount(currentVideo.likesCount || currentVideo.likes?.length || 0);
-      
-
-      
       setComments(currentVideo.comments || []);
       setShowComments(false);
     }
@@ -74,9 +71,14 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
 
       if (response.ok) {
         const data = await response.json();
-
-        
+        console.log('📹 Fetched user videos:', data);
+        console.log('📹 Videos array:', data.posts);
+        if (data.posts && data.posts.length > 0) {
+          console.log('📹 First video data:', data.posts[0]);
+        }
         setVideos(data.posts || []);
+      } else {
+        console.error('Failed to fetch videos:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching user videos:', error);
@@ -92,7 +94,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   };
 
   const handleNext = () => {
-    markVideoAsViewed(); // Отмечаем текущее видео как просмотренное
+    markVideoAsViewed();
     if (currentIndex < videos.length - 1) {
       setCurrentIndex(currentIndex + 1);
     }
@@ -105,9 +107,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   };
 
   const handleClose = () => {
-    markVideoAsViewed(); // Отмечаем текущее видео как просмотренное
-    
-    // Проверяем, все ли видео просмотрены
+    markVideoAsViewed();
     const allViewed = videos.length > 0 && viewedVideos.size + 1 >= videos.length;
     onClose(allViewed);
   };
@@ -118,7 +118,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     if (e.key === 'Escape') handleClose();
   };
 
-  // Функция лайка
   const handleLike = async () => {
     if (!currentVideo) return;
     
@@ -142,7 +141,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     }
   };
 
-  // Функция добавления комментария
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim() || !currentVideo || isSubmittingComment) return;
@@ -166,7 +164,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
 
       if (response.ok) {
         const data = await response.json();
-        // Создаем комментарий с правильной структурой если API не вернул полную информацию
         const newCommentObj = data.comment || {
           _id: Date.now().toString(),
           text: newComment,
@@ -189,7 +186,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     }
   };
 
-  // Touch handlers for swipe
   const handleTouchStart = (e) => {
     setTouchStart({
       x: e.targetTouches[0].clientX,
@@ -204,7 +200,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     const currentY = e.targetTouches[0].clientY;
     const deltaY = currentY - touchStart.y;
     
-    // Only handle vertical swipes for closing
     if (Math.abs(deltaY) > 50) {
       if (modalRef.current) {
         const opacity = Math.max(0.3, 1 - Math.abs(deltaY) / 300);
@@ -219,11 +214,9 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     
     const deltaY = e.changedTouches[0].clientY - touchStart.y;
     
-    // Close if swiped down/up more than 100px
     if (Math.abs(deltaY) > 100) {
       handleClose();
     } else {
-      // Reset position
       if (modalRef.current) {
         modalRef.current.style.transform = '';
         modalRef.current.style.opacity = '';
@@ -231,6 +224,158 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     }
     
     setIsDragging(false);
+  };
+
+  const renderVideo = () => {
+    if (!currentVideo) return null;
+
+    console.log('🎬 Current video data:', {
+      currentVideo,
+      youtubeData: currentVideo?.youtubeData,
+      videoUrl: currentVideo?.videoUrl,
+      imageUrl: currentVideo?.imageUrl,
+      image: currentVideo?.image,
+      mediaType: currentVideo?.mediaType
+    });
+
+    // YouTube видео
+    if (currentVideo?.youtubeData) {
+      return (
+        <iframe
+          src={currentVideo.youtubeData.embedUrl}
+          className="stories-video"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          loading="eager"
+          style={{ 
+            display: 'block',
+            backgroundColor: '#000',
+            border: 'none'
+          }}
+          onLoad={() => console.log('Stories YouTube iframe loaded')}
+          onError={(e) => console.error('Stories YouTube iframe error:', e)}
+        />
+      );
+    }
+
+    // Определяем источник видео - ИСПРАВЛЕННАЯ ЛОГИКА
+    let videoSrc = null;
+    
+    // Приоритет: videoUrl > image (для загруженных видео) > imageUrl
+    if (currentVideo?.videoUrl) {
+      videoSrc = currentVideo.videoUrl;
+    } else if (currentVideo?.image) {
+      // Для загруженных видео файлов - они хранятся в поле image
+      if (currentVideo.image.startsWith('http')) {
+        videoSrc = currentVideo.image;
+      } else {
+        videoSrc = `${API_URL}/uploads/${currentVideo.image}`;
+      }
+    } else if (currentVideo?.imageUrl) {
+      videoSrc = currentVideo.imageUrl;
+    }
+    
+    console.log('🎥 Video source determined:', { 
+      videoSrc, 
+      originalImage: currentVideo?.image,
+      videoUrl: currentVideo?.videoUrl,
+      imageUrl: currentVideo?.imageUrl,
+      mediaType: currentVideo?.mediaType 
+    });
+    
+    if (videoSrc) {
+      return (
+        <video
+          src={videoSrc}
+          className="stories-video"
+          controls={true}
+          muted={false}
+          playsInline={true}
+          webkit-playsinline="true"
+          x5-playsinline="true"
+          x5-video-player-type="h5"
+          x5-video-player-fullscreen="true"
+          x5-video-orientation="portraint"
+          preload="metadata"
+          poster={currentVideo?.thumbnailUrl || '/video-placeholder.svg'}
+          style={{
+            display: 'block',
+            backgroundColor: '#000'
+          }}
+          onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+          onLoadStart={() => console.log('Video loading started')}
+          onLoadedData={() => console.log('Video data loaded')}
+          onCanPlay={() => console.log('Video can play')}
+          onError={(e) => {
+            console.error('Video error:', e.target.error);
+            console.log('Failed video src:', e.target.src);
+            console.log('Error details:', {
+              error: e.target.error,
+              networkState: e.target.networkState,
+              readyState: e.target.readyState,
+              currentSrc: e.target.currentSrc
+            });
+            
+            // Попробуем альтернативный путь
+            if (!e.target.src.includes('http://localhost:5000')) {
+              const altSrc = `http://localhost:5000/uploads/${currentVideo?.image}`;
+              console.log('Trying alternative src:', altSrc);
+              e.target.src = altSrc;
+            }
+          }}
+          onPause={(e) => {
+            if (videoManager.getCurrentVideo() === e.target) {
+              videoManager.pauseCurrentVideo();
+            }
+          }}
+        >
+          Your browser does not support the video tag.
+        </video>
+      );
+    }
+
+    return (
+      <div className="stories-no-video">
+        <p>Video not available</p>
+        <div style={{ fontSize: '12px', color: '#a8a8a8', marginTop: '10px' }}>
+          Debug info: mediaType={currentVideo?.mediaType}, 
+          hasImage={!!currentVideo?.image}, 
+          hasImageUrl={!!currentVideo?.imageUrl}, 
+          hasVideoUrl={!!currentVideo?.videoUrl},
+          hasYoutubeData={!!currentVideo?.youtubeData},
+          imageValue={currentVideo?.image}
+        </div>
+        
+        {/* Дополнительная диагностическая информация */}
+        <div style={{ fontSize: '10px', color: '#666', marginTop: '10px', textAlign: 'left' }}>
+          <div>Image: {currentVideo?.image || 'null'}</div>
+          <div>VideoUrl: {currentVideo?.videoUrl || 'null'}</div>
+          <div>ImageUrl: {currentVideo?.imageUrl || 'null'}</div>
+          <div>MediaType: {currentVideo?.mediaType || 'null'}</div>
+          <div>YoutubeData: {currentVideo?.youtubeData ? 'exists' : 'null'}</div>
+          <div>Caption: {currentVideo?.caption || 'null'}</div>
+          <div>ID: {currentVideo?._id || 'null'}</div>
+        </div>
+        
+        {/* Если есть image, попробуем показать как картинку для проверки */}
+        {currentVideo?.image && (
+          <div style={{ marginTop: '20px' }}>
+            <p style={{ color: '#a8a8a8', fontSize: '12px' }}>Trying to display as image:</p>
+            <img 
+              src={currentVideo.image.startsWith('http') ? currentVideo.image : `${API_URL}/uploads/${currentVideo.image}`}
+              alt="Debug preview"
+              style={{ maxWidth: '200px', maxHeight: '200px', border: '1px solid #333' }}
+              onError={(e) => {
+                console.log('Image also failed to load:', e.target.src);
+                e.target.style.display = 'none';
+              }}
+              onLoad={() => console.log('Image loaded successfully')}
+            />
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (!isOpen) return null;
@@ -251,12 +396,10 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
         onTouchEnd={handleTouchEnd}
       >
         
-        {/* Кнопка закрытия */}
         <button className="stories-close-btn" onClick={handleClose}>
           ✕
         </button>
 
-        {/* Progress bar */}
         <div className="stories-progress-bar">
           {videos.map((_, index) => (
             <div 
@@ -266,7 +409,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           ))}
         </div>
 
-        {/* Header с пользователем */}
         <div className="stories-header">
           <img
             src={getAvatarUrl(user.avatar)}
@@ -287,7 +429,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           <div className="stories-no-videos">No videos found</div>
         ) : (
           <>
-            {/* Стрелки навигации */}
             {currentIndex > 0 && (
               <button className="stories-nav-btn stories-prev-btn" onClick={handlePrevious}>
                 ‹
@@ -299,134 +440,11 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
               </button>
             )}
             
-            {/* Основное видео */}
             <div className="stories-video-container">
-              {(() => {
-                console.log('🎬 Current video data:', {
-                  currentVideo,
-                  youtubeData: currentVideo?.youtubeData,
-                  videoUrl: currentVideo?.videoUrl,
-                  imageUrl: currentVideo?.imageUrl,
-                  image: currentVideo?.image,
-                  mediaType: currentVideo?.mediaType
-                });
-                return null;
-              })()}
-              {currentVideo?.youtubeData ? (
-                <iframe
-                  src={currentVideo.youtubeData.embedUrl}
-                  className="stories-video"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  loading="eager"
-                  style={{ 
-                    display: 'block',
-                    backgroundColor: '#000',
-                    border: 'none'
-                  }}
-                  onLoad={() => console.log('Stories YouTube iframe loaded')}
-                  onError={(e) => console.error('Stories YouTube iframe error:', e)}
-                />
-              ) : currentVideo?.videoUrl && currentVideo.videoUrl.includes('youtube') ? (
-                <iframe
-                  src={currentVideo.videoUrl.replace('watch?v=', 'embed/')}
-                  className="stories-video"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  loading="eager"
-                  style={{ 
-                    display: 'block',
-                    backgroundColor: '#000',
-                    border: 'none'
-                  }}
-                  onLoad={() => console.log('Stories YouTube iframe loaded')}
-                  onError={(e) => console.error('Stories YouTube iframe error:', e)}
-                />
-              ) : currentVideo?.mediaType === 'video' ? (
-                <video
-                  src={currentVideo.imageUrl || currentVideo.image || currentVideo.videoUrl}
-                  className="stories-video"
-                  controls={true}
-                  muted={false}
-                  playsInline={true}
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
-                  x5-video-player-type="h5"
-                  x5-video-player-fullscreen="true"
-                  x5-video-orientation="portraint"
-                  preload="metadata"
-                  style={{
-                    display: 'block',
-                    backgroundColor: '#000'
-                  }}
-                  onPlay={(e) => videoManager.setCurrentVideo(e.target)}
-                  onPause={(e) => {
-                    if (videoManager.getCurrentVideo() === e.target) {
-                      videoManager.pauseCurrentVideo();
-                    }
-                  }}
-                  onLoadStart={() => console.log('Stories video loading started')}
-                  onCanPlay={() => console.log('Stories video can play')}
-                  onError={(e) => {
-                    console.error('Stories video error:', e);
-                    console.error('Failed video src:', e.target.src);
-                  }}
-                >
-                  Your browser does not support the video tag.
-                </video>
-              ) : currentVideo?.videoUrl || currentVideo?.imageUrl || currentVideo?.image ? (
-                // Fallback для случаев когда mediaType не 'video', но есть видео данные
-                <video
-                  src={currentVideo.videoUrl || currentVideo.imageUrl || currentVideo.image}
-                  className="stories-video"
-                  controls={true}
-                  muted={false}
-                  playsInline={true}
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
-                  x5-video-player-type="h5"
-                  x5-video-player-fullscreen="true"
-                  x5-video-orientation="portraint"
-                  preload="metadata"
-                  style={{
-                    display: 'block',
-                    backgroundColor: '#000'
-                  }}
-                  onPlay={(e) => videoManager.setCurrentVideo(e.target)}
-                  onPause={(e) => {
-                    if (videoManager.getCurrentVideo() === e.target) {
-                      videoManager.pauseCurrentVideo();
-                    }
-                  }}
-                  onLoadStart={() => console.log('Stories fallback video loading started')}
-                  onCanPlay={() => console.log('Stories fallback video can play')}
-                  onError={(e) => {
-                    console.error('Stories fallback video error:', e);
-                    console.error('Failed fallback video src:', e.target.src);
-                  }}
-                >
-                  Your browser does not support the video tag.
-                </video>
-              ) : (
-                <div className="stories-no-video">
-                  Video not available
-                  <br />
-                  <small>Debug: {JSON.stringify({
-                    mediaType: currentVideo?.mediaType,
-                    hasVideoUrl: !!currentVideo?.videoUrl,
-                    hasImageUrl: !!currentVideo?.imageUrl,
-                    hasImage: !!currentVideo?.image,
-                    hasYoutubeData: !!currentVideo?.youtubeData
-                  }, null, 2)}</small>
-                </div>
-              )}
+              {renderVideo()}
             </div>
 
-            {/* Instagram-style интерфейс внизу */}
             <div className="stories-bottom-interface">
-              {/* Кнопки действий */}
               <div className="stories-actions">
                 <div className="stories-actions-left">
                   <button 
@@ -438,7 +456,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                     </svg>
                   </button>
                   
-                  {/* Счетчик лайков рядом с иконкой */}
                   {likesCount > 0 && (
                     <span className="stories-likes-count">
                       {likesCount} {likesCount === 1 ? 'like' : 'likes'}
@@ -456,17 +473,14 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                 </button>
               </div>
 
-              {/* Описание */}
               {currentVideo?.caption && (
                 <div className="stories-description">
                   {currentVideo.caption}
                 </div>
               )}
 
-              {/* Комментарии - показываем только по кнопке */}
               {comments.length > 0 && (
                 <div className="stories-comments-list">
-                  {/* Показываем комментарии только если showComments = true */}
                   {showComments && comments.map((comment, index) => {
                     const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
                     return (
@@ -486,7 +500,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                     );
                   })}
                   
-                  {/* Кнопка показать/скрыть комментарии */}
                   <button 
                     className="stories-view-comments"
                     onClick={() => setShowComments(!showComments)}
@@ -499,7 +512,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                 </div>
               )}
 
-              {/* Поле добавления комментария */}
               <form className="stories-add-comment" onSubmit={handleAddComment}>
                 <input
                   type="text"
@@ -524,7 +536,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
         )}
       </div>
 
-      {/* Share Modal */}
       {showShareModal && currentVideo && (
         <ShareModal
           postId={currentVideo._id}
