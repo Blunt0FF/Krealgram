@@ -314,26 +314,17 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
               const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
               const match = url.match(youtubeRegex);
               if (match && match[1]) {
-                const embedUrl = `https://www.youtube.com/embed/${match[1]}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1`;
+                const embedUrl = `https://www.youtube.com/embed/${match[1]}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
                 return embedUrl;
               }
               // Fallback для старой логики
               if (url.includes('youtu.be/')) {
                 const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-                return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1`;
+                return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
               }
               const videoId = url.split('v=')[1]?.split('&')[0];
-              return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1`;
+              return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
             };
-            
-            const extractYouTubeId = (url) => {
-              const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-              const match = url.match(youtubeRegex);
-              return match ? match[1] : null;
-            };
-            
-            const youtubeId = extractYouTubeId(post.videoUrl);
-            const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
             
             return (
               <div style={{ position: 'relative', width: '100%', height: '500px', cursor: 'pointer' }} onClick={() => onImageClick(post)}>
@@ -345,52 +336,59 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
-                  style={{ borderRadius: '0', pointerEvents: 'none' }}
+                  style={{ borderRadius: '0' }}
+                  onLoad={() => {
+                    // Убираем логи для уменьшения консольного спама
+                  }}
                   onError={(e) => {
-                    console.error('YouTube iframe failed to load in feed');
-                    // Показываем fallback с превью
-                    e.target.style.display = 'none';
-                    const fallback = e.target.nextElementSibling;
-                    if (fallback) fallback.style.display = 'flex';
+                    // Тихо обрабатываем ошибки
                   }}
                 />
-                <div 
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    background: `url(${thumbnailUrl}) center/cover no-repeat`,
-                    backgroundColor: '#000',
-                    display: 'none',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer'
+              </div>
+            );
+          } else if (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')) && window.innerWidth <= 768) {
+            // YouTube на мобильных - тоже показываем iframe
+            const createYouTubeEmbedUrl = (url) => {
+              const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+              const match = url.match(youtubeRegex);
+                             if (match && match[1]) {
+                 const embedUrl = `https://www.youtube.com/embed/${match[1]}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
+                 return embedUrl;
+               }
+               if (url.includes('youtu.be/')) {
+                 const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+                 return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
+               }
+               const videoId = url.split('v=')[1]?.split('&')[0];
+               return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
+            };
+            
+            return (
+              <div style={{ position: 'relative', width: '100%', height: '300px', cursor: 'pointer' }} onClick={() => onImageClick(post)}>
+                <iframe
+                  width="100%"
+                  height="300"
+                  src={createYouTubeEmbedUrl(post.videoUrl)}
+                  title="YouTube video player"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  style={{ borderRadius: '0' }}
+                  onLoad={() => {
+                    // Тихо загружаем iframe
                   }}
-                >
-                  <div style={{
-                    background: 'rgba(0,0,0,0.7)',
-                    borderRadius: '50%',
-                    width: '60px',
-                    height: '60px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z"/>
-                    </svg>
-                  </div>
-                </div>
+                  onError={(e) => {
+                    // Тихо обрабатываем ошибки
+                  }}
+                />
               </div>
             );
           } else if (post.mediaType === 'video' || 
                      (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
                      (post.image && (post.image.includes('.mp4') || post.image.includes('video/')))) {
              
-             // На мобильных используем VideoPreview для превью
-             if (window.innerWidth <= 768) {
+             // На мобильных используем VideoPreview для превью (НО НЕ для YouTube!)
+             if (window.innerWidth <= 768 && !(post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')))) {
                return (
                  <VideoPreview 
                    post={post}

@@ -25,6 +25,22 @@
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
     <title>Krealgram</title>
+    <script>
+      // Подавляем YouTube API ошибки в консоли
+      const originalError = console.error;
+      console.error = function(...args) {
+        const message = args.join(' ');
+        // Игнорируем YouTube API ошибки
+        if (message.includes('youtube.com') || 
+            message.includes('play.google.com') || 
+            message.includes('ERR_BLOCKED_BY_CLIENT') ||
+            message.includes('youtubei/v1/log_event') ||
+            message.includes('generate_204')) {
+          return;
+        }
+        originalError.apply(console, args);
+      };
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

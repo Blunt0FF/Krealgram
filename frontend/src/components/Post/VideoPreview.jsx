@@ -23,7 +23,13 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const handleVideoClick = (e) => {
     e.preventDefault();
     
-    // Для внешних видео (YouTube, TikTok и т.д.) всегда открываем модалку
+    // Для YouTube видео ВСЕГДА открываем модалку
+    if (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be'))) {
+      onClick && onClick();
+      return;
+    }
+    
+    // Для других внешних видео тоже открываем модалку
     if (post.videoUrl || post.youtubeData) {
       onClick && onClick();
       return;

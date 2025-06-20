@@ -526,7 +526,11 @@ const PostModal = ({
             const checkYouTubeUrl = (url) => {
               if (!url) return null;
               const youtubeId = extractYouTubeId(url);
-              return youtubeId ? `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1` : null;
+              if (youtubeId) {
+                const embedUrl = `https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
+                return embedUrl;
+              }
+              return null;
             };
 
             // Проверяем все возможные поля на YouTube URL
@@ -593,11 +597,10 @@ const PostModal = ({
                       aspectRatio: '16/9'
                     }}
                     onLoad={() => {
-                      console.log('YouTube iframe loaded successfully');
+                      // Тихо загружаем iframe
                     }}
                     onError={(e) => {
-                      console.error('YouTube iframe failed to load:', e);
-                      // НЕ УСТАНАВЛИВАЕМ iframeError - пусть пытается загрузиться
+                      // Тихо обрабатываем ошибки
                     }}
                   />
                   {/* Кнопка для открытия в YouTube */}
