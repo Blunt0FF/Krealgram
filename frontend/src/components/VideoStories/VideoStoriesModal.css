@@ -192,7 +192,7 @@
   
   .stories-video {
     max-width: 100%;
-    height: calc(100vh - 230px); /* Больше высоты для видео */
+    height: calc(100vh - 280px); /* Безопасная высота для видео */
     width: 100%;
     object-fit: contain;
     background: black;
@@ -200,7 +200,7 @@
   
   .stories-video[src*="youtube.com"] {
     max-width: 100%;
-    height: calc(100vh - 230px);
+    height: calc(100vh - 280px);
     width: 100%;
   }
 }

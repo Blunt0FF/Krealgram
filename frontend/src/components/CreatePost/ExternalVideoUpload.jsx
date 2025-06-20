@@ -17,6 +17,9 @@ const ExternalVideoUpload = ({ onVideoSelect, onClose }) => {
 
   const validateUrl = async (inputUrl) => {
     try {
+      console.log('🔍 Validating URL:', inputUrl);
+      console.log('🌐 API_URL:', API_URL);
+      
       const response = await fetch(`${API_URL}/api/video-downloader/validate`, {
         method: 'POST',
         headers: {
@@ -25,14 +28,21 @@ const ExternalVideoUpload = ({ onVideoSelect, onClose }) => {
         body: JSON.stringify({ url: inputUrl })
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', [...response.headers.entries()]);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('✅ Validation result:', data);
       return data;
     } catch (error) {
-      console.error('URL validation error:', error);
+      console.error('❌ URL validation error:', error);
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        return { valid: false, error: 'Ошибка сети - проверьте подключение к backend' };
+      }
       if (error.message.includes('CORS')) {
         return { valid: false, error: 'Ошибка CORS - проверьте, что backend запущен' };
       }
@@ -42,6 +52,9 @@ const ExternalVideoUpload = ({ onVideoSelect, onClose }) => {
 
   const downloadVideo = async (inputUrl) => {
     try {
+      console.log('⬇️ Downloading video:', inputUrl);
+      console.log('🌐 API_URL:', API_URL);
+      
       const response = await fetch(`${API_URL}/api/video-downloader/download`, {
         method: 'POST',
         headers: {
@@ -50,14 +63,21 @@ const ExternalVideoUpload = ({ onVideoSelect, onClose }) => {
         body: JSON.stringify({ url: inputUrl })
       });
 
+      console.log('📡 Download response status:', response.status);
+      console.log('📡 Download response headers:', [...response.headers.entries()]);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('✅ Download result:', data);
       return data;
     } catch (error) {
-      console.error('Video download error:', error);
+      console.error('❌ Video download error:', error);
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        return { success: false, error: 'Ошибка сети - проверьте подключение к backend' };
+      }
       if (error.message.includes('CORS')) {
         return { success: false, error: 'Ошибка CORS - проверьте, что backend запущен и обновлен' };
       }

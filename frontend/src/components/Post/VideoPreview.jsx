@@ -1,16 +1,19 @@
 import React, { useState, useRef } from 'react';
-import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
+import { getVideoPreviewThumbnail, getStaticThumbnail, getMediaThumbnail } from '../../utils/videoUtils';
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
   const [imageError, setImageError] = useState(false);
   const [staticError, setStaticError] = useState(false);
+  const [mobileError, setMobileError] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const videoRef = useRef(null);
   const clickTimeoutRef = useRef(null);
   
+  const isMobile = window.innerWidth <= 768;
   const gifUrl = getVideoPreviewThumbnail(post);
   const staticUrl = getStaticThumbnail(post);
+  const mobileUrl = getMediaThumbnail(post, { width: 300 });
 
   const handleImageError = () => {
     setImageError(true);
@@ -18,6 +21,10 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
 
   const handleStaticError = () => {
     setStaticError(true);
+  };
+
+  const handleMobileError = () => {
+    setMobileError(true);
   };
 
   const handleVideoClick = (e) => {
@@ -59,8 +66,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
     }
   };
 
-  // Если обе картинки не загрузились, показываем placeholder
-  if (imageError && staticError) {
+  // Если все превью не загрузились, показываем placeholder
+  if (imageError && staticError && mobileError) {
     return (
       <div 
         className={`post-video-placeholder ${className}`}
@@ -151,8 +158,24 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         />
       )}
       
+      {/* Fallback мобильное превью */}
+      {imageError && !mobileError && !showVideo && isMobile && (
+        <img
+          src={mobileUrl}
+          alt="Video preview"
+          style={{
+            width: '100%',
+            height: 'auto',
+            maxHeight: '600px',
+            objectFit: 'contain',
+            display: 'block'
+          }}
+          onError={handleMobileError}
+        />
+      )}
+      
       {/* Fallback статичное превью */}
-      {imageError && !staticError && !showVideo && (
+      {imageError && (!isMobile || mobileError) && !staticError && !showVideo && (
         <img
           src={staticUrl}
           alt="Video preview"
