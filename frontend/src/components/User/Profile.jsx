@@ -280,11 +280,11 @@ const Profile = ({ user: currentUserProp }) => {
     // Функция для проверки YouTube URL
     const checkYouTubeUrl = (url) => {
       if (!url) return null;
-      console.log('Checking YouTube URL:', url);
+      // console.log('Checking YouTube URL:', url);
       
       // Более простая проверка - если содержит youtube или youtu.be
       if (url.includes('youtube') || url.includes('youtu.be')) {
-        console.log('URL contains YouTube');
+        // console.log('URL contains YouTube');
         
         // Пытаемся извлечь videoId разными способами
         let videoId = null;
@@ -305,7 +305,7 @@ const Profile = ({ user: currentUserProp }) => {
           videoId = match ? match[1] : null;
         }
         
-        console.log('Extracted videoId:', videoId);
+        // console.log('Extracted videoId:', videoId);
         return videoId;
       }
       return null;
@@ -316,15 +316,42 @@ const Profile = ({ user: currentUserProp }) => {
       videoUrl: post.videoUrl,
       youtubeUrl: post.youtubeUrl,
       image: post.image,
-      imageUrl: post.imageUrl
+      imageUrl: post.imageUrl,
+      fullPost: post
     });
     
-    const videoId = checkYouTubeUrl(post.videoUrl) || 
-                   checkYouTubeUrl(post.youtubeUrl) || 
-                   checkYouTubeUrl(post.image) || 
-                   checkYouTubeUrl(post.imageUrl);
+    // Функция для извлечения videoId из YouTube thumbnail URL
+    const extractVideoIdFromThumbnail = (url) => {
+      if (!url) return null;
+      // Проверяем thumbnail URL: https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg
+      const thumbnailMatch = url.match(/img\.youtube\.com\/vi\/([a-zA-Z0-9_-]{11})/);
+      return thumbnailMatch ? thumbnailMatch[1] : null;
+    };
+    
+    // Сначала проверяем прямые YouTube URL
+    let videoId = checkYouTubeUrl(post.videoUrl) || checkYouTubeUrl(post.youtubeUrl);
+    let originalYouTubeUrl = post.videoUrl || post.youtubeUrl;
+    
+    // Если не нашли, проверяем thumbnail URLs и восстанавливаем оригинальные
+    if (!videoId) {
+      videoId = extractVideoIdFromThumbnail(post.image) || extractVideoIdFromThumbnail(post.imageUrl);
+      if (videoId) {
+        // Восстанавливаем оригинальный YouTube URL из videoId
+        originalYouTubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        console.log('Restored YouTube URL from thumbnail:', originalYouTubeUrl);
+      }
+    }
+    
+    // Если все еще не нашли, проверяем обычные URL
+    if (!videoId) {
+      videoId = checkYouTubeUrl(post.image) || checkYouTubeUrl(post.imageUrl);
+      if (videoId) {
+        originalYouTubeUrl = (post.image && post.image.includes('youtube')) ? post.image : post.imageUrl;
+      }
+    }
 
     console.log('Final videoId:', videoId);
+    console.log('Original YouTube URL:', originalYouTubeUrl);
 
     if (videoId) {
       postToOpen.youtubeData = {
@@ -332,17 +359,11 @@ const Profile = ({ user: currentUserProp }) => {
         embedUrl: `https://www.youtube.com/embed/${videoId}`,
         thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
       };
-      // Сохраняем оригинальный URL для PostModal
-      if (!postToOpen.videoUrl && !postToOpen.youtubeUrl) {
-        // Находим какое поле содержит YouTube URL и сохраняем его
-        if (checkYouTubeUrl(post.image)) {
-          postToOpen.videoUrl = post.image;
-        } else if (checkYouTubeUrl(post.imageUrl)) {
-          postToOpen.videoUrl = post.imageUrl;
-        }
-      }
+      // Сохраняем оригинальный YouTube URL для PostModal
+      postToOpen.videoUrl = originalYouTubeUrl;
       // Помечаем как YouTube видео
       postToOpen.mediaType = 'youtube';
+      console.log('YouTube post prepared:', postToOpen);
     }
 
     setSelectedPost(postToOpen);

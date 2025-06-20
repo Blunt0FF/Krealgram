@@ -560,12 +560,7 @@ const PostModal = ({
               const youtubeId = extractYouTubeId(originalUrl);
               const thumbnailUrl = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
               
-              console.log('YouTube detected in PostModal:', {
-                youtubeEmbedUrl,
-                originalUrl,
-                youtubeId,
-                postData: postData
-              });
+              // console.log('YouTube detected in PostModal:', { youtubeEmbedUrl, originalUrl, youtubeId });
               
               // УБИРАЕМ FALLBACK НА СКРИНШОТ - ВСЕГДА ПОКАЗЫВАЕМ IFRAME
               
