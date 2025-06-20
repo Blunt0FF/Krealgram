@@ -1,243 +1,181 @@
 import React, { useState } from 'react';
-import { API_URL } from '../../config';
 import './ExternalVideoUpload.css';
 
-const ExternalVideoUpload = ({ onVideoSelect, onClose }) => {
-  const [url, setUrl] = useState('');
+const ExternalVideoUpload = ({ isOpen, onClose, onVideoSelect }) => {
+  const [videoUrl, setVideoUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [platform, setPlatform] = useState('');
 
-  const supportedPlatforms = [
-    { name: 'TikTok', icon: '🎵', example: 'https://www.tiktok.com/@username/video/...' },
-    { name: 'Instagram', icon: '📷', example: 'https://www.instagram.com/p/...' },
-    { name: 'VK', icon: '🎬', example: 'https://vk.com/video...' },
-    { name: 'YouTube', icon: '▶️', example: 'https://www.youtube.com/watch?v=...' }
-  ];
+  // Функция для парсинга различных видео URL
+  const parseVideoUrl = (url) => {
+    // YouTube
+    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const youtubeMatch = url.match(youtubeRegex);
+    if (youtubeMatch) {
+      const videoId = youtubeMatch[1];
+      return {
+        platform: 'youtube',
+        videoId,
+        embedUrl: `https://www.youtube.com/embed/${videoId}`,
+        thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        originalUrl: url
+      };
+    }
 
-  const validateUrl = async (inputUrl) => {
-    try {
-      console.log('🔍 Validating URL:', inputUrl);
-      console.log('🌐 API_URL:', API_URL);
+    // TikTok - улучшенная обработка
+    const tiktokRegex = /(?:(?:https?:\/\/)?(?:www\.)?tiktok\.com\/@[^\/]+\/video\/(\d+)|(?:https?:\/\/)?vm\.tiktok\.com\/([A-Za-z0-9]+)|(?:https?:\/\/)?(?:www\.)?tiktok\.com\/t\/([A-Za-z0-9]+))/;
+    const tiktokMatch = url.match(tiktokRegex);
+    if (tiktokMatch) {
+      const videoId = tiktokMatch[1] || tiktokMatch[2] || tiktokMatch[3];
       
-      const response = await fetch(`${API_URL}/api/video-downloader/validate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: inputUrl })
-      });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', [...response.headers.entries()]);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      // Для коротких ссылок используем оригинальную ссылку как embedUrl
+      let embedUrl;
+      if (tiktokMatch[1]) {
+        // Полная ссылка
+        embedUrl = `https://www.tiktok.com/embed/v2/${videoId}`;
+      } else {
+        // Короткие ссылки - используем оригинальную
+        embedUrl = url.startsWith('http') ? url : `https://${url}`;
       }
-
-      const data = await response.json();
-      console.log('✅ Validation result:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ URL validation error:', error);
-      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        return { valid: false, error: 'Ошибка сети - проверьте подключение к backend' };
-      }
-      if (error.message.includes('CORS')) {
-        return { valid: false, error: 'Ошибка CORS - проверьте, что backend запущен' };
-      }
-      return { valid: false, error: `Ошибка валидации URL: ${error.message}` };
-    }
-  };
-
-  const downloadVideo = async (inputUrl) => {
-    try {
-      console.log('⬇️ Downloading video:', inputUrl);
-      console.log('🌐 API_URL:', API_URL);
       
-      const response = await fetch(`${API_URL}/api/video-downloader/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: inputUrl })
-      });
-
-      console.log('📡 Download response status:', response.status);
-      console.log('📡 Download response headers:', [...response.headers.entries()]);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Download result:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Video download error:', error);
-      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        return { success: false, error: 'Ошибка сети - проверьте подключение к backend' };
-      }
-      if (error.message.includes('CORS')) {
-        return { success: false, error: 'Ошибка CORS - проверьте, что backend запущен и обновлен' };
-      }
-      return { success: false, error: `Ошибка загрузки видео: ${error.message}` };
+      return {
+        platform: 'tiktok',
+        videoId: videoId,
+        originalUrl: url,
+        embedUrl: embedUrl,
+        thumbnailUrl: `https://via.placeholder.com/300x400/FF0050/FFFFFF?text=🎵+TikTok+Video`,
+        note: 'TikTok video content'
+      };
     }
-  };
 
-  const handleUrlChange = async (e) => {
-    const inputUrl = e.target.value;
-    setUrl(inputUrl);
-    setError('');
-    setPlatform('');
-
-    if (inputUrl.length > 10) {
-      const validation = await validateUrl(inputUrl);
-      if (validation.valid) {
-        setPlatform(validation.platform);
-      }
+    // Instagram
+    const instagramRegex = /(?:instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+))/;
+    const instagramMatch = url.match(instagramRegex);
+    if (instagramMatch) {
+      return {
+        platform: 'instagram',
+        videoId: instagramMatch[1],
+        originalUrl: url,
+        thumbnailUrl: null
+      };
     }
+
+    // VK
+    const vkRegex = /(?:vk\.com\/video(-?\d+_\d+))/;
+    const vkMatch = url.match(vkRegex);
+    if (vkMatch) {
+      return {
+        platform: 'vk',
+        videoId: vkMatch[1],
+        originalUrl: url,
+        thumbnailUrl: null
+      };
+    }
+
+    return null;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!url.trim()) return;
+    
+    if (!videoUrl.trim()) {
+      setError('Please enter a video URL');
+      return;
+    }
 
     setLoading(true);
     setError('');
 
     try {
-      // Сначала валидируем URL
-      const validation = await validateUrl(url);
-      if (!validation.valid) {
-        setError('Неподдерживаемая платформа или неверный URL');
-        setLoading(false);
+      const parsedVideo = parseVideoUrl(videoUrl.trim());
+      
+      if (!parsedVideo) {
+        setError('Unsupported URL. Supported platforms: YouTube, TikTok, Instagram, VK');
         return;
       }
 
-      // Загружаем видео
-      const result = await downloadVideo(url);
+      // Вызываем callback с данными видео
+      onVideoSelect(parsedVideo);
       
-      if (result.success) {
-        // Создаем объект видео для передачи в родительский компонент
-        const videoData = {
-          type: result.type, // 'uploaded' или 'external'
-          platform: result.platform,
-          originalUrl: result.originalUrl,
-          videoUrl: result.cloudinaryUrl || result.embedUrl,
-          publicId: result.publicId,
-          duration: result.duration,
-          isExternal: result.type === 'external'
-        };
-
-        onVideoSelect(videoData);
-        onClose();
-      } else {
-        // Показываем более детальную ошибку
-        let errorMessage = result.error || 'Не удалось загрузить видео';
-        if (result.fallback) {
-          errorMessage += `\n\n💡 Совет: ${result.fallback}`;
-        }
-        setError(errorMessage);
-      }
+      // Очищаем форму
+      setVideoUrl('');
+      
     } catch (error) {
-      console.error('Submit error:', error);
-      setError('Произошла ошибка при обработке видео');
+      console.error('Error parsing video URL:', error);
+      setError('Error processing video URL');
     } finally {
       setLoading(false);
     }
   };
 
-  const getPlatformIcon = (platformName) => {
-    const platformData = supportedPlatforms.find(p => 
-      p.name.toLowerCase() === platformName.toLowerCase()
-    );
-    return platformData ? platformData.icon : '🎬';
+  const handleClose = () => {
+    setVideoUrl('');
+    setError('');
+    onClose();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="external-video-upload">
+    <div className="external-video-overlay">
       <div className="external-video-modal">
         <div className="modal-header">
-          <h3>Загрузить видео с платформы</h3>
-          <button className="close-btn" onClick={onClose}>×</button>
+          <h3>Add video from external platform</h3>
+          <button className="close-btn" onClick={handleClose}>×</button>
         </div>
-
-        <div className="modal-content">
+        
+        <div className="modal-body">
           <div className="supported-platforms">
-            <h4>Поддерживаемые платформы:</h4>
-            <div className="platforms-list">
-              {supportedPlatforms.map((platform, index) => (
-                <div key={index} className="platform-item">
-                  <span className="platform-icon">{platform.icon}</span>
-                  <div className="platform-info">
-                    <span className="platform-name">{platform.name}</span>
-                    <span className="platform-example">{platform.example}</span>
-                  </div>
-                </div>
-              ))}
+            <div className="platform-info">
+              <span className="platform-icon">📺</span>
+              <span>YouTube</span>
+            </div>
+            <div className="platform-info">
+              <span className="platform-icon">🎵</span>
+              <span>TikTok</span>
+            </div>
+            <div className="platform-info">
+              <span className="platform-icon">📱</span>
+              <span>Instagram</span>
+            </div>
+            <div className="platform-info">
+              <span className="platform-icon">🎬</span>
+              <span>VK</span>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="url-form">
+          <form onSubmit={handleSubmit}>
             <div className="input-group">
               <input
-                type="url"
-                value={url}
-                onChange={handleUrlChange}
-                placeholder="Вставьте ссылку на видео (TikTok, Instagram, VK, YouTube)..."
-                className="url-input"
+                type="text"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                placeholder="Paste video link here..."
+                className="video-url-input"
                 disabled={loading}
               />
-              {platform && (
-                <div className="detected-platform">
-                  <span className="platform-icon">{getPlatformIcon(platform)}</span>
-                  <span>✅ Обнаружено: {platform.toUpperCase()}</span>
-                </div>
-              )}
             </div>
-
-            {error && (
-              <div className="error-message">
-                {error}
-              </div>
-            )}
-
-            <div className="form-actions">
-              <button
-                type="button"
-                onClick={onClose}
-                className="cancel-btn"
+            
+            {error && <div className="error-message">{error}</div>}
+            
+            <div className="modal-actions">
+              <button 
+                type="button" 
+                className="cancel-btn" 
+                onClick={handleClose}
                 disabled={loading}
               >
-                Отмена
+                Cancel
               </button>
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={loading || !url.trim()}
+              <button 
+                type="submit" 
+                className="add-btn"
+                disabled={loading || !videoUrl.trim()}
               >
-                {loading ? (
-                  <>
-                    <div className="loading-spinner"></div>
-                    Загружаем...
-                  </>
-                ) : (
-                  'Загрузить видео'
-                )}
+                {loading ? 'Processing...' : 'Add Video'}
               </button>
             </div>
           </form>
-
-          <div className="info-note">
-            <p><strong>Примечание:</strong></p>
-            <ul>
-              <li>YouTube видео будут встроены как iframe</li>
-              <li>TikTok, Instagram, VK видео будут загружены на сервер</li>
-              <li>Загрузка может занять несколько секунд</li>
-              <li>Убедитесь, что видео публично доступно</li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>

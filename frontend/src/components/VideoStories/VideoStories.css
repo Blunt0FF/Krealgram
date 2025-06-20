@@ -46,7 +46,7 @@
 }
 
 .video-story-item:hover {
-  transform: scale(1.05);
+  /* Убираем подпрыгивание */
 }
 
 .video-story-avatar-container {
@@ -65,8 +65,16 @@
   transition: border-color 0.2s ease;
 }
 
+.video-story-avatar.viewed {
+  border-color: #dbdbdb;
+}
+
 .video-story-item:hover .video-story-avatar {
   border-color: #ff6b6b;
+}
+
+.video-story-item:hover .video-story-avatar.viewed {
+  border-color: #c7c7c7;
 }
 
 .video-count-badge {

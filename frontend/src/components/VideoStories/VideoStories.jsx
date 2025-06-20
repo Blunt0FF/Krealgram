@@ -9,9 +9,15 @@ const VideoStories = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [viewedUsers, setViewedUsers] = useState(new Set());
 
   useEffect(() => {
     fetchVideoUsers();
+    // Загружаем просмотренные видео из localStorage
+    const saved = localStorage.getItem('viewedVideoStories');
+    if (saved) {
+      setViewedUsers(new Set(JSON.parse(saved)));
+    }
   }, []);
 
   const fetchVideoUsers = async () => {
@@ -48,7 +54,17 @@ const VideoStories = () => {
     setIsModalOpen(true);
   };
 
-  const closeModal = () => {
+  const closeModal = (userWasViewed = false) => {
+    if (userWasViewed && selectedUser) {
+      // Отмечаем пользователя как просмотренного
+      const newViewedUsers = new Set(viewedUsers);
+      newViewedUsers.add(selectedUser._id);
+      setViewedUsers(newViewedUsers);
+      
+      // Сохраняем в localStorage
+      localStorage.setItem('viewedVideoStories', JSON.stringify([...newViewedUsers]));
+    }
+    
     setIsModalOpen(false);
     setSelectedUser(null);
   };

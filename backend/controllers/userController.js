@@ -64,43 +64,12 @@ exports.getUserProfile = async (req, res) => {
     
     // Явно добавляем postsCount
     user.postsCount = user.posts ? user.posts.length : 0;
-    
-    // Подсчитываем только существующих подписчиков и подписки
-    // Фильтруем null значения (удаленные пользователи)
-    const validFollowers = user.followers ? user.followers.filter(f => f !== null) : [];
-    const validFollowing = user.following ? user.following.filter(f => f !== null) : [];
-    
-    user.followersCount = validFollowers.length;
-    user.followingCount = validFollowing.length;
-
-    // Если есть удаленные пользователи, очищаем их из базы
-    if (user.followers && validFollowers.length !== user.followers.length) {
-      await User.updateOne(
-        { _id: user._id },
-        { 
-          $pull: { 
-            followers: null 
-          }
-        }
-      );
-      console.log(`Cleaned ${user.followers.length - validFollowers.length} deleted followers from user ${user._id}`);
-    }
-
-    if (user.following && validFollowing.length !== user.following.length) {
-      await User.updateOne(
-        { _id: user._id },
-        { 
-          $pull: { 
-            following: null 
-          }
-        }
-      );
-      console.log(`Cleaned ${user.following.length - validFollowing.length} deleted following from user ${user._id}`);
-    }
+    user.followersCount = user.followers ? user.followers.length : 0;
+    user.followingCount = user.following ? user.following.length : 0;
 
     // Можно добавить информацию о том, подписан ли текущий пользователь на этого пользователя (если req.user существует)
     if (req.user) {
-        user.isFollowedByCurrentUser = validFollowers.some(followerId => followerId.equals(req.user.id));
+        user.isFollowedByCurrentUser = user.followers.some(followerId => followerId.equals(req.user.id));
     } else {
         user.isFollowedByCurrentUser = false; // Для анонимных пользователей
     }
@@ -360,25 +329,9 @@ exports.getFollowersList = async (req, res) => {
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
-    // Фильтруем только существующих пользователей
-    const validFollowers = user.followers.filter(follower => follower !== null && follower);
-    
-    // Если есть удаленные пользователи, очищаем их из базы
-    if (validFollowers.length !== user.followers.length) {
-      await User.updateOne(
-        { _id: userId },
-        { 
-          $pull: { 
-            followers: null 
-          }
-        }
-      );
-      console.log(`Cleaned ${user.followers.length - validFollowers.length} deleted followers from user ${userId}`);
-    }
-
     res.status(200).json({
       message: 'Список подписчиков успешно получен',
-      followers: validFollowers
+      followers: user.followers
     });
   } catch (error) {
     console.error('Ошибка получения списка подписчиков:', error);
@@ -406,25 +359,9 @@ exports.getFollowingList = async (req, res) => {
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
-    // Фильтруем только существующих пользователей
-    const validFollowing = user.following.filter(following => following !== null && following);
-    
-    // Если есть удаленные пользователи, очищаем их из базы
-    if (validFollowing.length !== user.following.length) {
-      await User.updateOne(
-        { _id: userId },
-        { 
-          $pull: { 
-            following: null 
-          }
-        }
-      );
-      console.log(`Cleaned ${user.following.length - validFollowing.length} deleted following from user ${userId}`);
-    }
-
     res.status(200).json({
       message: 'Список подписок успешно получен',
-      following: validFollowing
+      following: user.following
     });
   } catch (error) {
     console.error('Ошибка получения списка подписок:', error);
@@ -452,38 +389,13 @@ exports.removeFollower = async (req, res) => {
 
   try {
     const profileOwner = await User.findById(userId).session(session);
+    const followerUser = await User.findById(followerId).session(session);
 
     if (!profileOwner) {
       await session.abortTransaction();
       session.endSession();
       return res.status(404).json({ message: 'Профиль не найден.' });
     }
-
-    // Специальная обработка для удаленных пользователей (followerId === 'null' или 'deleted')
-    if (followerId === 'null' || followerId === 'deleted') {
-      // Удаляем все null значения из подписчиков
-      const originalFollowersCount = profileOwner.followers.length;
-      profileOwner.followers = profileOwner.followers.filter(id => id !== null);
-      
-      await profileOwner.save({ session });
-      await session.commitTransaction();
-      session.endSession();
-
-      const removedCount = originalFollowersCount - profileOwner.followers.length;
-      console.log(`Removed ${removedCount} deleted users from followers of user ${userId}`);
-
-      // Получаем обновленные счетчики
-      const updatedProfileOwner = await User.findById(userId).select('followers following').lean();
-
-      return res.status(200).json({
-        message: `Удалено ${removedCount} удаленных подписчиков.`,
-        followersCount: updatedProfileOwner.followers.length,
-        followingCount: updatedProfileOwner.following.length
-      });
-    }
-
-    // Обычная логика для существующих пользователей
-    const followerUser = await User.findById(followerId).session(session);
 
     if (!followerUser) {
       await session.abortTransaction();
@@ -492,7 +404,7 @@ exports.removeFollower = async (req, res) => {
     }
 
     // Проверяем, что пользователь действительно является подписчиком
-    const isFollower = profileOwner.followers.some(id => id && id.equals(followerId));
+    const isFollower = profileOwner.followers.some(id => id.equals(followerId));
     if (!isFollower) {
       await session.abortTransaction();
       session.endSession();

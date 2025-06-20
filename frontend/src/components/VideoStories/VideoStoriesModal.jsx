@@ -10,6 +10,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const [videos, setVideos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [viewedVideos, setViewedVideos] = useState(new Set());
   
   // Лайки и комментарии
   const [isLiked, setIsLiked] = useState(false);
@@ -84,7 +85,14 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     }
   };
 
+  const markVideoAsViewed = () => {
+    if (currentVideo) {
+      setViewedVideos(prev => new Set([...prev, currentVideo._id]));
+    }
+  };
+
   const handleNext = () => {
+    markVideoAsViewed(); // Отмечаем текущее видео как просмотренное
     if (currentIndex < videos.length - 1) {
       setCurrentIndex(currentIndex + 1);
     }
@@ -96,10 +104,18 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     }
   };
 
+  const handleClose = () => {
+    markVideoAsViewed(); // Отмечаем текущее видео как просмотренное
+    
+    // Проверяем, все ли видео просмотрены
+    const allViewed = videos.length > 0 && viewedVideos.size + 1 >= videos.length;
+    onClose(allViewed);
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'ArrowRight') handleNext();
     if (e.key === 'ArrowLeft') handlePrevious();
-    if (e.key === 'Escape') onClose();
+    if (e.key === 'Escape') handleClose();
   };
 
   // Функция лайка
@@ -205,7 +221,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     
     // Close if swiped down/up more than 100px
     if (Math.abs(deltaY) > 100) {
-      onClose();
+      handleClose();
     } else {
       // Reset position
       if (modalRef.current) {
@@ -222,7 +238,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   return (
     <div 
       className="video-stories-modal-overlay"
-      onClick={onClose}
+      onClick={handleClose}
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
@@ -236,7 +252,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       >
         
         {/* Кнопка закрытия */}
-        <button className="stories-close-btn" onClick={onClose}>
+        <button className="stories-close-btn" onClick={handleClose}>
           ✕
         </button>
 
@@ -292,6 +308,14 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  loading="eager"
+                  style={{ 
+                    display: 'block',
+                    backgroundColor: '#000',
+                    border: 'none'
+                  }}
+                  onLoad={() => console.log('Stories YouTube iframe loaded')}
+                  onError={(e) => console.error('Stories YouTube iframe error:', e)}
                 />
               ) : currentVideo?.videoUrl && currentVideo.videoUrl.includes('youtube') ? (
                 <iframe
@@ -300,6 +324,14 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  loading="eager"
+                  style={{ 
+                    display: 'block',
+                    backgroundColor: '#000',
+                    border: 'none'
+                  }}
+                  onLoad={() => console.log('Stories YouTube iframe loaded')}
+                  onError={(e) => console.error('Stories YouTube iframe error:', e)}
                 />
               ) : currentVideo?.mediaType === 'video' ? (
                 <video
@@ -307,14 +339,26 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
                   className="stories-video"
                   controls={true}
                   muted={false}
-                  playsInline
+                  playsInline={true}
+                  webkit-playsinline="true"
+                  x5-playsinline="true"
+                  x5-video-player-type="h5"
+                  x5-video-player-fullscreen="true"
+                  x5-video-orientation="portraint"
                   preload="metadata"
+                  style={{
+                    display: 'block',
+                    backgroundColor: '#000'
+                  }}
                   onPlay={(e) => videoManager.setCurrentVideo(e.target)}
                   onPause={(e) => {
                     if (videoManager.getCurrentVideo() === e.target) {
                       videoManager.pauseCurrentVideo();
                     }
                   }}
+                  onLoadStart={() => console.log('Stories video loading started')}
+                  onCanPlay={() => console.log('Stories video can play')}
+                  onError={(e) => console.error('Stories video error:', e)}
                 >
                   Your browser does not support the video tag.
                 </video>

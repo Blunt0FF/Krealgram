@@ -1,25 +1,26 @@
-.external-video-upload {
+.external-video-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
-  justify-content: center;
   align-items: center;
-  z-index: 1000;
-  padding: 20px;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
 }
 
 .external-video-modal {
   background: white;
-  border-radius: 12px;
-  width: 100%;
-  max-width: 600px;
+  border-radius: 16px;
+  max-width: 500px;
+  width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: scaleIn 0.3s ease;
 }
 
 .modal-header {
@@ -27,7 +28,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #dbdbdb;
+  border-bottom: 1px solid #efefef;
 }
 
 .modal-header h3 {
@@ -44,252 +45,165 @@
   cursor: pointer;
   color: #8e8e8e;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
 }
 
 .close-btn:hover {
-  background-color: #f5f5f5;
+  color: #262626;
 }
 
-.modal-content {
+.modal-body {
   padding: 24px;
 }
 
 .supported-platforms {
-  margin-bottom: 24px;
-}
-
-.supported-platforms h4 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #262626;
-}
-
-.platforms-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
-}
-
-.platform-item {
-  display: flex;
-  align-items: center;
-  padding: 12px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
   background: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e3e3e3;
-}
-
-.platform-icon {
-  font-size: 20px;
-  margin-right: 12px;
+  border-radius: 12px;
 }
 
 .platform-info {
   display: flex;
-  flex-direction: column;
-}
-
-.platform-name {
-  font-weight: 600;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
   color: #262626;
-  margin-bottom: 2px;
+  font-weight: 500;
 }
 
-.platform-example {
-  font-size: 12px;
-  color: #8e8e8e;
-  font-family: monospace;
-}
-
-.url-form {
-  margin-bottom: 24px;
+.platform-icon {
+  font-size: 18px;
 }
 
 .input-group {
   margin-bottom: 16px;
 }
 
-.url-input {
+.video-url-input {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #dbdbdb;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: border-color 0.2s;
+  border: 2px solid #efefef;
+  border-radius: 12px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s ease;
   box-sizing: border-box;
 }
 
-.url-input:focus {
-  outline: none;
+.video-url-input:focus {
   border-color: #0095f6;
 }
 
-.url-input:disabled {
-  background-color: #f5f5f5;
+.video-url-input:disabled {
+  background: #f8f9fa;
   cursor: not-allowed;
 }
 
-.detected-platform {
-  display: flex;
-  align-items: center;
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: #e7f3ff;
-  border: 1px solid #0095f6;
-  border-radius: 6px;
-  font-size: 14px;
-  color: #0095f6;
-}
-
-.detected-platform .platform-icon {
-  margin-right: 8px;
-  font-size: 16px;
-}
-
 .error-message {
-  background: #ffebee;
-  border: 1px solid #f44336;
-  color: #c62828;
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-bottom: 16px;
+  color: #ed4956;
   font-size: 14px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #fef7f7;
+  border: 1px solid #fed7d7;
+  border-radius: 8px;
 }
 
-.form-actions {
+.modal-actions {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
 }
 
 .cancel-btn,
-.submit-btn {
+.add-btn {
   padding: 10px 20px;
-  border-radius: 6px;
+  border: none;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-  min-width: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  transition: all 0.3s ease;
 }
 
 .cancel-btn {
-  background: white;
+  background: #f8f9fa;
   color: #262626;
-  border: 1px solid #dbdbdb;
 }
 
 .cancel-btn:hover:not(:disabled) {
-  background: #f5f5f5;
+  background: #e9ecef;
 }
 
-.submit-btn {
+.add-btn {
   background: #0095f6;
   color: white;
 }
 
-.submit-btn:hover:not(:disabled) {
-  background: #1877f2;
+.add-btn:hover:not(:disabled) {
+  background: #0084e6;
 }
 
-.submit-btn:disabled,
+.add-btn:disabled,
 .cancel-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top: 2px solid currentColor;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes scaleIn {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-.info-note {
-  background: #f8f9fa;
-  border-left: 4px solid #0095f6;
-  padding: 16px;
-  border-radius: 6px;
-}
-
-.info-note p {
-  margin: 0 0 8px 0;
-  font-weight: 600;
-  color: #262626;
-}
-
-.info-note ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.info-note li {
-  margin-bottom: 4px;
-  font-size: 14px;
-  color: #8e8e8e;
-}
-
-.info-note li:last-child {
-  margin-bottom: 0;
-}
-
-/* Мобильные стили */
 @media (max-width: 768px) {
-  .external-video-upload {
-    padding: 10px;
-  }
-
   .external-video-modal {
-    max-height: 95vh;
+    margin: 20px;
+    width: calc(100% - 40px);
   }
-
+  
   .modal-header {
     padding: 16px 20px;
   }
-
-  .modal-content {
+  
+  .modal-body {
     padding: 20px;
   }
-
-  .platforms-list {
+  
+  .supported-platforms {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
-
-  .platform-item {
-    padding: 10px;
+  
+  .modal-actions {
+    flex-direction: column;
   }
-
-  .platform-example {
-    font-size: 11px;
-  }
-
-  .form-actions {
-    flex-direction: column-reverse;
-  }
-
+  
   .cancel-btn,
-  .submit-btn {
+  .add-btn {
     width: 100%;
-    justify-content: center;
+    padding: 12px;
   }
 } 

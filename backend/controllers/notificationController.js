@@ -9,20 +9,12 @@ exports.getNotifications = async (req, res) => {
   const skip = (page - 1) * limit;
 
   try {
-    console.log(`Fetching notifications for user: ${userId}`);
-    
     const userNotifications = await UserNotifications.findOne({ userId })
       .populate('notifications.sender', 'username avatar')
       .populate('notifications.post', '_id caption image')
       .lean();
 
-    console.log(`Found user notifications document:`, !!userNotifications);
-    if (userNotifications) {
-      console.log(`Total notifications in document: ${userNotifications.notifications.length}`);
-    }
-
     if (!userNotifications) {
-      console.log('No notifications document found for user');
       return res.json({
         notifications: [],
         currentPage: page,
@@ -32,54 +24,13 @@ exports.getNotifications = async (req, res) => {
       });
     }
 
-    // Фильтруем только реально битые уведомления
-    const validNotifications = userNotifications.notifications.filter(notification => {
-      // Убираем только уведомления где sender полностью null или undefined
-      if (!notification.sender) return false;
-      
-      // Если это строка (ObjectId), значит populate не сработал, но уведомление валидное
-      if (typeof notification.sender === 'string') return true;
-      
-      // Если это объект без _id, то это проблема
-      if (typeof notification.sender === 'object' && !notification.sender._id) return false;
-      
-      return true;
-    });
-
-    console.log(`Valid notifications after filtering: ${validNotifications.length}`);
-    console.log(`Original notifications: ${userNotifications.notifications.length}`);
-    
-    // Если есть уведомления от удаленных пользователей, удаляем их из базы
-    if (validNotifications.length !== userNotifications.notifications.length) {
-      console.log(`Cleaning ${userNotifications.notifications.length - validNotifications.length} invalid notifications`);
-      
-      // Обновляем документ с валидными уведомлениями
-      await UserNotifications.updateOne(
-        { userId },
-        { 
-          $set: {
-            notifications: validNotifications,
-            unreadCount: validNotifications.filter(n => !n.read).length
-          }
-        }
-      );
-      
-      console.log(`Cleaned notifications for user ${userId}`);
-    }
-
     // Sort notifications by creation date (newest first) and apply pagination
-    const sortedNotifications = validNotifications
+    const sortedNotifications = userNotifications.notifications
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(skip, skip + limit);
 
-    const totalNotifications = validNotifications.length;
-    const unreadCount = validNotifications.filter(n => !n.read).length;
-    
-    // Обновляем правильный счетчик непрочитанных в базе
-    await UserNotifications.updateOne(
-      { userId },
-      { $set: { unreadCount } }
-    );
+    const totalNotifications = userNotifications.notifications.length;
+    const unreadCount = userNotifications.unreadCount || 0;
     
     res.json({
       notifications: sortedNotifications,
@@ -308,42 +259,5 @@ exports.removeNotification = async (recipientId, notificationQuery) => {
 
   } catch (error) {
     console.error('Error deleting notification:', error);
-  }
-};
-
-// @desc    Удалить все уведомления от удаленных пользователей
-// @route   DELETE /api/notifications/deleted-users
-// @access  Private
-exports.clearDeletedUserNotifications = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const result = await UserNotifications.updateOne(
-      { userId },
-      { 
-        $pull: { 
-          notifications: { sender: null } 
-        }
-      }
-    );
-
-    // Пересчитываем количество непрочитанных уведомлений
-    const userNotifications = await UserNotifications.findOne({ userId });
-    if (userNotifications) {
-      const unreadCount = userNotifications.notifications.filter(n => !n.read).length;
-      await UserNotifications.updateOne(
-        { userId },
-        { $set: { unreadCount } }
-      );
-    }
-
-    res.status(200).json({ 
-      message: 'Уведомления от удаленных пользователей успешно очищены',
-      modifiedCount: result.modifiedCount
-    });
-
-  } catch (error) {
-    console.error('Error clearing deleted user notifications:', error);
-    res.status(500).json({ message: 'Server error while clearing notifications.', error: error.message });
   }
 };

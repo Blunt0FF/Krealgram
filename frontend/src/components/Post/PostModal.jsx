@@ -605,17 +605,20 @@ const PostModal = ({
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowFullScreen
+                    loading="eager"
                     style={{ 
                       borderRadius: '0', 
                       border: 'none',
                       minWidth: window.innerWidth <= 768 ? '100%' : '900px',
-                      aspectRatio: '16/9'
+                      aspectRatio: '16/9',
+                      display: 'block',
+                      backgroundColor: '#000'
                     }}
                     onLoad={() => {
-                      // Тихо загружаем iframe
+                      console.log('YouTube iframe loaded');
                     }}
                     onError={(e) => {
-                      // Тихо обрабатываем ошибки
+                      console.error('YouTube iframe error:', e);
                     }}
                   />
                   {/* Кнопка для открытия в YouTube */}
@@ -646,6 +649,134 @@ const PostModal = ({
               );
             }
 
+            // Проверяем TikTok и другие внешние платформы
+            if (postData.videoData || postData.youtubeData || (postData.videoUrl && !postData.videoUrl.includes('youtube') && !postData.videoUrl.includes('youtu.be'))) {
+              const videoData = postData.videoData || postData.youtubeData;
+              const platform = videoData?.platform;
+              
+              if (platform === 'tiktok') {
+                // Для TikTok показываем заглушку с кнопкой, так как TikTok embed часто не работает
+                return (
+                  <div 
+                    className="modal-video-placeholder"
+                    style={{ 
+                      width: '100%',
+                      height: 'auto',
+                      maxHeight: '900px',
+                      minHeight: '400px',
+                      background: 'linear-gradient(135deg, #FF0050, #FF4081)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative',
+                      color: 'white',
+                      textAlign: 'center',
+                      padding: '40px 20px'
+                    }}
+                  >
+                    <div style={{ fontSize: '80px', marginBottom: '20px' }}>🎵</div>
+                    <div style={{ fontSize: '24px', fontWeight: '600', marginBottom: '10px' }}>
+                      TikTok Video
+                    </div>
+                    <div style={{ fontSize: '16px', opacity: '0.9', marginBottom: '30px', maxWidth: '300px' }}>
+                      Click to watch on TikTok
+                    </div>
+                    <button
+                      onClick={() => window.open(postData.videoUrl || videoData?.originalUrl, '_blank')}
+                      style={{
+                        background: 'rgba(255,255,255,0.9)',
+                        color: '#FF0050',
+                        border: 'none',
+                        padding: '12px 30px',
+                        borderRadius: '25px',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                        transition: 'transform 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                      onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                    >
+                      🎵 Open TikTok
+                    </button>
+                  </div>
+                );
+              }
+              
+              // Для других внешних платформ (Instagram, VK и т.д.)
+              if (platform && postData.videoUrl) {
+                return (
+                  <div 
+                    className="modal-video-placeholder"
+                    style={{ 
+                      width: '100%',
+                      height: 'auto',
+                      maxHeight: '900px',
+                      minHeight: '300px',
+                      background: `url(${getMediaThumbnail(postData)}) center/contain no-repeat`,
+                      backgroundColor: '#000',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{
+                      background: 'rgba(0,0,0,0.7)',
+                      borderRadius: '50%',
+                      width: '80px',
+                      height: '80px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '20px',
+                      left: '20px',
+                      right: '20px',
+                      background: 'rgba(0,0,0,0.9)',
+                      color: 'white',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      fontSize: '15px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ marginBottom: '10px', fontWeight: '600' }}>
+                        {platform === 'instagram' ? '📱 Instagram' : 
+                         platform === 'vk' ? '🎬 VK Video' : 
+                         '🎥 External Video'}
+                      </div>
+                      <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '12px' }}>
+                        Click to open in new tab
+                      </div>
+                      <button
+                        onClick={() => window.open(postData.videoUrl, '_blank')}
+                        style={{
+                          background: '#0095f6',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 20px',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Open Video
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+            }
+
             // Для загруженных видео (Cloudinary) - НЕ YouTube
             if ((postData.mediaType === 'video' || 
                 (postData.imageUrl && (postData.imageUrl.includes('.mp4') || postData.imageUrl.includes('video/'))) ||
@@ -658,93 +789,37 @@ const PostModal = ({
                   className="post-modal-video"
                   controls={true}
                   muted={false}
-                  playsInline
+                  playsInline={true}
                   preload="metadata"
-                  style={{ width: '100%', height: 'auto', maxHeight: '900px', backgroundColor: '#000', objectFit: 'contain' }}
+                  webkit-playsinline="true"
+                  x5-playsinline="true"
+                  x5-video-player-type="h5"
+                  x5-video-player-fullscreen="true"
+                  x5-video-orientation="portraint"
+                  style={{ 
+                    width: '100%', 
+                    height: 'auto', 
+                    maxHeight: '900px', 
+                    backgroundColor: '#000', 
+                    objectFit: 'contain',
+                    display: 'block'
+                  }}
                   onPlay={(e) => videoManager.setCurrentVideo(e.target)}
                   onPause={(e) => {
                     if (videoManager.getCurrentVideo() === e.target) {
                       videoManager.pauseCurrentVideo();
                     }
                   }}
+                  onLoadStart={() => console.log('Video loading started')}
+                  onCanPlay={() => console.log('Video can play')}
+                  onError={(e) => console.error('Video error:', e)}
                 >
                   Your browser does not support the video tag.
                 </video>
               );
             }
 
-            // Для внешних видео (НЕ YouTube и НЕ загруженные файлы)
-            if (postData.videoUrl && 
-                !postData.videoUrl.includes('youtube') && 
-                !postData.videoUrl.includes('youtu.be') &&
-                !postData.videoUrl.includes('cloudinary.com')) {
 
-              return (
-                <div 
-                  className="modal-video-placeholder"
-                  style={{ 
-                    width: '100%',
-                    height: 'auto',
-                    maxHeight: '900px',
-                    minHeight: '300px',
-                    background: `url(${getMediaThumbnail(postData)}) center/contain no-repeat`,
-                    backgroundColor: '#000',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{
-                    background: 'rgba(0,0,0,0.7)',
-                    borderRadius: '50%',
-                    width: '80px',
-                    height: '80px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z"/>
-                    </svg>
-                  </div>
-                  <div style={{
-                    position: 'absolute',
-                    bottom: '20px',
-                    left: '20px',
-                    right: '20px',
-                    background: 'rgba(0,0,0,0.9)',
-                    color: 'white',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    fontSize: '15px',
-                    textAlign: 'center'
-                  }}>
-                    <div style={{ marginBottom: '10px', fontWeight: '600' }}>
-                      🎥 External Video
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', marginBottom: '12px' }}>
-                      Click to open in new tab
-                    </div>
-                    <button
-                      onClick={() => window.open(postData.videoUrl, '_blank')}
-                      style={{
-                        background: '#0095f6',
-                        color: 'white',
-                        border: 'none',
-                        padding: '8px 20px',
-                        borderRadius: '8px',
-                        fontSize: '14px',
-                        cursor: 'pointer',
-                        fontWeight: '600'
-                      }}
-                    >
-                      Open Video
-                    </button>
-                  </div>
-                </div>
-              );
-            }
 
             // Для обычных изображений
             return (

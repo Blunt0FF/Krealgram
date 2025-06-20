@@ -19,26 +19,13 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: function (origin, callback) {
-      // Разрешаем запросы без origin (для локальных файлов)
-      if (!origin) return callback(null, true);
-      
-      const allowedOrigins = [
-        "http://localhost:4000",
-        "http://localhost:4001", 
-        "http://127.0.0.1:4000",
-        "http://127.0.0.1:4001",
-        "https://krealgram.vercel.app",
-        "https://krealgram.com",
-        "https://www.krealgram.com"
-      ];
-      
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: [
+      "http://localhost:4000",
+      "http://127.0.0.1:4000",
+      "https://krealgram.vercel.app",
+      "https://krealgram.com",
+      "https://www.krealgram.com"
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
   }
@@ -48,26 +35,13 @@ app.set('io', io); // Сделаем io доступным в контролле
 
 // Настройки CORS для Express
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Разрешаем запросы без origin (для локальных файлов)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:4000',
-      'http://localhost:4001',
-      'http://127.0.0.1:4000',
-      'http://127.0.0.1:4001',
-      'https://krealgram.vercel.app',
-      'https://krealgram.com',
-      'https://www.krealgram.com'
-    ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: [
+    'http://localhost:4000',
+    'http://127.0.0.1:4000',
+    'https://krealgram.vercel.app',
+    'https://krealgram.com',
+    'https://www.krealgram.com'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
@@ -101,77 +75,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Database health check
-app.get('/api/db-health', async (req, res) => {
-  try {
-    const dbState = mongoose.connection.readyState;
-    const states = {
-      0: 'disconnected',
-      1: 'connected', 
-      2: 'connecting',
-      3: 'disconnecting'
-    };
-    
-    res.status(200).json({
-      database: states[dbState] || 'unknown',
-      readyState: dbState,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({
-      database: 'error',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-// Test post creation endpoint
-app.post('/api/test-post', async (req, res) => {
-  try {
-    console.log('=== TEST POST CREATION ===');
-    console.log('Request body:', req.body);
-    console.log('Request headers:', req.headers);
-    
-    const Post = require('./models/postModel');
-    const User = require('./models/userModel');
-    
-    // Найдем первого пользователя
-    const user = await User.findOne();
-    if (!user) {
-      return res.status(400).json({ error: 'No users found in database' });
-    }
-    
-    console.log('Found user:', user.username);
-    
-    // Создадим простой пост
-    const testPost = new Post({
-      author: user._id,
-      image: '/video-placeholder.svg',
-      mediaType: 'image',
-      caption: req.body.caption || 'Test post'
-    });
-    
-    console.log('Attempting to save post...');
-    const savedPost = await testPost.save();
-    console.log('Post saved successfully:', savedPost._id);
-    
-    res.json({ 
-      success: true, 
-      postId: savedPost._id,
-      message: 'Test post created successfully'
-    });
-    
-  } catch (error) {
-    console.error('Test post creation error:', error);
-    res.status(500).json({ 
-      error: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-  }
-});
-
 // TODO: Подключить маршруты (routes)
 const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');
@@ -182,7 +85,6 @@ const likeRoutes = require('./routes/likeRoutes');
 const conversationRoutes = require('./routes/conversationRoutes'); // Добавляем маршруты для диалогов
 const notificationRoutes = require('./routes/notificationRoutes'); // Импортируем маршруты уведомлений
 const adminRoutes = require('./routes/adminRoutes'); // Админские маршруты
-const videoDownloaderRoutes = require('./routes/videoDownloader'); // Маршруты для загрузки видео
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
@@ -193,7 +95,6 @@ app.use('/api/likes', likeRoutes);
 app.use('/api/conversations', conversationRoutes); // Подключаем маршруты для диалогов
 app.use('/api/notifications', notificationRoutes); // Подключаем маршруты для уведомлений
 app.use('/api/admin', adminRoutes); // Подключаем админские маршруты
-app.use('/api/video-downloader', videoDownloaderRoutes); // Подключаем маршруты для загрузки видео
 
 // Настройка Socket.IO
 io.on('connection', async (socket) => {

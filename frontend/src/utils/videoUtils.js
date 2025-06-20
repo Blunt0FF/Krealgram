@@ -90,21 +90,21 @@ export const getProfileGifThumbnail = (post, options = {}) => {
   // Для Cloudinary видео создаем GIF превью
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    // GIF на всю длину видео
+    // Зацикленный GIF с правильными параметрами (GIF по умолчанию зацикливается)
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
-      // Мобильные: первые 3 секунды, низкий FPS для экономии трафика
+      // Мобильные: зацикленный GIF 8 секунд, 25 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,fps_12,q_70,so_0,eo_3/`
+        `/video/upload/w_300,c_scale,f_gif,eo_8,fps_25,q_70/`
       );
       return gifUrl;
     } else {
-      // Десктоп: первые 4 секунды, хороший FPS
+      // Десктоп: зацикленный GIF 10 секунд, 30 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,fps_18,q_80,so_0,eo_4/`
+        `/video/upload/w_400,c_scale,f_gif,eo_10,fps_30,q_80/`
       );
       return gifUrl;
     }
@@ -154,26 +154,15 @@ export const getMediaThumbnail = (post, options = {}) => {
     return '/video-placeholder.svg';
   }
 
-  // Для загруженных видео - используем GIF на мобильных и JPG на десктопе
+  // Для загруженных видео возвращаем статичное JPG превью (надежнее для фона)
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    const isMobile = window.innerWidth <= 768;
-    
-    if (isMobile) {
-      // На мобильных используем первые 3 секунды GIF для лучшей совместимости
-      const thumbnail = videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_${options.width || 300},c_scale,f_gif,fps_12,q_70,so_0,eo_3/`
-      );
-      return thumbnail;
-    } else {
-      // На десктопе используем статичное JPG превью
-      const thumbnail = videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_${options.width || 400},c_scale,f_jpg,so_0,q_auto/`
-      );
-      return thumbnail;
-    }
+    // Статичное JPG превью для модалки и фоновых изображений
+    const thumbnail = videoUrl.replace(
+      '/video/upload/',
+      `/video/upload/w_${options.width || 400},c_scale,f_jpg,so_0,q_auto/`
+    );
+    return thumbnail;
   }
 
   // Возвращаем оригинальное изображение или placeholder
@@ -228,21 +217,21 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
   // Для загруженных видео создаем GIF превью для ленты
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    // GIF на всю длину видео
+    // Зацикленный GIF с правильными параметрами (GIF по умолчанию зацикливается)
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
-      // Мобильные: первые 3 секунды, низкий FPS для экономии трафика
+      // Мобильные: зацикленный GIF 8 секунд, 25 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,fps_12,q_70,so_0,eo_3/`
+        `/video/upload/w_300,c_scale,f_gif,eo_8,fps_25,q_70/`
       );
       return gifUrl;
     } else {
-      // Десктоп: первые 4 секунды, хороший FPS
+      // Десктоп: зацикленный GIF 10 секунд, 30 FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,fps_18,q_80,so_0,eo_4/`
+        `/video/upload/w_400,c_scale,f_gif,eo_10,fps_30,q_80/`
       );
       return gifUrl;
     }
@@ -252,7 +241,7 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
   return post.image || post.imageUrl || '/video-placeholder.svg';
 };
 
-// Создание встраиваемого URL для YouTube с базовыми параметрами
+// Создание встраиваемого URL для YouTube
 export const createYouTubeEmbedUrl = (url) => {
   if (!url) return url;
   
@@ -276,16 +265,7 @@ export const createYouTubeEmbedUrl = (url) => {
   }
   
   if (videoId) {
-    // Добавляем базовые параметры для стабильной работы
-    const params = new URLSearchParams({
-      'rel': '0',                   // Не показывать похожие видео
-      'modestbranding': '1',        // Убираем брендинг YouTube
-      'playsinline': '1',           // Воспроизведение inline
-      'controls': '1',              // Показываем контролы
-      'autoplay': '0'               // Не автовоспроизведение
-    });
-    
-    return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+    return `https://www.youtube.com/embed/${videoId}`;
   }
   
   return url;

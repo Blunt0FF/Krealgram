@@ -53,6 +53,8 @@ exports.createPost = async (req, res) => {
             platform: parsedVideoData.platform,
             videoId: parsedVideoData.videoId,
             originalUrl: parsedVideoData.originalUrl,
+            embedUrl: parsedVideoData.embedUrl,
+            thumbnailUrl: parsedVideoData.thumbnailUrl,
             note: parsedVideoData.note || 'External video content'
           };
         }
@@ -76,9 +78,14 @@ exports.createPost = async (req, res) => {
       return res.status(400).json({ message: 'Media content or caption is required for the post.' });
     }
 
-    // Если нет imagePath но есть videoUrl, устанавливаем placeholder
-    if (!imagePath && videoUrl) {
+    // Если нет imagePath но есть videoUrl, НЕ устанавливаем placeholder для внешних видео
+    if (!imagePath && videoUrl && !youtubeData) {
+      // Только для случаев когда нет youtubeData (например, прямые ссылки на видео файлы)
       imagePath = '/video-placeholder.svg';
+      mediaType = 'video';
+    } else if (!imagePath && videoUrl && youtubeData) {
+      // Для внешних видео (TikTok, YouTube и т.д.) НЕ устанавливаем imagePath
+      // Оставляем imagePath пустым, чтобы система использовала youtubeData
       mediaType = 'video';
     }
     
@@ -195,13 +202,19 @@ exports.getAllPosts = async (req, res) => {
     const postsWithFullInfo = posts.map(post => {
         let imageUrl;
         
+        // Для внешних видео с youtubeData (TikTok, YouTube и т.д.) без image
+        if (!post.image && post.youtubeData) {
+          imageUrl = null; // Не устанавливаем imageUrl, фронтенд будет использовать youtubeData
+        }
         // Для видео с внешними URL (TikTok, VK, Instagram) или placeholder
-        if (post.image === '/video-placeholder.svg' || post.image.startsWith('/')) {
+        else if (post.image === '/video-placeholder.svg' || post.image?.startsWith('/')) {
           imageUrl = post.image; // Оставляем как есть для статических файлов
-        } else if (post.image.startsWith('http')) {
+        } else if (post.image?.startsWith('http')) {
           imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
-        } else {
+        } else if (post.image) {
           imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+        } else {
+          imageUrl = null; // Нет изображения
         }
         
         return {

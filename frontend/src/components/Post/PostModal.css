@@ -64,7 +64,7 @@
   height: 100%; /* НА ВСЮ ВЫСОТУ КОНТЕЙНЕРА */
   max-height: 100%; /* НА ВСЮ ВЫСОТУ КОНТЕЙНЕРА */
   min-height: 100%; /* НА ВСЮ ВЫСОТУ КОНТЕЙНЕРА */
-  background: white; /* Белый фон для изображений */
+  background: white; /* Всегда белый фон */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,14 +110,30 @@
   border-radius: 0;
 }
 
-/* Добавляем черный фон для контейнера только когда в нем видео */
-.post-modal-image:has(video) {
-  background: #000 !important;
+/* Убираем черный фон - всегда белый фон для всех элементов */
+
+/* Исправления для iOS Safari */
+.post-modal-image video::-webkit-media-controls {
+  display: flex !important;
 }
 
-/* Добавляем черный фон для контейнера только когда в нем iframe */
-.post-modal-image:has(iframe) {
-  background: #000 !important;
+.post-modal-image iframe {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Дополнительные стили для мобильных видео */
+@supports (-webkit-touch-callout: none) {
+  .post-modal-image video {
+    -webkit-appearance: none;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+  
+  .post-modal-image iframe {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
 }
 
 .modal-video-placeholder {
@@ -538,11 +554,7 @@
     overflow: hidden; /* ОБРЕЗАЕМ ВСЕ ЧТО ВЫХОДИТ ЗА ГРАНИЦЫ */
   }
 
-  /* Черный фон для видео и YouTube на планшетах */
-  .post-modal-image:has(video),
-  .post-modal-image:has(iframe) {
-    background: #000 !important;
-  }
+  /* Убираем черный фон - всегда белый на планшетах */
 
   .post-modal-sidebar {
     flex: 1; /* Сайдбар занимает все оставшееся место */
@@ -579,6 +591,9 @@
     min-height: 250px !important;
     object-fit: contain !important;
     background: #000 !important;
+    display: block !important;
+    border: none !important;
+    outline: none !important;
   }
   
   .post-modal-image iframe {
@@ -588,6 +603,9 @@
     min-height: 250px !important;
     aspect-ratio: 16/9 !important;
     background: #000 !important;
+    display: block !important;
+    border: none !important;
+    outline: none !important;
   }
 
   .post-modal-image img {
@@ -627,11 +645,7 @@
     overflow: hidden; /* ОБРЕЗАЕМ ВСЕ ЧТО ВЫХОДИТ ЗА ГРАНИЦЫ */
   }
 
-  /* Черный фон для видео и YouTube на мобильных */
-  .post-modal-image:has(video),
-  .post-modal-image:has(iframe) {
-    background: #000 !important;
-  }
+  /* Убираем черный фон - всегда белый на мобильных */
 
   .post-modal-sidebar {
     flex: 1; /* Сайдбар занимает все оставшееся место */
@@ -671,6 +685,9 @@
     min-height: 200px !important;
     object-fit: contain !important;
     background: #000 !important;
+    display: block !important;
+    border: none !important;
+    outline: none !important;
   }
   
   .post-modal-image iframe {
@@ -680,6 +697,9 @@
     min-height: 200px !important;
     aspect-ratio: 16/9 !important;
     background: #000 !important;
+    display: block !important;
+    border: none !important;
+    outline: none !important;
   }
 
   .post-modal-image img {
