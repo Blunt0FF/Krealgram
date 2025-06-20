@@ -94,17 +94,17 @@ export const getProfileGifThumbnail = (post, options = {}) => {
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
-      // Мобильные: полная длина, низкий FPS для экономии трафика
+      // Мобильные: первые 3 секунды, низкий FPS для экономии трафика
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,fps_12,q_70/`
+        `/video/upload/w_300,c_scale,f_gif,fps_12,q_70,so_0,eo_3/`
       );
       return gifUrl;
     } else {
-      // Десктоп: полная длина, хороший FPS
+      // Десктоп: первые 4 секунды, хороший FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,fps_18,q_80/`
+        `/video/upload/w_400,c_scale,f_gif,fps_18,q_80,so_0,eo_4/`
       );
       return gifUrl;
     }
@@ -160,10 +160,10 @@ export const getMediaThumbnail = (post, options = {}) => {
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
-      // На мобильных используем полную длину GIF для лучшей совместимости
+      // На мобильных используем первые 3 секунды GIF для лучшей совместимости
       const thumbnail = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_${options.width || 300},c_scale,f_gif,fps_12,q_70/`
+        `/video/upload/w_${options.width || 300},c_scale,f_gif,fps_12,q_70,so_0,eo_3/`
       );
       return thumbnail;
     } else {
@@ -232,17 +232,17 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
     const isMobile = window.innerWidth <= 768;
     
     if (isMobile) {
-      // Мобильные: полная длина, низкий FPS для экономии трафика
+      // Мобильные: первые 3 секунды, низкий FPS для экономии трафика
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,fps_12,q_70/`
+        `/video/upload/w_300,c_scale,f_gif,fps_12,q_70,so_0,eo_3/`
       );
       return gifUrl;
     } else {
-      // Десктоп: полная длина, хороший FPS
+      // Десктоп: первые 4 секунды, хороший FPS
       const gifUrl = videoUrl.replace(
         '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,fps_18,q_80/`
+        `/video/upload/w_400,c_scale,f_gif,fps_18,q_80,so_0,eo_4/`
       );
       return gifUrl;
     }

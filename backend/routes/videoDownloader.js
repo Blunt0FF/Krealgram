@@ -132,32 +132,46 @@ router.post('/download', async (req, res) => {
       return res.status(400).json({ error: 'Unsupported platform' });
     }
 
-    // Для YouTube просто возвращаем URL (они обрабатываются отдельно)
-    if (platform === 'youtube') {
+    // Для YouTube и TikTok возвращаем как внешние видео (встраивание)
+    if (platform === 'youtube' || platform === 'tiktok') {
       return res.json({
         success: true,
-        platform: 'youtube',
+        platform: platform,
         originalUrl: url,
         embedUrl: url,
         type: 'external'
       });
     }
 
-    // Загружаем видео с платформы
-    const downloadUrl = await downloadVideoFromUrl(url, platform);
-    
-    // Загружаем на Cloudinary
-    const cloudinaryResult = await uploadToCloudinary(downloadUrl, url);
+    // Пытаемся загрузить видео с других платформ
+    try {
+      const downloadUrl = await downloadVideoFromUrl(url, platform);
+      
+      // Загружаем на Cloudinary
+      const cloudinaryResult = await uploadToCloudinary(downloadUrl, url);
 
-    res.json({
-      success: true,
-      platform: platform,
-      originalUrl: url,
-      cloudinaryUrl: cloudinaryResult.url,
-      publicId: cloudinaryResult.publicId,
-      duration: cloudinaryResult.duration,
-      type: 'uploaded'
-    });
+      res.json({
+        success: true,
+        platform: platform,
+        originalUrl: url,
+        cloudinaryUrl: cloudinaryResult.url,
+        publicId: cloudinaryResult.publicId,
+        duration: cloudinaryResult.duration,
+        type: 'uploaded'
+      });
+    } catch (downloadError) {
+      // Если загрузка не удалась, возвращаем как внешнее видео
+      console.log(`Failed to download ${platform} video, returning as external:`, downloadError.message);
+      
+      res.json({
+        success: true,
+        platform: platform,
+        originalUrl: url,
+        embedUrl: url,
+        type: 'external',
+        note: 'Video will be displayed as external embed due to download limitations'
+      });
+    }
 
   } catch (error) {
     console.error('Video download error:', error);

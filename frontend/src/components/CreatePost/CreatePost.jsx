@@ -246,7 +246,7 @@ const CreatePost = () => {
       <div className="create-post-box">
         <h2>Create new post</h2>
         
-        {/* Переключатель между файлом и URL */}
+        {/* Переключатель между файлом и внешними видео */}
         <div className="upload-mode-switcher">
           <button 
             type="button"
@@ -255,10 +255,10 @@ const CreatePost = () => {
               setIsUrlMode(false);
               setVideoUrl('');
               setParsedVideoData(null);
-              if (!compressedFile) setPreviewUrl(null);
+              setExternalVideoData(null);
             }}
           >
-            📁 Upload File
+            📁 Choose Image/Video
           </button>
           <button 
             type="button"
@@ -283,28 +283,25 @@ const CreatePost = () => {
               />
             </label>
           ) : (
-            // Ввод URL
-            <div className="url-input-container">
-              <input
-                type="text"
-                value={videoUrl}
-                onChange={handleUrlChange}
-                placeholder="Paste YouTube video link"
-                className="url-input"
-                disabled={loading}
-              />
-              {parsedVideoData && (
-                <div className="parsed-video-info">
-                  <span className="platform-badge">{parsedVideoData.platform.toUpperCase()}</span>
+            // Показываем превью выбранного внешнего видео
+            (parsedVideoData || externalVideoData) && (
+              <div className="selected-video-info">
+                <div className="platform-badge">
+                  {externalVideoData?.platform?.toUpperCase() || parsedVideoData?.platform?.toUpperCase()}
                 </div>
-              )}
-            </div>
+                <div className="video-url-display">
+                  {videoUrl}
+                </div>
+              </div>
+            )
           )}
+          
           {compressing && (
             <div className="compression-status">
               {mediaType === 'video' ? 'Processing video...' : 'Compressing image...'}
             </div>
           )}
+          
           {previewUrl && (
             <div className="image-preview">
               {mediaType === 'video' ? (
@@ -318,6 +315,7 @@ const CreatePost = () => {
               )}
             </div>
           )}
+
 
           <div className="form-group">
             <textarea
@@ -335,7 +333,7 @@ const CreatePost = () => {
           <button 
             type="submit" 
             className="create-post-button" 
-            disabled={loading || compressing || (!compressedFile && !parsedVideoData)}
+            disabled={loading || compressing || (!compressedFile && !parsedVideoData && !externalVideoData)}
           >
             {loading ? 'Publishing...' : compressing ? 'Processing...' : 'Share'}
           </button>
