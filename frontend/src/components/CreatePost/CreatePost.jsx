@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { compressPostImage } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
+import ExternalVideoUpload from './ExternalVideoUpload';
 import './CreatePost.css';
 
 const CreatePost = () => {
@@ -17,6 +18,8 @@ const CreatePost = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [isUrlMode, setIsUrlMode] = useState(false);
   const [parsedVideoData, setParsedVideoData] = useState(null);
+  const [showExternalUpload, setShowExternalUpload] = useState(false);
+  const [externalVideoData, setExternalVideoData] = useState(null);
 
   useEffect(() => {
     // Прокручиваем в верх при переходе на страницу создания поста
@@ -105,6 +108,52 @@ const CreatePost = () => {
     setCaption(e.target.value);
   };
 
+  // Обработчик выбора внешнего видео
+  const handleExternalVideoSelect = (videoData) => {
+    setExternalVideoData(videoData);
+    setMediaType('video');
+    setIsUrlMode(true);
+    setCompressedFile(null); // Очищаем файл
+    
+    // Устанавливаем превью и URL
+    if (videoData.type === 'external') {
+      // YouTube видео
+      setVideoUrl(videoData.originalUrl);
+      setParsedVideoData({
+        platform: videoData.platform,
+        embedUrl: videoData.videoUrl,
+        originalUrl: videoData.originalUrl
+      });
+      // Для YouTube устанавливаем превью
+      if (videoData.platform === 'youtube') {
+        const videoId = extractYouTubeId(videoData.originalUrl);
+        if (videoId) {
+          setPreviewUrl(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
+        }
+      }
+    } else {
+      // Загруженное видео
+      setVideoUrl(videoData.videoUrl);
+      setParsedVideoData({
+        platform: videoData.platform,
+        videoUrl: videoData.videoUrl,
+        originalUrl: videoData.originalUrl,
+        publicId: videoData.publicId
+      });
+      // Для загруженных видео можем показать сам файл как превью
+      setPreviewUrl(videoData.videoUrl);
+    }
+    
+    setError('');
+  };
+
+  // Функция для извлечения YouTube ID
+  const extractYouTubeId = (url) => {
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    return match ? match[1] : null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -120,8 +169,9 @@ const CreatePost = () => {
 
     const parsedVideoInfo = isUrlMode ? parseVideoUrl(videoUrl) : null;
     
-    if (isUrlMode && !parsedVideoInfo) {
-      setError('Unsupported URL. Only YouTube videos are supported');
+    // Проверяем валидность данных для URL режима
+    if (isUrlMode && !parsedVideoInfo && !externalVideoData) {
+      setError('Unsupported URL or no video data available');
       return;
     }
 
@@ -138,14 +188,20 @@ const CreatePost = () => {
       if (isUrlMode) {
         // Для URL используем JSON
         headers['Content-Type'] = 'application/json';
+        
+        // Если есть данные внешнего видео, используем их
+        const videoDataToSend = externalVideoData || parsedVideoInfo;
+        
         requestData = JSON.stringify({
           caption,
           videoUrl,
-          videoData: parsedVideoInfo
+          videoData: videoDataToSend,
+          externalVideo: externalVideoData // Дополнительные данные для внешних видео
         });
         console.log('Sending video URL post:', {
           videoUrl,
-          videoData: parsedVideoInfo,
+          videoData: videoDataToSend,
+          externalVideo: externalVideoData,
           caption
         });
       } else {
@@ -170,6 +226,8 @@ const CreatePost = () => {
         setParsedVideoData(null);
         setCompressedFile(null);
         setOriginalFileName('');
+        setExternalVideoData(null);
+        setIsUrlMode(false);
         
         // Обновляем ленту или перенаправляем
         navigate('/');
@@ -204,14 +262,11 @@ const CreatePost = () => {
           </button>
           <button 
             type="button"
-            className={`mode-btn ${isUrlMode ? 'active' : ''}`}
-            onClick={() => {
-              setIsUrlMode(true);
-              setCompressedFile(null);
-              if (!parsedVideoData) setPreviewUrl(null);
-            }}
+            className={`mode-btn external-video-btn ${isUrlMode ? 'active' : ''}`}
+            onClick={() => setShowExternalUpload(true)}
           >
-            🔗 From URL
+            <span className="platform-icons">🔗▶️🎵📷🎬</span>
+            <span className="platform-text">TikTok • Instagram • VK • YouTube</span>
           </button>
         </div>
 
@@ -286,6 +341,14 @@ const CreatePost = () => {
           </button>
         </form>
       </div>
+      
+      {/* Модалка для загрузки внешних видео */}
+      {showExternalUpload && (
+        <ExternalVideoUpload
+          onVideoSelect={handleExternalVideoSelect}
+          onClose={() => setShowExternalUpload(false)}
+        />
+      )}
     </div>
   );
 };
