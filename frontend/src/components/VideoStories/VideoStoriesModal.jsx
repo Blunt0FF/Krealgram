@@ -18,7 +18,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const [loading, setLoading] = useState(true);
   const [viewedVideos, setViewedVideos] = useState(new Set());
   const [videoLoading, setVideoLoading] = useState(true);
-  const [showVideoPreview, setShowVideoPreview] = useState(isMobile());
+  const [showVideoPreview, setShowVideoPreview] = useState(false);
   
   // Лайки и комментарии
   const [isLiked, setIsLiked] = useState(false);
@@ -66,7 +66,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       setComments(currentVideo.comments || []);
       setShowComments(false);
       // Сбрасываем состояние превью для мобильных
-      setShowVideoPreview(isMobile());
+      setShowVideoPreview(false);
       setVideoLoading(true);
     }
   }, [currentVideo]);
@@ -365,7 +365,8 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           src={videoSrc}
           className="stories-video"
           controls={true}
-          muted={false}
+          autoPlay={true}
+          muted={true}
           playsInline={true}
           webkit-playsinline="true"
           x5-playsinline="true"
@@ -382,6 +383,15 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           onLoadStart={() => console.log('Video loading started')}
           onLoadedData={() => console.log('Video data loaded')}
           onCanPlay={() => console.log('Video can play')}
+          onEnded={() => {
+            console.log('🎬 Video ended, moving to next');
+            // Автоматически переходим к следующему видео
+            if (currentIndex < videos.length - 1) {
+              handleNext();
+            } else {
+              handleClose();
+            }
+          }}
           onError={(e) => {
             console.error('Video error:', e.target.error);
             console.log('Failed video src:', e.target.src);
