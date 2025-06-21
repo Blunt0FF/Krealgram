@@ -387,8 +387,8 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                      (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
                      (post.image && (post.image.includes('.mp4') || post.image.includes('video/')))) {
              
-             // На мобильных используем VideoPreview для превью (НО НЕ для YouTube!)
-             if (window.innerWidth <= 768 && !(post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')))) {
+             // На мобильных (≤900px) используем VideoPreview для превью (НО НЕ для YouTube!)
+             if (window.innerWidth <= 900 && !(post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')))) {
                return (
                  <VideoPreview 
                    post={post}
@@ -398,7 +398,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                );
              }
              
-             // На десктопе обычное видео
+             // На десктопе (≥901px) обычное видео БЕЗ poster как в 5a528d1
              return (
                <video 
                  src={getImageSrc()}
@@ -407,7 +407,6 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                  muted={false}
                  playsInline
                  preload="metadata"
-                 poster={post.mobileThumbnailUrl || post.thumbnailUrl || post.imageUrl || '/video-placeholder.svg'}
                  style={{ 
                    width: '100%', 
                    height: 'auto', 

@@ -20,7 +20,7 @@
   border-radius: 0 !important;
   max-width: 95vw !important;
   max-height: 95vh !important; /* Максимальная высота модалки */
-  height: 95vh !important; /* ВЫСОТА НА ВСЮ ВЫСОТУ ЭКРАНА */
+  height: 84vh !important;  
   width: auto;
   display: flex;
   overflow: hidden; /* Важно: скрывает все, что выходит за границы content */
@@ -30,6 +30,7 @@
   border: none;
   box-sizing: border-box;
 }
+
 
 .post-modal-content.is-dragging {
   transition: none;
@@ -708,5 +709,23 @@
     max-height: 100%;
     object-fit: contain;
     background: white;
+  }
+}
+
+/* Десктопные стили для ≥901px */
+@media (min-width: 901px) {
+  .post-modal-image video,
+  .post-modal-video {
+    width: 100%;
+    height: auto;
+    max-height: calc(95vh - 40px); /* Оставляем место для контролов */
+    min-height: auto; /* Убираем минимальную высоту */
+    object-fit: contain;
+    background: #000;
+    border-radius: 0;
+  }
+  
+  .post-modal-image {
+    overflow: visible; /* Показываем контролы */
   }
 }

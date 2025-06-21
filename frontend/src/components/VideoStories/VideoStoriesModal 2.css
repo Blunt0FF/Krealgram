@@ -1,0 +1,490 @@
+/* VideoStoriesModal - Instagram Stories стиль */
+
+.video-stories-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: background-color 0.3s ease;
+}
+
+.video-stories-modal-content {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Кнопка закрытия */
+.stories-close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  transition: background-color 0.3s ease;
+}
+
+.stories-close-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+/* Progress bar как в Instagram */
+.stories-progress-bar {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 60px;
+  height: 2px;
+  display: flex;
+  gap: 2px;
+  z-index: 10001;
+}
+
+.progress-segment {
+  flex: 1;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 1px;
+}
+
+.progress-segment.active {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Header с пользователем */
+.stories-header {
+  position: absolute;
+  top: 50px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 10001;
+}
+
+.stories-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid white;
+}
+
+.stories-username {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.stories-time {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+/* Стрелки навигации */
+.stories-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: white;
+  font-size: 30px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+  transition: background-color 0.2s;
+  opacity: 0.7;
+}
+
+.stories-nav-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
+  opacity: 1;
+}
+
+.stories-prev-btn {
+  left: 20px;
+}
+
+.stories-next-btn {
+  right: 20px;
+}
+
+/* Основное видео */
+.stories-video-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  padding: 60px 20px 120px 20px; /* Отступы для интерфейса */
+}
+
+.stories-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Специальные стили для YouTube iframe */
+.stories-video[src*="youtube.com"] {
+  width: 100%;
+  height: 70vh;
+  max-width: 900px;
+  aspect-ratio: 16/9;
+}
+
+/* Адаптивные размеры видео */
+@media (min-width: 1200px) {
+  .stories-video-container {
+    padding: 80px 20px 140px 20px;
+  }
+  
+  .stories-video {
+    max-width: 900px;
+    max-height: 80vh;
+  }
+  
+  .stories-video[src*="youtube.com"] {
+    max-width: 1000px;
+    height: 80vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .stories-video-container {
+    padding: 50px 15px 180px 15px; /* Больше места снизу для интерфейса */
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .stories-video {
+    max-width: 100%;
+    height: calc(100vh - 230px); /* Больше высоты для видео */
+    width: 100%;
+    object-fit: contain;
+    background: black;
+  }
+  
+  .stories-video[src*="youtube.com"] {
+    max-width: 100%;
+    height: calc(100vh - 230px);
+    width: 100%;
+  }
+}
+
+/* Instagram-style интерфейс внизу */
+.stories-bottom-interface {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 10000;
+  color: white;
+}
+
+.stories-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stories-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stories-like-btn,
+.stories-share-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.stories-like-btn:hover,
+.stories-share-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.stories-likes-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  margin-left: 4px;
+}
+
+.stories-description {
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  color: white;
+}
+
+.stories-username-bold {
+  font-weight: 600;
+  color: white;
+}
+
+.stories-view-comments {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  padding: 6px 0;
+  text-decoration: underline;
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.stories-view-comments:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.stories-comments-list {
+  margin-bottom: 12px;
+  max-height: 150px;
+  overflow-y: auto;
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stories-comment {
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  color: white !important;
+  padding: 4px 0;
+  background: none;
+  border-radius: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.comment-username {
+  font-weight: 600;
+  margin-right: 6px;
+  color: white !important;
+  text-decoration: none; /* УБИРАЮ UNDERLINE */
+}
+
+.comment-username.clickable-username {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.comment-username.clickable-username:hover {
+  opacity: 0.8; /* ЛЕГКИЙ HOVER ЭФФЕКТ ВМЕСТО UNDERLINE */
+}
+
+.stories-comment-text {
+  color: white !important;
+  font-weight: 400;
+}
+
+.stories-add-comment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 6px 12px; /* УМЕНЬШИЛ PADDING */
+}
+
+.stories-comment-input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 13px; /* УМЕНЬШИЛ РАЗМЕР ШРИФТА */
+  outline: none;
+  padding: 2px 0; /* УМЕНЬШИЛ PADDING */
+}
+
+.stories-comment-input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.stories-comment-submit {
+  background: #0095f6;
+  border: none;
+  color: white;
+  width: 24px; /* УМЕНЬШИЛ РАЗМЕР КНОПКИ */
+  height: 24px; /* УМЕНЬШИЛ РАЗМЕР КНОПКИ */
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px; /* УМЕНЬШИЛ РАЗМЕР ШРИФТА */
+  font-weight: 600;
+}
+
+.stories-comment-submit:hover:not(:disabled) {
+  background: #1877f2;
+  transform: scale(1.05);
+}
+
+.stories-comment-submit:disabled {
+  background: #0095f6;
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading и error states */
+.stories-loading,
+.stories-no-videos,
+.stories-no-video {
+  color: white;
+  font-size: 18px;
+  text-align: center;
+  padding: 40px;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 768px) {
+  .stories-close-btn {
+    top: 15px;
+    right: 15px;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+
+  .stories-progress-bar {
+    top: 15px;
+    left: 15px;
+    right: 55px;
+  }
+
+  .stories-header {
+    top: 40px;
+    left: 15px;
+  }
+
+  .stories-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .stories-username,
+  .stories-time {
+    font-size: 13px;
+  }
+
+  .stories-nav-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 26px;
+  }
+
+  .stories-prev-btn {
+    left: 15px;
+  }
+
+  .stories-next-btn {
+    right: 15px;
+  }
+
+  .stories-bottom-interface {
+    bottom: 15px;
+    left: 15px;
+    right: 15px;
+  }
+  
+  .stories-actions {
+    margin-bottom: 10px;
+  }
+  
+  .stories-actions-left {
+    gap: 6px;
+  }
+  
+  .stories-likes-count,
+  .stories-description,
+  .stories-view-comments {
+    font-size: 13px;
+  }
+  
+  .stories-comments-list {
+    max-height: 100px;
+    padding: 8px;
+  }
+  
+  .stories-comment {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  
+  .stories-add-comment {
+    padding: 4px 8px; /* ЕЩЕ МЕНЬШЕ НА МОБИЛЬНЫХ */
+  }
+  
+  .stories-comment-input {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stories-nav-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
+  }
+
+  .stories-prev-btn {
+    left: 10px;
+  }
+
+  .stories-next-btn {
+    right: 10px;
+  }
+
+  .stories-bottom-interface {
+    bottom: 10px;
+  }
+} 

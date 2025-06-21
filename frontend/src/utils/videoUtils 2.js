@@ -26,15 +26,6 @@ export const getCloudinaryVideoThumbnail = (videoUrl, options = {}) => {
 export const getStaticThumbnail = (post) => {
   if (!post) return '/video-placeholder.svg';
   
-  // Приоритет: новые поля с backend -> старые поля -> placeholder
-  if (post.mobileThumbnailUrl) {
-    return post.mobileThumbnailUrl;
-  }
-  
-  if (post.thumbnailUrl) {
-    return post.thumbnailUrl;
-  }
-  
   // Cloudinary видео - создаем статичное превью
   if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
     const videoUrl = post.imageUrl || post.image;
@@ -99,47 +90,23 @@ export const getProfileGifThumbnail = (post, options = {}) => {
   // Для Cloudinary видео создаем GIF превью
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    // Проверяем тип файла
-    const isWebm = videoUrl.includes('.webm');
+    // Зацикленный GIF с правильными параметрами (GIF по умолчанию зацикливается)
+    const isMobile = window.innerWidth <= 768;
     
-    // Для webm файлов используем fl_animated для правильной обработки
-    if (isWebm) {
-      const isMobile = window.innerWidth <= 768;
-      
-      if (isMobile) {
-        // Мобильные: простой GIF для webm
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_300,h_300,c_fill,f_gif,fl_animated,q_70/`
-        );
-        return gifUrl;
-      } else {
-        // Десктоп: простой GIF для webm
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,h_400,c_fill,f_gif,fl_animated,q_80/`
-        );
-        return gifUrl;
-      }
+    if (isMobile) {
+      // Мобильные: зацикленный GIF 8 секунд, 25 FPS
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_300,c_scale,f_gif,eo_8,fps_25,q_70/`
+      );
+      return gifUrl;
     } else {
-      // Для других видео форматов (mp4, mov и т.д.)
-      const isMobile = window.innerWidth <= 768;
-      
-      if (isMobile) {
-        // Мобильные: простой GIF без проблемных параметров
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_300,h_300,c_fill,f_gif,q_70/`
-        );
-        return gifUrl;
-      } else {
-        // Десктоп: простой GIF без проблемных параметров
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,h_400,c_fill,f_gif,q_80/`
-        );
-        return gifUrl;
-      }
+      // Десктоп: зацикленный GIF 10 секунд, 30 FPS
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_400,c_scale,f_gif,eo_10,fps_30,q_80/`
+      );
+      return gifUrl;
     }
   }
 
@@ -150,15 +117,6 @@ export const getProfileGifThumbnail = (post, options = {}) => {
 // Получение превью для любого типа медиа (для модалки и фоновых изображений)
 export const getMediaThumbnail = (post, options = {}) => {
   if (!post) return '/video-placeholder.svg';
-
-  // Приоритет: новые поля с backend
-  if (post.thumbnailUrl) {
-    return post.thumbnailUrl;
-  }
-  
-  if (post.mobileThumbnailUrl) {
-    return post.mobileThumbnailUrl;
-  }
 
   // YouTube видео - проверяем все возможные источники
   if (post.youtubeData && post.youtubeData.thumbnailUrl) {
@@ -215,15 +173,6 @@ export const getMediaThumbnail = (post, options = {}) => {
 export const getVideoPreviewThumbnail = (post, options = {}) => {
   if (!post) return '/video-placeholder.svg';
 
-  // Приоритет: новые поля с backend для мобильных превью
-  if (post.mobileThumbnailUrl) {
-    return post.mobileThumbnailUrl;
-  }
-  
-  if (post.thumbnailUrl) {
-    return post.thumbnailUrl;
-  }
-
   // YouTube видео - возвращаем статичный thumbnail
   if (post.youtubeData && post.youtubeData.thumbnailUrl) {
     return post.youtubeData.thumbnailUrl;
@@ -268,47 +217,23 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
   // Для загруженных видео создаем GIF превью для ленты
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    // Проверяем тип файла
-    const isWebm = videoUrl.includes('.webm');
+    // Зацикленный GIF с правильными параметрами (GIF по умолчанию зацикливается)
+    const isMobile = window.innerWidth <= 768;
     
-    // Для webm файлов используем fl_animated для правильной обработки
-    if (isWebm) {
-      const isMobile = window.innerWidth <= 900;
-      
-      if (isMobile) {
-        // Мобильные: простой GIF для webm
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_300,c_scale,f_gif,fl_animated,q_70/`
-        );
-        return gifUrl;
-      } else {
-        // Десктоп: простой GIF для webm
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,c_scale,f_gif,fl_animated,q_80/`
-        );
-        return gifUrl;
-      }
+    if (isMobile) {
+      // Мобильные: зацикленный GIF 8 секунд, 25 FPS
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_300,c_scale,f_gif,eo_8,fps_25,q_70/`
+      );
+      return gifUrl;
     } else {
-      // Для других видео форматов (mp4, mov и т.д.)
-      const isMobile = window.innerWidth <= 900;
-      
-      if (isMobile) {
-        // Мобильные: простой GIF без проблемных параметров
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_300,c_scale,f_gif,q_70/`
-        );
-        return gifUrl;
-      } else {
-        // Десктоп: простой GIF без проблемных параметров
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,c_scale,f_gif,q_80/`
-        );
-        return gifUrl;
-      }
+      // Десктоп: зацикленный GIF 10 секунд, 30 FPS
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_400,c_scale,f_gif,eo_10,fps_30,q_80/`
+      );
+      return gifUrl;
     }
   }
 

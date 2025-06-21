@@ -783,6 +783,8 @@ const PostModal = ({
                 (postData.image && (postData.image.includes('.mp4') || postData.image.includes('video/')))) && 
                 (!postData.videoUrl || (!postData.videoUrl.includes('youtube') && !postData.videoUrl.includes('youtu.be')))) {
 
+              const isDesktop = window.innerWidth >= 901;
+
               return (
                 <video 
                   src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
@@ -796,11 +798,11 @@ const PostModal = ({
                   x5-video-player-type="h5"
                   x5-video-player-fullscreen="true"
                   x5-video-orientation="portraint"
-                  poster={postData.mobileThumbnailUrl || postData.thumbnailUrl || postData.imageUrl || '/video-placeholder.svg'}
+                  {...(!isDesktop && { poster: postData.mobileThumbnailUrl || postData.thumbnailUrl || postData.imageUrl || '/video-placeholder.svg' })}
                   style={{ 
-                    width: '100%', 
+                    width: isDesktop ? '100%' : '100%', 
                     height: 'auto', 
-                    maxHeight: '900px', 
+                    maxHeight: isDesktop ? 'calc(100vh - 120px)' : '900px', 
                     backgroundColor: '#000', 
                     objectFit: 'contain',
                     display: 'block'
