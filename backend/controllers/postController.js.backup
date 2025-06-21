@@ -212,7 +212,7 @@ exports.getAllPosts = async (req, res) => {
         } else if (post.image && post.image.startsWith('http')) {
           imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
         } else if (post.image) {
-          const { getMediaUrl } = require('../utils/urlUtils'); imageUrl = getMediaUrl(post.image, 'image');
+          imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
         } else {
           imageUrl = null; // Нет изображения
         }
@@ -280,7 +280,7 @@ exports.getPostById = async (req, res) => {
     } else if (post.image && post.image.startsWith('http')) {
       imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
     } else if (post.image) {
-      const { getMediaUrl } = require('../utils/urlUtils'); imageUrl = getMediaUrl(post.image, 'image');
+      imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
     } else {
       imageUrl = null; // Нет изображения
     }
@@ -341,7 +341,7 @@ exports.updatePost = async (req, res) => {
     
     const responsePost = {
         ...populatedPost,
-        imageUrl: (() => { const { getMediaUrl } = require('../utils/urlUtils'); return getMediaUrl(populatedPost.image, 'image'); })()
+        imageUrl: `${req.protocol}://${req.get('host')}/uploads/${populatedPost.image}`
     };
 
     res.status(200).json({
@@ -432,7 +432,7 @@ exports.deletePost = async (req, res) => {
 exports.getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { getMediaUrl, getVideoThumbnailUrl, getMobileThumbnailUrl, getReliableThumbnailUrl } = require('../utils/urlUtils');    const page = parseInt(req.query.page) || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
@@ -472,7 +472,7 @@ exports.getUserPosts = async (req, res) => {
     } else if (post.image && post.image.startsWith('http')) {
       imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
     } else if (post.image) {
-      const { getMediaUrl } = require('../utils/urlUtils'); imageUrl = getMediaUrl(post.image, 'image');
+      imageUrl = `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
     } else {
       imageUrl = null; // Нет изображения
     }
@@ -608,7 +608,7 @@ exports.getVideoUsers = async (req, res) => {
 exports.getUserVideos = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { getMediaUrl, getVideoThumbnailUrl, getMobileThumbnailUrl, getReliableThumbnailUrl } = require('../utils/urlUtils');
+
     const userVideos = await Post.find({
       author: userId,
       $or: [
@@ -634,10 +634,8 @@ exports.getUserVideos = async (req, res) => {
       
       // Добавляем правильные URL для видео файлов
       if (videoObj.image && !videoObj.image.startsWith('http')) {
-        videoObj.imageUrl = getReliableThumbnailUrl(videoObj.image);
-        videoObj.thumbnailUrl = getVideoThumbnailUrl(videoObj.image);
-        videoObj.videoUrl = getMediaUrl(videoObj.image, 'video');
-        videoObj.mobileThumbnailUrl = getMobileThumbnailUrl(videoObj.image);
+        videoObj.imageUrl = `${req.protocol}://${req.get('host')}/uploads/${videoObj.image}`;
+        videoObj.videoUrl = `${req.protocol}://${req.get('host')}/uploads/${videoObj.image}`;
       }
       
       console.log('📹 Video data:', {
@@ -646,10 +644,7 @@ exports.getUserVideos = async (req, res) => {
         image: videoObj.image,
         imageUrl: videoObj.imageUrl,
         videoUrl: videoObj.videoUrl,
-        thumbnailUrl: videoObj.thumbnailUrl,
-        youtubeData: videoObj.youtubeData,
-        mobileThumbnailUrl: videoObj.mobileThumbnailUrl,
-        cloudinaryEnabled: process.env.USE_CLOUDINARY
+        youtubeData: videoObj.youtubeData
       });
       
       return {

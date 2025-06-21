@@ -407,6 +407,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                  muted={false}
                  playsInline
                  preload="metadata"
+                 poster={post.mobileThumbnailUrl || post.thumbnailUrl || post.imageUrl || '/video-placeholder.svg'}
                  style={{ 
                    width: '100%', 
                    height: 'auto', 

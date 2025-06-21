@@ -21,23 +21,51 @@ cloudinary.config({
 // Настройка хранилища для постов
 const postStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'krealgram/posts',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm'],
-    resource_type: 'auto', // Автоматически определяет тип (image/video)
-    transformation: [
-      { width: 1080, height: 1080, crop: 'limit', quality: 'auto' }
-    ],
-    // Для видео создаем превью
-    eager: [
-      { 
-        resource_type: 'video',
-        format: 'jpg',
+  params: async (req, file) => {
+    // Базовые параметры
+    const baseParams = {
+      folder: 'krealgram/posts',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm'],
+      resource_type: 'auto', // Автоматически определяет тип (image/video)
+    };
+
+    // Если это GIF файл, не применяем трансформацию чтобы сохранить анимацию
+    if (file.mimetype === 'image/gif') {
+      return {
+        ...baseParams,
+        flags: 'animated', // Сохраняем анимацию для GIF
+        // НЕ применяем transformation для GIF
+      };
+    }
+
+    // Для остальных изображений применяем трансформацию
+    if (file.mimetype.startsWith('image/')) {
+      return {
+        ...baseParams,
         transformation: [
-          { width: 400, height: 400, crop: 'fill', gravity: 'center' }
-        ]
-      }
-    ],
+          { width: 1080, height: 1080, crop: 'limit', quality: 'auto' }
+        ],
+      };
+    }
+
+    // Для видео создаем превью
+    if (file.mimetype.startsWith('video/')) {
+      return {
+        ...baseParams,
+        eager: [
+          { 
+            resource_type: 'video',
+            format: 'jpg',
+            transformation: [
+              { width: 400, height: 400, crop: 'fill', gravity: 'center' }
+            ]
+          }
+        ],
+      };
+    }
+
+    // Для остальных типов файлов
+    return baseParams;
   },
 });
 
@@ -56,13 +84,30 @@ const avatarStorage = new CloudinaryStorage({
 // Настройка хранилища для сообщений
 const messageStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'krealgram/messages',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov'],
-    resource_type: 'auto', // Автоматически определяет тип (image/video)
-    transformation: [
-      { width: 800, height: 800, crop: 'limit', quality: 'auto' }
-    ],
+  params: async (req, file) => {
+    // Базовые параметры
+    const baseParams = {
+      folder: 'krealgram/messages',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov'],
+      resource_type: 'auto', // Автоматически определяет тип (image/video)
+    };
+
+    // Если это GIF файл, не применяем трансформацию чтобы сохранить анимацию
+    if (file.mimetype === 'image/gif') {
+      return {
+        ...baseParams,
+        flags: 'animated', // Сохраняем анимацию для GIF
+        // НЕ применяем transformation для GIF
+      };
+    }
+
+    // Для остальных файлов применяем трансформацию
+    return {
+      ...baseParams,
+      transformation: [
+        { width: 800, height: 800, crop: 'limit', quality: 'auto' }
+      ],
+    };
   },
 });
 

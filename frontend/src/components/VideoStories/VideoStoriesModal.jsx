@@ -6,11 +6,19 @@ import ShareModal from '../Post/ShareModal';
 import { API_URL } from '../../config';
 import './VideoStoriesModal.css';
 
+// Функция для определения мобильного устройства
+const isMobile = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
+};
+
 const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const [videos, setVideos] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [viewedVideos, setViewedVideos] = useState(new Set());
+  const [videoLoading, setVideoLoading] = useState(true);
+  const [showVideoPreview, setShowVideoPreview] = useState(isMobile());
   
   // Лайки и комментарии
   const [isLiked, setIsLiked] = useState(false);
@@ -57,6 +65,9 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       setLikesCount(currentVideo.likesCount || currentVideo.likes?.length || 0);
       setComments(currentVideo.comments || []);
       setShowComments(false);
+      // Сбрасываем состояние превью для мобильных
+      setShowVideoPreview(isMobile());
+      setVideoLoading(true);
     }
   }, [currentVideo]);
 
@@ -226,6 +237,70 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     setIsDragging(false);
   };
 
+  // Функция для отображения превью на мобильных устройствах
+  const renderMobilePreview = () => {
+    if (!currentVideo) return null;
+
+    // Определяем URL для превью
+    let previewUrl = null;
+    
+    if (currentVideo?.mobileThumbnailUrl) {
+      previewUrl = currentVideo.mobileThumbnailUrl;
+    } else if (currentVideo?.thumbnailUrl) {
+      previewUrl = currentVideo.thumbnailUrl;
+    } else if (currentVideo?.imageUrl) {
+      previewUrl = currentVideo.imageUrl;
+    } else if (currentVideo?.image) {
+      previewUrl = currentVideo.image.startsWith('http') 
+        ? currentVideo.image 
+        : `${API_URL}/uploads/${currentVideo.image}`;
+    }
+
+    console.log('📱 Mobile preview URL:', previewUrl);
+
+    if (!previewUrl) {
+      return (
+        <div className="stories-video-placeholder">
+          <div className="placeholder-icon">🎬</div>
+          <div className="placeholder-text">Загрузка видео...</div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="stories-mobile-preview" onClick={() => setShowVideoPreview(false)}>
+        <img 
+          src={previewUrl}
+          alt="Video preview"
+          className="stories-preview-image"
+          onLoad={() => {
+            console.log('✅ Preview image loaded successfully');
+            setVideoLoading(false);
+          }}
+          onError={(e) => {
+            console.error('❌ Preview image failed to load:', e.target.src);
+            // Пробуем альтернативные варианты
+            if (currentVideo?.imageUrl && e.target.src !== currentVideo.imageUrl) {
+              e.target.src = currentVideo.imageUrl;
+            } else if (currentVideo?.image && !e.target.src.includes(currentVideo.image)) {
+              const altSrc = currentVideo.image.startsWith('http') 
+                ? currentVideo.image 
+                : `${API_URL}/uploads/${currentVideo.image}`;
+              e.target.src = altSrc;
+            } else {
+              e.target.style.display = 'none';
+              setVideoLoading(false);
+            }
+          }}
+        />
+        <div className="stories-play-button">
+          <div className="play-icon">▶</div>
+        </div>
+        <div className="stories-preview-hint">Нажмите для воспроизведения</div>
+      </div>
+    );
+  };
+
   const renderVideo = () => {
     if (!currentVideo) return null;
 
@@ -298,7 +373,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           x5-video-player-fullscreen="true"
           x5-video-orientation="portraint"
           preload="metadata"
-          poster={currentVideo?.thumbnailUrl || '/video-placeholder.svg'}
+          poster={currentVideo?.mobileThumbnailUrl || currentVideo?.thumbnailUrl || currentVideo?.imageUrl || '/video-placeholder.svg'}
           style={{
             display: 'block',
             backgroundColor: '#000'
@@ -441,7 +516,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
             )}
             
             <div className="stories-video-container">
-              {renderVideo()}
+              {showVideoPreview ? renderMobilePreview() : renderVideo()}
             </div>
 
             <div className="stories-bottom-interface">

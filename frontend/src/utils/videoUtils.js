@@ -26,6 +26,15 @@ export const getCloudinaryVideoThumbnail = (videoUrl, options = {}) => {
 export const getStaticThumbnail = (post) => {
   if (!post) return '/video-placeholder.svg';
   
+  // Приоритет: новые поля с backend -> старые поля -> placeholder
+  if (post.mobileThumbnailUrl) {
+    return post.mobileThumbnailUrl;
+  }
+  
+  if (post.thumbnailUrl) {
+    return post.thumbnailUrl;
+  }
+  
   // Cloudinary видео - создаем статичное превью
   if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
     const videoUrl = post.imageUrl || post.image;
@@ -118,6 +127,15 @@ export const getProfileGifThumbnail = (post, options = {}) => {
 export const getMediaThumbnail = (post, options = {}) => {
   if (!post) return '/video-placeholder.svg';
 
+  // Приоритет: новые поля с backend
+  if (post.thumbnailUrl) {
+    return post.thumbnailUrl;
+  }
+  
+  if (post.mobileThumbnailUrl) {
+    return post.mobileThumbnailUrl;
+  }
+
   // YouTube видео - проверяем все возможные источники
   if (post.youtubeData && post.youtubeData.thumbnailUrl) {
     return post.youtubeData.thumbnailUrl;
@@ -172,6 +190,15 @@ export const getMediaThumbnail = (post, options = {}) => {
 // Получение GIF превью для VideoPreview в ленте
 export const getVideoPreviewThumbnail = (post, options = {}) => {
   if (!post) return '/video-placeholder.svg';
+
+  // Приоритет: новые поля с backend для мобильных превью
+  if (post.mobileThumbnailUrl) {
+    return post.mobileThumbnailUrl;
+  }
+  
+  if (post.thumbnailUrl) {
+    return post.thumbnailUrl;
+  }
 
   // YouTube видео - возвращаем статичный thumbnail
   if (post.youtubeData && post.youtubeData.thumbnailUrl) {

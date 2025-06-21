@@ -796,6 +796,7 @@ const PostModal = ({
                   x5-video-player-type="h5"
                   x5-video-player-fullscreen="true"
                   x5-video-orientation="portraint"
+                  poster={postData.mobileThumbnailUrl || postData.thumbnailUrl || postData.imageUrl || '/video-placeholder.svg'}
                   style={{ 
                     width: '100%', 
                     height: 'auto', 

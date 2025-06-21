@@ -45,6 +45,11 @@ router.get('/test-video-users', authMiddleware, postController.testVideoUsers);
 // @access  Private
 router.get('/video-users', authMiddleware, postController.getVideoUsers);
 
+// @route   POST api/posts/external-video/download
+// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram)
+// @access  Private
+router.post('/external-video/download', authMiddleware, postController.downloadExternalVideo);
+
 // @route   GET api/posts/user/:userId/videos
 // @desc    Получить все видео конкретного пользователя
 // @access  Private
@@ -79,10 +84,5 @@ router.put('/:id', authMiddleware, postController.updatePost);
 // @desc    Удалить пост
 // @access  Private
 router.delete('/:id', authMiddleware, postController.deletePost);
-
-// @route   POST api/posts/external-video/download
-// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram)
-// @access  Private
-router.post('/external-video/download', authMiddleware, postController.downloadExternalVideo);
 
 module.exports = router; 
