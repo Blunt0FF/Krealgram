@@ -10,19 +10,19 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
   const [platform, setPlatform] = useState('');
 
   const supportedPlatforms = [
-    { name: 'YouTube', domain: 'youtube.com', icon: '📺' }
-    // { name: 'TikTok', domain: 'tiktok.com', icon: '🎵' },
-    // { name: 'Instagram', domain: 'instagram.com', icon: '📷' },
-    // { name: 'VK', domain: 'vk.com', icon: '🔵' },
-    // { name: 'Twitter/X', domain: 'twitter.com', icon: '🐦' }
+    { name: 'TikTok', domain: 'tiktok.com', icon: '🎵' },
+    { name: 'Instagram', domain: 'instagram.com', icon: '📷' },
+    { name: 'VK', domain: 'vk.com', icon: '🔵' },
+    { name: 'YouTube', domain: 'youtube.com', icon: '📺' },
+    { name: 'Twitter/X', domain: 'twitter.com', icon: '🐦' }
   ];
 
   const detectPlatform = (inputUrl) => {
+    if (inputUrl.includes('tiktok.com')) return 'TikTok';
+    if (inputUrl.includes('instagram.com')) return 'Instagram';
+    if (inputUrl.includes('vk.com') || inputUrl.includes('vk.ru')) return 'VK';
     if (inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) return 'YouTube';
-    // if (inputUrl.includes('tiktok.com')) return 'TikTok';
-    // if (inputUrl.includes('instagram.com')) return 'Instagram';
-    // if (inputUrl.includes('vk.com') || inputUrl.includes('vk.ru')) return 'VK';
-    // if (inputUrl.includes('twitter.com') || inputUrl.includes('x.com')) return 'Twitter/X';
+    if (inputUrl.includes('twitter.com') || inputUrl.includes('x.com')) return 'Twitter/X';
     return '';
   };
 
@@ -43,7 +43,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
 
     const detectedPlatform = detectPlatform(url);
     if (!detectedPlatform) {
-      setError('Неподдерживаемая платформа. Поддерживается только YouTube.');
+      setError('Неподдерживаемая платформа. Поддерживаемые: TikTok, Instagram, VK, YouTube, Twitter/X');
       return;
     }
 

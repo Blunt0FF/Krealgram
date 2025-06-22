@@ -732,7 +732,7 @@ exports.downloadExternalVideo = async (req, res) => {
     }
 
     // Импортируем VideoDownloader
-    const VideoDownloader = require('../services/simpleVideoDownloader');
+    const VideoDownloader = require('../services/videoDownloader');
     
     // Проверяем валидность URL
     if (!VideoDownloader.isValidUrl(url)) {

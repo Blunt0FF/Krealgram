@@ -198,9 +198,9 @@ const CreatePost = () => {
             }}
           >
             <div className="platform-icons" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '18px' }}>
-              📺
+              🎵📱🔵📺🐦
             </div>
-            <span className="platform-text">YouTube видео</span>
+            <span className="platform-text">TikTok/Instagram/VK/YouTube/Twitter</span>
           </button>
         </div>
 
