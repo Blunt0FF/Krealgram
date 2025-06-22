@@ -4,6 +4,21 @@ const fs = require('fs'); // For file system operations (deleting images)
 const path = require('path'); // For working with paths
 const Like = require('../models/likeModel'); // Import the Like model
 const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
+const YTDlpWrap = require('yt-dlp-wrap').default;
+const os = require('os');
+const cloudinary = require('cloudinary').v2;
+
+// Инициализация yt-dlp
+const ytdlpPath = path.resolve(os.homedir(), '.yt-dlp', 'yt-dlp');
+if (!fs.existsSync(ytdlpPath)) {
+  console.log('Downloading yt-dlp binary...');
+  YTDlpWrap.downloadFromGithub(ytdlpPath).then(() => {
+    console.log('yt-dlp binary downloaded successfully.');
+  }).catch(err => {
+    console.error('Failed to download yt-dlp binary:', err);
+  });
+}
+const ytdlpWrap = new YTDlpWrap(ytdlpPath);
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -716,66 +731,85 @@ exports.testVideoUsers = async (req, res) => {
   }
 };
 
-// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram)
+// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram, VK)
 // @route   POST /api/posts/external-video/download
 // @access  Private
 exports.downloadExternalVideo = async (req, res) => {
   try {
-    console.log('🎬 External video download request received');
-    console.log('🎬 Request body:', req.body);
-    console.log('🎬 User:', req.user?.username);
-    
-    const { url, platform } = req.body;
-    
-    if (!url || !platform) {
-      console.log('❌ Missing URL or platform');
+    const { url } = req.body;
+
+    if (!url) {
       return res.status(400).json({
         success: false,
-        message: "URL and platform are required"
+        message: 'URL is required',
       });
     }
+    
+    // Временная директория для скачивания
+    const tempDir = path.join(os.tmpdir(), 'krealgram-downloads');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    console.log(`🎬 Downloading video from URL: ${url}`);
 
-    console.log(`🎬 Processing ${platform} video: ${url}`);
+    // Скачиваем видео с помощью yt-dlp
+    const downloadPath = path.join(tempDir, `${Date.now()}`);
+    const metadata = await ytdlpWrap.getVideoInfo(url);
+    
+    await ytdlpWrap.execPromise([
+      url,
+      '-o', `${downloadPath}.%(ext)s`,
+      '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', // Предпочитаем mp4
+      '--recode-video', 'mp4' // Конвертируем в mp4 если нужно
+    ]);
 
-    // Поддерживаемые платформы для загрузки
-    const supportedPlatforms = ["tiktok", "instagram"];
-    if (!supportedPlatforms.includes(platform.toLowerCase())) {
-      console.log(`❌ Unsupported platform: ${platform}`);
-      return res.status(400).json({
-        success: false,
-        message: `Platform ${platform} is not supported for download`
-      });
+    const files = fs.readdirSync(tempDir);
+    const downloadedFile = files.find(file => file.startsWith(path.basename(downloadPath)));
+
+    if (!downloadedFile) {
+        throw new Error('Failed to find downloaded file.');
     }
 
-    // Для TikTok возвращаем данные для встраивания без реального скачивания
-    if (platform.toLowerCase() === 'tiktok') {
-      const response = {
-        success: true,
-        message: "TikTok video will be saved as external link",
-        isExternalLink: true,
-        platform: platform,
-        originalUrl: url,
-        videoUrl: url, // Используем оригинальный URL
-        thumbnailUrl: `https://via.placeholder.com/300x400/FF0050/FFFFFF?text=🎵+TikTok+Video`,
-        note: "External TikTok video link"
-      };
-      res.json(response);
-    } else {
-      const response = {
-        success: false,
-        message: `${platform.toUpperCase()} video download is not implemented yet`,
-        error: "DOWNLOAD_NOT_IMPLEMENTED",
-        platform: platform,
-        originalUrl: url
-      };
-      res.status(501).json(response);
-    }
+    const finalPath = path.join(tempDir, downloadedFile);
+
+    console.log(`✅ Video downloaded to: ${finalPath}`);
+    console.log(`☁️ Uploading to Cloudinary...`);
+
+    // Загружаем в Cloudinary
+    const cloudinaryResult = await cloudinary.uploader.upload(finalPath, {
+      resource_type: 'video',
+      folder: 'posts', // Папка на Cloudinary
+      eager: [ // Создаем превью
+        { width: 300, height: 400, crop: 'pad', format: 'jpg' }
+      ]
+    });
+
+    console.log(`🚀 Video uploaded to Cloudinary: ${cloudinaryResult.secure_url}`);
+
+    // Удаляем временный файл
+    fs.unlinkSync(finalPath);
+
+    // Возвращаем результат
+    res.json({
+      success: true,
+      message: 'Video downloaded and uploaded successfully',
+      isExternalLink: false, // Это загруженное видео, а не ссылка
+      videoUrl: cloudinaryResult.secure_url,
+      thumbnailUrl: cloudinaryResult.eager[0].secure_url,
+      originalUrl: url,
+      platform: metadata.extractor,
+      duration: metadata.duration,
+      title: metadata.title,
+      note: 'Uploaded via external link'
+    });
+
   } catch (error) {
-    console.error("❌ Error in downloadExternalVideo:", error);
+    console.error('❌ Error in downloadExternalVideo:', error);
     res.status(500).json({
       success: false,
-      message: "Failed to download external video",
-      error: error.message
+      message: 'Failed to download external video',
+      error: error.message,
     });
   }
 };

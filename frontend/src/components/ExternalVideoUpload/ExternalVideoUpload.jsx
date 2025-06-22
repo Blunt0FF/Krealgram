@@ -54,7 +54,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://krealgram-backend.onrender.com/api/posts/external-video', {
+      const response = await fetch('https://krealgram-backend.onrender.com/api/posts/external-video/download', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
