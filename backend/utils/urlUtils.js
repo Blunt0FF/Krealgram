@@ -33,11 +33,11 @@ const getMediaUrl = (imagePath, type = 'image') => {
       });
     }
     
-    // Для изображений
+    // Для изображений (включая GIF с анимацией)
     return cloudinary.url(publicId, {
       fetch_format: 'auto',
       quality: 'auto',
-      flags: 'progressive'
+      flags: 'progressive,animated' // Добавляем animated для GIF
     });
   }
   

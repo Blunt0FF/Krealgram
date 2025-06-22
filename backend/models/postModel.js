@@ -15,6 +15,10 @@ const postSchema = new mongoose.Schema({
     enum: ['image', 'video'],
     default: 'image'
   },
+  mimeType: {
+    type: String,
+    trim: true
+  },
   caption: {
     type: String,
     trim: true,

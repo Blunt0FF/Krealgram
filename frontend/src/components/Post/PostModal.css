@@ -20,7 +20,7 @@
   border-radius: 0 !important;
   max-width: 95vw !important;
   max-height: 95vh !important; 
-  height: 84vh;  
+  height: 85vh;  
   width: auto;
   display: flex;
   overflow: hidden; /* Важно: скрывает все, что выходит за границы content */
@@ -222,6 +222,7 @@
   border: none;
   background: white;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .caption-avatar {
@@ -262,8 +263,9 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   word-break: break-all;
-  overflow-wrap: break-word;
+  /* overflow-wrap: break-word; */
   max-width: 100%;
+  overflow-y: hidden;
 }
 
 .caption-text.collapsed {

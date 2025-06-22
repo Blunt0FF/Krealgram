@@ -608,7 +608,8 @@ exports.getVideoUsers = async (req, res) => {
 exports.getUserVideos = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { getMediaUrl, getVideoThumbnailUrl, getMobileThumbnailUrl, getReliableThumbnailUrl } = require('../utils/urlUtils');
+    const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
+
     const userVideos = await Post.find({
       author: userId,
       $or: [
@@ -633,11 +634,17 @@ exports.getUserVideos = async (req, res) => {
       const videoObj = video.toObject();
       
       // Добавляем правильные URL для видео файлов
-      if (videoObj.image && !videoObj.image.startsWith('http')) {
-        videoObj.imageUrl = getReliableThumbnailUrl(videoObj.image);
-        videoObj.thumbnailUrl = getVideoThumbnailUrl(videoObj.image);
-        videoObj.videoUrl = getMediaUrl(videoObj.image, 'video');
-        videoObj.mobileThumbnailUrl = getMobileThumbnailUrl(videoObj.image);
+      const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
+      
+      if (videoObj.image) {
+        // Для локальных видео файлов создаем правильные URL
+        if (videoObj.mediaType === 'video') {
+          videoObj.videoUrl = getMediaUrl(videoObj.image, 'video');
+          videoObj.imageUrl = getVideoThumbnailUrl(videoObj.image); // Превью для видео
+        } else {
+          videoObj.imageUrl = getMediaUrl(videoObj.image, 'image');
+          videoObj.videoUrl = getMediaUrl(videoObj.image, 'video'); // На случай если это видео
+        }
       }
       
       console.log('📹 Video data:', {
@@ -646,10 +653,7 @@ exports.getUserVideos = async (req, res) => {
         image: videoObj.image,
         imageUrl: videoObj.imageUrl,
         videoUrl: videoObj.videoUrl,
-        thumbnailUrl: videoObj.thumbnailUrl,
-        youtubeData: videoObj.youtubeData,
-        mobileThumbnailUrl: videoObj.mobileThumbnailUrl,
-        cloudinaryEnabled: process.env.USE_CLOUDINARY
+        youtubeData: videoObj.youtubeData
       });
       
       return {
@@ -714,12 +718,12 @@ exports.downloadExternalVideo = async (req, res) => {
     if (!url || !platform) {
       return res.status(400).json({
         success: false,
-        message: 'URL and platform are required'
+        message: "URL and platform are required"
       });
     }
 
     // Поддерживаемые платформы для загрузки
-    const supportedPlatforms = ['tiktok', 'instagram'];
+    const supportedPlatforms = ["tiktok", "instagram"];
     if (!supportedPlatforms.includes(platform.toLowerCase())) {
       return res.status(400).json({
         success: false,
@@ -731,7 +735,7 @@ exports.downloadExternalVideo = async (req, res) => {
     // Пока возвращаем mock данные для тестирования
     const mockResponse = {
       success: true,
-      message: 'Video download initiated',
+      message: "Video download initiated",
       videoUrl: `https://res.cloudinary.com/demo/video/upload/sample.mp4`, // Mock URL
       thumbnailUrl: `https://res.cloudinary.com/demo/image/upload/sample.jpg`, // Mock thumbnail
       publicId: `external_video_${Date.now()}`,
@@ -741,10 +745,10 @@ exports.downloadExternalVideo = async (req, res) => {
 
     res.json(mockResponse);
   } catch (error) {
-    console.error('Error downloading external video:', error);
+    console.error("Error downloading external video:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to download external video',
+      message: "Failed to download external video",
       error: error.message
     });
   }

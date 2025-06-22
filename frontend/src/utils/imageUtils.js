@@ -244,11 +244,19 @@ export const getFileSizeKB = (dataUrl) => {
   return Math.round(dataUrl.length / 1024);
 }; 
 
-export const getImageUrl = (imagePath) => {
+export const getImageUrl = (imagePath, options = {}) => {
   if (!imagePath) return null;
   
   // Если это уже полный URL (начинается с http/https), возвращаем как есть
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    // Если это Cloudinary URL и нужно добавить флаг animated для GIF
+    if (imagePath.includes('res.cloudinary.com') && !imagePath.includes('fl_animated')) {
+      const isGif = options.isGif === true || options.mimeType === 'image/gif';
+      if (isGif) {
+        // Вставляем fl_animated после /upload/
+        return imagePath.replace('/upload/', '/upload/fl_animated/');
+      }
+    }
     return imagePath;
   }
   
@@ -259,7 +267,19 @@ export const getImageUrl = (imagePath) => {
   
   // Если путь начинается с krealgram/, значит это путь к Cloudinary
   if (imagePath.startsWith('krealgram/')) {
-    return `https://res.cloudinary.com/dibcwdwsd/image/upload/${imagePath}`;
+    let cloudinaryUrl = `https://res.cloudinary.com/dibcwdwsd/image/upload/`;
+    
+    // Проверяем если это GIF файл и нужно сохранить анимацию
+    const isGif = imagePath.toLowerCase().includes('gif') || 
+                  imagePath.toLowerCase().endsWith('.gif') ||
+                  options.isGif === true ||
+                  options.mimeType === 'image/gif';
+    
+    // По умолчанию добавляем fl_animated для всех изображений чтобы GIF работали
+    // Это безопасно - для обычных изображений флаг просто игнорируется
+    cloudinaryUrl += `fl_animated/`;
+    
+    return cloudinaryUrl + imagePath;
   }
   
   // Для остальных файлов используем локальный путь
