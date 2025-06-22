@@ -609,6 +609,7 @@ exports.getUserVideos = async (req, res) => {
   try {
     const { userId } = req.params;
     const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
+    const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 
     const userVideos = await Post.find({
       author: userId,
@@ -653,7 +654,9 @@ exports.getUserVideos = async (req, res) => {
         image: videoObj.image,
         imageUrl: videoObj.imageUrl,
         videoUrl: videoObj.videoUrl,
-        youtubeData: videoObj.youtubeData
+        mobileThumbnailUrl: videoObj.mobileThumbnailUrl,
+        youtubeData: videoObj.youtubeData,
+        cloudinaryEnabled: process.env.USE_CLOUDINARY
       });
       
       return {

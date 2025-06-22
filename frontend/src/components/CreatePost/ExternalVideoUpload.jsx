@@ -73,7 +73,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoSelect }) => {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`${API_URL}/api/external-video/download`, {
+      const response = await fetch(`${API_URL}/api/posts/external-video/download`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -85,12 +85,11 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoSelect }) => {
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to download video');
-      }
-
       const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || result.suggestion || 'Failed to download video');
+      }
       
       return {
         ...parsedVideo,
@@ -136,7 +135,13 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoSelect }) => {
           setUploadProgress(100);
         } catch (downloadError) {
           console.error('Download error:', downloadError);
-          setError(`Failed to download ${parsedVideo.platform} video: ${downloadError.message}`);
+          
+          // Если это ошибка "не реализовано", показываем специальное сообщение
+          if (downloadError.message.includes('not implemented')) {
+            setError(`${parsedVideo.platform.toUpperCase()} video download is not supported yet. Please download the video manually and upload it as a file.`);
+          } else {
+            setError(`Failed to download ${parsedVideo.platform} video: ${downloadError.message}`);
+          }
           return;
         }
       }
