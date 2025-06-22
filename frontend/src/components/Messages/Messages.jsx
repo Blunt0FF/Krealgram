@@ -596,14 +596,12 @@ const Messages = ({ currentUser }) => {
       <div className={`messages-sidebar ${isChatOpen ? 'hidden-mobile' : ''}`}>
         <div className="messages-header">
           <h2>Messages</h2>
-          <button 
+                      <button 
               className="new-message-btn" 
               onClick={() => setShowNewMessageModal(true)}
               title="New message"
             >
-              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              <img src="/plus.svg" alt="New message" width="24" height="24" />
           </button>
         </div>
         
@@ -680,9 +678,7 @@ const Messages = ({ currentUser }) => {
           <>
             <div className="chat-header">
               <button className="back-btn mobile-only" onClick={backToConversations}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+                <img src="/arrow-left.svg" alt="Back" width="24" height="24" />
               </button>
               <div 
                 className="chat-header-content"
@@ -882,15 +878,15 @@ const Messages = ({ currentUser }) => {
         ) : (
           <div className="no-chat-selected">
             <div className="message-icon">
-              <svg width="96" height="96" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.003 2.001a9.705 9.705 0 1 1 0 19.4 10.876 10.876 0 0 1-2.895-.384.798.798 0 0 0-.533.04l-1.984.876a.801.801 0 0 1-1.123-.708l-.054-1.78a.806.806 0 0 0-.27-.569 9.49 9.49 0 0 1-3.14-7.175 9.65 9.65 0 0 1 10-9.7Z"/>
-              </svg>
+              <img src="/messenger.svg" alt="Messages" width="96" height="96" />
             </div>
             <h3>Your Messages</h3>
             <p>Send private photos and messages to friends.</p>
-            <button className="send-message-btn" onClick={() => setShowNewMessageModal(true)}>
-              Send message
-            </button>
+            <div style={{ marginTop: '20px' }}>
+              <button className="send-message-btn" onClick={() => setShowNewMessageModal(true)}>
+                Send message
+              </button>
+            </div>
           </div>
         )}
       </div>

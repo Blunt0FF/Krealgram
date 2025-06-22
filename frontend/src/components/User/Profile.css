@@ -411,9 +411,7 @@
     min-width: 100px;
   }
 
-  .mobile-only {
-    display: inline-flex !important;
-  }
+
 
   .profile-stats {
     margin-bottom: 12px;

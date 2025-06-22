@@ -213,7 +213,7 @@
   }
   
   .stories-video-container {
-    padding: max(100px, calc(env(safe-area-inset-top, 20px) + 80px)) 20px max(80px, calc(env(safe-area-inset-bottom, 20px) + 60px)) 20px;
+    padding: max(120px, calc(env(safe-area-inset-top, 20px) + 100px)) 20px max(120px, calc(env(safe-area-inset-bottom, 20px) + 100px)) 20px;
     height: 100vh;
     height: -webkit-fill-available;
     box-sizing: border-box;
@@ -222,7 +222,13 @@
   /* Дополнительный отступ для мобильных Safari */
   @media (max-width: 768px) {
     .stories-video-container {
-      padding: max(120px, calc(env(safe-area-inset-top, 20px) + 100px)) 20px max(100px, calc(env(safe-area-inset-bottom, 20px) + 80px)) 20px;
+      padding: max(140px, calc(env(safe-area-inset-top, 20px) + 120px)) 20px max(140px, calc(env(safe-area-inset-bottom, 20px) + 120px)) 20px;
+    }
+    
+    /* Еще больше отступов когда есть комментарии */
+    .stories-bottom-interface:not(:empty) ~ .stories-video-container,
+    .stories-video-container:has(~ .stories-bottom-interface .stories-comments-list) {
+      padding: max(160px, calc(env(safe-area-inset-top, 20px) + 140px)) 20px max(160px, calc(env(safe-area-inset-bottom, 20px) + 140px)) 20px;
     }
   }
 }
