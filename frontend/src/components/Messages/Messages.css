@@ -439,13 +439,16 @@
 }
 
 @media (max-width: 680px) {
-  .messages-container {
+.messages-container {
     height: calc(100vh - 60px);
     max-height: calc(100vh - 60px);
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
+
+    @supports (height: 1dvh) {
+      height: calc(100dvh - 60px);
+      max-height: calc(100dvh - 60px);
+    }
   }
+
 
   .messages-sidebar {
     width: 100%;
