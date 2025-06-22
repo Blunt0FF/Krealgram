@@ -362,7 +362,7 @@ const Profile = ({ user: currentUserProp }) => {
       document.body.style.overflow = 'hidden';
       
       // Stop all videos in feed when opening modal
-      videoManager.stopAllVideos();
+      videoManager.pauseAllExcept(null);
     }
   };
 

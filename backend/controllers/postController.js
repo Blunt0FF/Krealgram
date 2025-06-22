@@ -4,57 +4,11 @@ const fs = require('fs'); // For file system operations (deleting images)
 const path = require('path'); // For working with paths
 const Like = require('../models/likeModel'); // Import the Like model
 const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
-const YTDlpWrap = require('yt-dlp-wrap').default;
+const axios = require('axios');
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
 
-let ytdlpPath; // Глобальная переменная для хранения пути
-
-// Рекурсивный поиск файла
-const findFile = (startPath, filter) => {
-  if (!fs.existsSync(startPath)) {
-    console.log("[FIND_FILE] Directory does not exist:", startPath);
-    return;
-  }
-  const files = fs.readdirSync(startPath);
-  for (let i = 0; i < files.length; i++) {
-    const filename = path.join(startPath, files[i]);
-    const stat = fs.lstatSync(filename);
-    if (stat.isDirectory()) {
-      const foundPath = findFile(filename, filter);
-      if (foundPath) return foundPath;
-    } else if (filename.endsWith(filter)) {
-      return filename;
-    }
-  }
-};
-
-// --- YTDLP Initialization and Debug ---
-console.log('[YTDLP_INIT] Starting yt-dlp initialization...');
-console.log(`[YTDLP_INIT] Project root (cwd): ${process.cwd()}`);
-
-ytdlpPath = findFile(process.cwd(), 'yt-dlp');
-
-if (ytdlpPath) {
-  console.log(`[YTDLP_INIT] Found yt-dlp at: ${ytdlpPath}`);
-  try {
-    fs.accessSync(ytdlpPath, fs.constants.X_OK);
-    console.log('[YTDLP_INIT] yt-dlp is executable.');
-  } catch (err) {
-    console.error(`[YTDLP_INIT] yt-dlp is NOT executable: ${err.message}. Attempting to chmod...`);
-    try {
-      fs.chmodSync(ytdlpPath, '755');
-      console.log('[YTDLP_INIT] chmod 755 successful.');
-    } catch (chmodErr) {
-      console.error(`[YTDLP_INIT] Failed to chmod: ${chmodErr.message}`);
-    }
-  }
-} else {
-  console.error('[YTDLP_INIT] CRITICAL: yt-dlp binary not found anywhere in the project!');
-}
-// --- End YTDLP Initialization ---
-
-const ytdlpWrap = new YTDlpWrap(ytdlpPath);
+console.log('[VIDEO_DOWNLOADER] Using axios for video downloads');
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -780,71 +734,62 @@ exports.downloadExternalVideo = async (req, res) => {
         message: 'URL is required',
       });
     }
-    
-    // Временная директория для скачивания
-    const tempDir = path.join(os.tmpdir(), 'krealgram-downloads');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    console.log(`🎬 Downloading video from URL: ${url}`);
 
-    // Скачиваем видео с помощью yt-dlp
-    const downloadPath = path.join(tempDir, `${Date.now()}`);
-    const metadata = await ytdlpWrap.getVideoInfo(url);
-    
-    await ytdlpWrap.execPromise([
-      url,
-      '-o', `${downloadPath}.%(ext)s`,
-      '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best', // Предпочитаем mp4
-      '--recode-video', 'mp4' // Конвертируем в mp4 если нужно
-    ]);
+    console.log(`🎬 Processing video URL: ${url}`);
 
-    const files = fs.readdirSync(tempDir);
-    const downloadedFile = files.find(file => file.startsWith(path.basename(downloadPath)));
+    // Определяем платформу
+    const detectPlatform = (url) => {
+      if (url.includes("tiktok.com")) return "tiktok";
+      if (url.includes("instagram.com")) return "instagram";
+      if (url.includes("vk.com")) return "vk";
+      return "unknown";
+    };
 
-    if (!downloadedFile) {
-        throw new Error('Failed to find downloaded file.');
-    }
+    const platform = detectPlatform(url);
+    console.log(`📱 Detected platform: ${platform}`);
 
-    const finalPath = path.join(tempDir, downloadedFile);
+    // Пока что создаем пост с внешней ссылкой
+    // В будущем можно добавить реальное скачивание для конкретных платформ
+    const Post = require("../models/postModel");
+    const authorId = req.user._id;
 
-    console.log(`✅ Video downloaded to: ${finalPath}`);
-    console.log(`☁️ Uploading to Cloudinary...`);
-
-    // Загружаем в Cloudinary
-    const cloudinaryResult = await cloudinary.uploader.upload(finalPath, {
-      resource_type: 'video',
-      folder: 'posts', // Папка на Cloudinary
-      eager: [ // Создаем превью
-        { width: 300, height: 400, crop: 'pad', format: 'jpg' }
-      ]
+    const newPost = new Post({
+      author: authorId,
+      caption: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
+      mediaType: "video",
+      videoUrl: url,
+      youtubeData: {
+        platform: platform,
+        originalUrl: url,
+        note: `External ${platform} video content`,
+        title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
+        isExternalLink: true
+      }
     });
 
-    console.log(`🚀 Video uploaded to Cloudinary: ${cloudinaryResult.secure_url}`);
+    await newPost.save();
+    await newPost.populate("author", "username avatar");
 
-    // Удаляем временный файл
-    fs.unlinkSync(finalPath);
+    console.log(`✅ Created ${platform} external link post`);
 
-    // Возвращаем результат
+    // Возвращаем результат в формате, который ожидает фронтенд
     res.json({
       success: true,
-      message: 'Video downloaded and uploaded successfully',
-      isExternalLink: false, // Это загруженное видео, а не ссылка
-      videoUrl: cloudinaryResult.secure_url,
-      thumbnailUrl: cloudinaryResult.eager[0].secure_url,
+      message: 'External video post created successfully',
+      isExternalLink: true, // Это внешняя ссылка, не загруженное видео
+      videoUrl: url,
       originalUrl: url,
-      platform: metadata.extractor,
-      duration: metadata.duration,
-      title: metadata.title,
-      note: 'Uploaded via external link'
+      platform: platform,
+      title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
+      note: `External ${platform} video content`,
+      post: newPost
     });
 
   } catch (error) {
     console.error('❌ Error in downloadExternalVideo:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to download external video',
+      message: 'Failed to process external video',
       error: error.message,
     });
   }

@@ -347,11 +347,19 @@ const CreatePost = () => {
       {/* External video upload modal */}
       <ExternalVideoUpload
         isOpen={showExternalVideoModal}
-        onVideoDownloaded={(post) => {
-          console.log('✅ Video uploaded:', post);
-          // Call handleExternalVideoSelect to process video data
-          if (post.videoData) {
-            handleExternalVideoSelect(post.videoData);
+        onVideoDownloaded={(data) => {
+          console.log('✅ Video processed:', data);
+          // For external link posts, create videoData structure
+          if (data.isExternalLink) {
+            const videoData = {
+              platform: data.platform,
+              videoId: null,
+              originalUrl: data.originalUrl,
+              embedUrl: null,
+              thumbnailUrl: null,
+              note: data.note || `External ${data.platform} video content`
+            };
+            handleExternalVideoSelect(videoData);
           }
           // Don't redirect immediately, allow user to add caption
         }}
