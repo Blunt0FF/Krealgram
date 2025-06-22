@@ -10,7 +10,7 @@ const cloudinary = require('cloudinary').v2;
 
 // Инициализация yt-dlp-wrap.
 // Указываем путь к локально установленному бинарнику.
-const ytdlpBinaryPath = path.join(__dirname, '..', '..', 'bin', 'yt-dlp');
+const ytdlpBinaryPath = path.join(__dirname, '..', 'bin', 'yt-dlp');
 const ytdlpWrap = new YTDlpWrap(ytdlpBinaryPath);
 
 // @desc    Create a new post
