@@ -618,17 +618,17 @@ const Profile = ({ user: currentUserProp }) => {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    fetch(`${API_URL}/api/users/${username}`, {
+    fetch(`${API_URL}/api/users/profile/${username}`, {
       headers
     })
       .then(response => response.json())
       .then(data => {
         if (data.user) {
           setProfile(data);
-          setPosts(data.posts || []);
+          setPosts(data.user.posts || []);
           
           // Save all video data
-          data.posts?.forEach(post => {
+          data.user.posts?.forEach(post => {
             // Check if current user liked this post
             if (currentUserProp && post.likes) {
               post.isLikedByCurrentUser = post.likes.includes(currentUserProp._id);

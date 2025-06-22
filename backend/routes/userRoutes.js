@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { optionalAuth } = require('../middlewares/authMiddleware');
 const { uploadPost } = require('../middlewares/uploadMiddleware');
 
 // Маршрут для получения своего профиля (альтернатива GET /api/users/profile/:identifier, когда не знаешь ID/username)
@@ -19,7 +20,7 @@ router.get('/search', authMiddleware, searchController.searchUsers);
 // @route   GET /api/users/profile/:identifier
 // @desc    Получение профиля пользователя по ID или username
 // @access  Public (authMiddleware здесь для того, чтобы можно было получить доп. инфо, например, isFollowedByCurrentUser)
-router.get('/profile/:identifier', authMiddleware, userController.getUserProfile);
+router.get('/profile/:identifier', optionalAuth, userController.getUserProfile);
 
 // @route   PUT /api/users/profile
 // @desc    Обновление профиля текущего пользователя (bio и аватар)

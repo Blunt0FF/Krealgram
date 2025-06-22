@@ -42,4 +42,41 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-module.exports = authMiddleware; 
+// Опциональный middleware - не блокирует запрос, если нет токена
+const optionalAuthMiddleware = async (req, res, next) => {
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      // Если токена нет, просто продолжаем без установки req.user
+      return next();
+    }
+
+    // Проверяем токен
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Находим пользователя
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      // Если пользователь не найден, просто продолжаем без установки req.user
+      return next();
+    }
+
+    // Обновляем lastActive
+    user.lastActive = new Date();
+    await user.save();
+
+    // Добавляем пользователя в объект запроса
+    req.user = user;
+    req.token = token;
+    
+    next();
+  } catch (error) {
+    // При любых ошибках с токеном просто продолжаем без авторизации
+    next();
+  }
+};
+
+module.exports = authMiddleware;
+module.exports.optionalAuth = optionalAuthMiddleware; 
