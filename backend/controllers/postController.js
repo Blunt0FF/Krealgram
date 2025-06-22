@@ -9,8 +9,9 @@ const os = require('os');
 const cloudinary = require('cloudinary').v2;
 
 // Инициализация yt-dlp-wrap.
-// Бинарник yt-dlp должен быть установлен глобально через install.sh
-const ytdlpWrap = new YTDlpWrap();
+// Указываем путь к локально установленному бинарнику.
+const ytdlpBinaryPath = path.join(__dirname, '..', '..', 'bin', 'yt-dlp');
+const ytdlpWrap = new YTDlpWrap(ytdlpBinaryPath);
 
 // @desc    Create a new post
 // @route   POST /api/posts
