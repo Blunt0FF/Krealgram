@@ -8,17 +8,9 @@ const YTDlpWrap = require('yt-dlp-wrap').default;
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
 
-// Инициализация yt-dlp
-const ytdlpPath = path.resolve(os.homedir(), '.yt-dlp', 'yt-dlp');
-if (!fs.existsSync(ytdlpPath)) {
-  console.log('Downloading yt-dlp binary...');
-  YTDlpWrap.downloadFromGithub(ytdlpPath).then(() => {
-    console.log('yt-dlp binary downloaded successfully.');
-  }).catch(err => {
-    console.error('Failed to download yt-dlp binary:', err);
-  });
-}
-const ytdlpWrap = new YTDlpWrap(ytdlpPath);
+// Инициализация yt-dlp-wrap.
+// Бинарник yt-dlp должен быть установлен глобально через install.sh
+const ytdlpWrap = new YTDlpWrap();
 
 // @desc    Create a new post
 // @route   POST /api/posts
