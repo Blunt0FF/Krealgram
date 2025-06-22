@@ -1,5 +1,8 @@
 python3
 python3-pip
 ffmpeg 
+
+# Для sharp (обработка изображений)
+libvips 
  
  
