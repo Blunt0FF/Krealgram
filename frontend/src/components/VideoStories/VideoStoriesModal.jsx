@@ -19,6 +19,31 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const [viewedVideos, setViewedVideos] = useState(new Set());
   const [videoLoading, setVideoLoading] = useState(true);
   const [showVideoPreview, setShowVideoPreview] = useState(false);
+
+  // Функция для форматирования времени в историях
+  const formatStoryTime = (dateString) => {
+    if (!dateString) return 'now';
+    
+    const postDate = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now - postDate) / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInHours / 24);
+    
+    if (diffInDays === 0) {
+      // В тот же день - показываем время
+      return postDate.toLocaleTimeString('ru-RU', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } else {
+      // На следующий день и далее - показываем дату
+      return postDate.toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      });
+    }
+  };
   
   // Лайки и комментарии
   const [isLiked, setIsLiked] = useState(false);
@@ -505,7 +530,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
             }}
           />
           <span className="stories-username">{user.username}</span>
-          <span className="stories-time">now</span>
+          <span className="stories-time">{formatStoryTime(currentVideo?.createdAt)}</span>
         </div>
 
         {loading ? (
