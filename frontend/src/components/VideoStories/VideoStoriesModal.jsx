@@ -366,7 +366,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           className="stories-video"
           controls={true}
           autoPlay={true}
-          muted={true}
+          muted={false}
           playsInline={true}
           webkit-playsinline="true"
           x5-playsinline="true"
