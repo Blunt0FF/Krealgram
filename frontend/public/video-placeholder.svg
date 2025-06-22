@@ -1,24 +1,4 @@
-<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="videoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-  
-  <!-- Background -->
-  <rect width="400" height="400" fill="url(#videoGradient)"/>
-  
-  <!-- Play button circle -->
-  <circle cx="200" cy="200" r="50" fill="rgba(255,255,255,0.9)" stroke="rgba(255,255,255,0.5)" stroke-width="2"/>
-  
-  <!-- Play triangle -->
-  <polygon points="185,175 185,225 225,200" fill="#667eea"/>
-  
-  <!-- Video icon in corner -->
-  <g transform="translate(320, 320)">
-    <rect x="0" y="0" width="60" height="40" rx="4" fill="rgba(255,255,255,0.8)"/>
-    <rect x="8" y="8" width="44" height="24" rx="2" fill="#667eea"/>
-    <polygon points="20,14 20,22 28,18" fill="white"/>
-  </g>
+<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="44" height="44" rx="4" fill="#262626"/>
+  <path d="M16 13v18l12-9-12-9z" fill="#ffffff"/>
 </svg>

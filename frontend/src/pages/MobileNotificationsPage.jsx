@@ -133,24 +133,42 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
         {post && (post.image || post.imageUrl) && (type === 'like' || type === 'comment') && (
             <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
               {(() => {
-                const imageUrl = post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`);
-                const isGif = imageUrl && (imageUrl.toLowerCase().endsWith('.gif') || imageUrl.includes('.gif'));
+                // Используем правильную логику для получения превью
+                let imageUrl;
                 
-                return isGif ? (
-                  <video 
-                    src={imageUrl}
-                    alt="Post thumbnail" 
-                    className="notification-post-image-mobile"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                ) : (
+                // Для видео постов используем статичное превью
+                if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
+                  // Используем thumbnailUrl если есть, иначе создаем статичное превью
+                  if (post.thumbnailUrl) {
+                    imageUrl = post.thumbnailUrl;
+                  } else if (post.mobileThumbnailUrl) {
+                    imageUrl = post.mobileThumbnailUrl;
+                  } else {
+                    // Создаем статичное превью для Cloudinary видео
+                    const videoUrl = post.imageUrl || post.image;
+                    if (videoUrl && videoUrl.includes('cloudinary.com')) {
+                      imageUrl = videoUrl.replace(
+                        '/video/upload/',
+                        `/video/upload/w_44,h_44,c_fill,f_jpg,so_0,q_auto/`
+                      );
+                    } else {
+                      imageUrl = '/video-placeholder.svg';
+                    }
+                  }
+                } else {
+                  // Для обычных изображений
+                  imageUrl = post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`);
+                }
+                
+                return (
                   <img 
                     src={imageUrl} 
                     alt="Post thumbnail" 
-                    className="notification-post-image-mobile" 
+                    className="notification-post-image-mobile"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/video-placeholder.svg';
+                    }}
                   />
                 );
               })()}

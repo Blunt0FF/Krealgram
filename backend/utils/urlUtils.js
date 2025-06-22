@@ -37,7 +37,10 @@ const getMediaUrl = (imagePath, type = 'image') => {
     return cloudinary.url(publicId, {
       fetch_format: 'auto',
       quality: 'auto',
-      flags: 'progressive,animated' // Добавляем animated для GIF
+      flags: 'progressive,animated,awebp', // Добавляем animated для GIF и awebp для оптимизации
+      transformation: [
+        { fps: '60' } // Устанавливаем максимальный FPS для GIF
+      ]
     });
   }
   

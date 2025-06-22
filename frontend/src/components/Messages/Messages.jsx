@@ -379,7 +379,7 @@ const Messages = ({ currentUser }) => {
   // Обновленный обработчик выбора файла
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
+    if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) {
       if (imagePreview) {
         URL.revokeObjectURL(imagePreview);
       }
@@ -643,6 +643,8 @@ const Messages = ({ currentUser }) => {
                         isMyMessage(conv.lastMessage) ? (
                           conv.lastMessage.media && conv.lastMessage.media.type === 'image' ? 
                             'You: Sent a photo' :
+                                                     conv.lastMessage.media && conv.lastMessage.media.type === 'video' ? 
+                             'You: Sent a video' :
                           conv.lastMessage.sharedPost ? 
                             'You: Shared a post' :
                           conv.lastMessage.text ? 
@@ -653,6 +655,8 @@ const Messages = ({ currentUser }) => {
                         ) : (
                           conv.lastMessage.media && conv.lastMessage.media.type === 'image' ? 
                             'Sent a photo' :
+                          conv.lastMessage.media && conv.lastMessage.media.type === 'video' ? 
+                            'Sent a video' :
                           conv.lastMessage.sharedPost ? 
                             'Shared a post' :
                           conv.lastMessage.text ? 
@@ -809,6 +813,30 @@ const Messages = ({ currentUser }) => {
                           />
                         </div>
                       )}
+                      {message.media && message.media.type === 'video' && (
+                        <div className="message-video" style={{ marginTop: '4px' }}>
+                          <video 
+                            src={message.media.url} 
+                            controls
+                            poster={(() => {
+                              // Создаем превью для Cloudinary видео
+                              if (message.media.url && message.media.url.includes('cloudinary.com')) {
+                                return message.media.url.replace(
+                                  '/video/upload/',
+                                  '/video/upload/w_400,c_limit,f_jpg,so_0,q_auto/'
+                                );
+                              }
+                              return null;
+                            })()}
+                            style={{ 
+                              maxWidth: '400px', 
+                              maxHeight: '400px',
+                              borderRadius: '8px',
+                              width: '100%'
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                     <span className="message-time">
                       {formatMessageTime(message.createdAt || Date.now())}
@@ -821,8 +849,26 @@ const Messages = ({ currentUser }) => {
 
             {imagePreview && (
               <div className="image-preview-container">
-                <img src={imagePreview} alt="Preview" className="image-preview-thumb" />
-                <button onClick={clearImageToSend} className="remove-image-btn" title="Remove image">
+                {imageToSend && imageToSend.type.startsWith('video/') ? (
+                  <video 
+                    src={imagePreview} 
+                    className="image-preview-thumb" 
+                    controls
+                    poster={(() => {
+                      // Создаем превью для Cloudinary видео
+                      if (imagePreview && imagePreview.includes('cloudinary.com')) {
+                        return imagePreview.replace(
+                          '/video/upload/',
+                                                            '/video/upload/w_400,c_limit,f_jpg,so_0,q_auto/'
+                        );
+                      }
+                      return null;
+                    })()}
+                  />
+                ) : (
+                  <img src={imagePreview} alt="Preview" className="image-preview-thumb" />
+                )}
+                <button onClick={clearImageToSend} className="remove-image-btn" title="Remove media">
                   &times;
                 </button>
               </div>
@@ -832,7 +878,7 @@ const Messages = ({ currentUser }) => {
                 <div className="message-input-wrapper">
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/mp4,video/mov,video/webm"
                     onChange={handleImageSelect}
                     style={{ display: 'none' }}
                     id="image-upload"
@@ -840,11 +886,7 @@ const Messages = ({ currentUser }) => {
                     disabled={isSending}
                   />
                   <label htmlFor="image-upload" className="image-btn">
-                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21,15 16,10 5,21"/>
-                    </svg>
+                    <img src="/image-upload.svg" alt="Upload media" width="20" height="20" />
                   </label>
                   <textarea
                     value={newMessage}
@@ -900,9 +942,7 @@ const Messages = ({ currentUser }) => {
                 setShowNewMessageModal(false);
                 setSharedPost(null);
               }}>
-                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <img src="/close.svg" alt="Close" width="24" height="24" />
               </button>
             </div>
             

@@ -260,7 +260,7 @@
 
 @media (max-width: 768px) {
   .stories-video-container {
-    padding: 50px 15px 180px 15px; /* Больше места снизу для интерфейса */
+    padding: 80px 15px 120px 15px; /* Уменьшаем верхний отступ, чтобы видео доходило до ника */
     height: 100vh;
     display: flex;
     align-items: center;
@@ -269,13 +269,24 @@
   
   .stories-video {
     max-width: 100%;
-    height: calc(100vh - 230px); /* Больше высоты для видео */
+    height: calc(100vh - 200px); /* Уменьшаем общую высоту */
     width: 100%;
     object-fit: contain;
     background: #000 !important; /* Черный фон для видео на мобильных */
     display: block !important;
     border: none !important;
     outline: none !important;
+  }
+  
+  /* Когда есть комментарии - больше места снизу */
+  .stories-video-container:has(~ .stories-bottom-interface .stories-comments-list),
+  .stories-bottom-interface:not(:empty) ~ .stories-video-container {
+    padding: 80px 15px 180px 15px; /* Больше места снизу для комментариев */
+  }
+  
+  .stories-video-container:has(~ .stories-bottom-interface .stories-comments-list) .stories-video,
+  .stories-bottom-interface:not(:empty) ~ .stories-video-container .stories-video {
+    height: calc(100vh - 260px); /* Меньше высоты когда есть комментарии */
   }
   
   .stories-video[src*="youtube.com"] {
