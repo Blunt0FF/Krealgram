@@ -52,7 +52,7 @@
 /* Progress bar как в Instagram */
 .stories-progress-bar {
   position: absolute;
-  top: 20px;
+  top: 25px;
   left: 20px;
   right: 60px;
   height: 2px;
@@ -175,6 +175,48 @@
     -webkit-appearance: none;
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
+  }
+}
+
+/* Специальные исправления для Safari iOS - safe area */
+@supports (-webkit-touch-callout: none) {
+  .video-stories-modal-overlay {
+    height: 100vh;
+    height: -webkit-fill-available;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+  
+  .video-stories-modal-content {
+    height: 100vh;
+    height: -webkit-fill-available;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+  
+  .stories-progress-bar {
+    top: max(20px, env(safe-area-inset-top, 20px));
+    position: fixed;
+    z-index: 10002;
+  }
+  
+  .stories-header {
+    top: max(25px, calc(env(safe-area-inset-top, 20px) + 5px));
+    position: fixed;
+    z-index: 10002;
+  }
+  
+  .stories-close-btn {
+    top: max(20px, env(safe-area-inset-top, 20px));
+    position: fixed;
+    z-index: 10003;
+  }
+  
+  .stories-video-container {
+    padding: max(70px, calc(env(safe-area-inset-top, 20px) + 50px)) 20px max(80px, calc(env(safe-area-inset-bottom, 20px) + 60px)) 20px;
+    height: 100vh;
+    height: -webkit-fill-available;
+    box-sizing: border-box;
   }
 }
 
@@ -452,7 +494,7 @@
   }
 
   .stories-header {
-    top: 40px;
+    top: 25px;
     left: 15px;
   }
 

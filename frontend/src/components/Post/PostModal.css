@@ -693,6 +693,17 @@
     outline: none !important;
   }
   
+  /* Специальные стили для Safari iOS */
+  @supports (-webkit-touch-callout: none) {
+    .post-modal-image video {
+      -webkit-appearance: none !important;
+      -webkit-transform: translateZ(0) !important;
+      transform: translateZ(0) !important;
+      -webkit-backface-visibility: hidden !important;
+      backface-visibility: hidden !important;
+    }
+  }
+  
   .post-modal-image iframe {
     width: 100% !important;
     height: auto !important;

@@ -84,6 +84,7 @@ const PostModal = ({
   
   const [touchStartY, setTouchStartY] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isMultiTouch, setIsMultiTouch] = useState(false);
   const modalContentRef = useRef(null);
   const overlayRef = useRef(null);
   
@@ -199,12 +200,26 @@ const PostModal = ({
 
   const handleTouchStart = (e) => {
     if (e.target.closest('.post-modal-sidebar') || e.target.closest('.modal-nav-btn')) return;
+    
+    // Проверяем количество пальцев - если больше одного, это зум
+    if (e.targetTouches.length > 1) {
+      setIsMultiTouch(true);
+      return;
+    }
+    
+    setIsMultiTouch(false);
     setTouchStartY(e.targetTouches[0].clientY);
     setIsDragging(true);
     modalContentRef.current.classList.add('is-dragging');
   };
 
   const handleTouchMove = (e) => {
+    // Если мультитач (зум), не обрабатываем свайп
+    if (isMultiTouch || e.targetTouches.length > 1) {
+      setIsMultiTouch(true);
+      return;
+    }
+    
     if (!isDragging || touchStartY === null) return;
     const currentY = e.targetTouches[0].clientY;
     const deltaY = currentY - touchStartY;
@@ -219,6 +234,17 @@ const PostModal = ({
   };
 
   const handleTouchEnd = (e) => {
+    // Если был мультитач, не закрываем модал
+    if (isMultiTouch) {
+      setIsMultiTouch(false);
+      setIsDragging(false);
+      setTouchStartY(null);
+      if (modalContentRef.current) {
+        modalContentRef.current.classList.remove('is-dragging');
+      }
+      return;
+    }
+    
     if (!isDragging || touchStartY === null) return;
 
     const currentY = e.changedTouches[0].clientY;
@@ -240,6 +266,7 @@ const PostModal = ({
 
     setIsDragging(false);
     setTouchStartY(null);
+    setIsMultiTouch(false);
   };
 
   if (!isOpen || !postData) return null;
@@ -785,6 +812,9 @@ const PostModal = ({
 
               const isDesktop = window.innerWidth >= 901;
 
+              // Определяем URL превью для мобильных устройств
+              const posterUrl = getMediaThumbnail(postData);
+
               return (
                 <video 
                   src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
@@ -798,9 +828,9 @@ const PostModal = ({
                   x5-video-player-type="h5"
                   x5-video-player-fullscreen="true"
                   x5-video-orientation="portraint"
-                  {...(!isDesktop && { poster: postData.mobileThumbnailUrl || postData.thumbnailUrl || postData.imageUrl || '/video-placeholder.svg' })}
+                  poster={!isDesktop ? posterUrl : undefined}
                   style={{ 
-                    width: isDesktop ? '100%' : '100%', 
+                    width: '100%', 
                     height: 'auto', 
                     maxHeight: isDesktop ? 'calc(100vh - 120px)' : '900px', 
                     backgroundColor: '#000', 

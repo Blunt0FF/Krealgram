@@ -102,14 +102,14 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         width: '100%',
         height: 'auto',
         maxHeight: '600px',
-        cursor: 'pointer',
+        cursor: showVideo ? 'default' : 'pointer', // Убираем pointer когда видео воспроизводится
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         ...style
       }}
-      onClick={handleVideoClick}
+      onClick={showVideo ? undefined : handleVideoClick} // Убираем клик когда видео воспроизводится
       onDoubleClick={onDoubleClick}
     >
       {/* Видео для воспроизведения */}
@@ -122,7 +122,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             height: 'auto',
             maxHeight: '600px',
             objectFit: 'contain',
-            display: 'block'
+            display: 'block',
+            pointerEvents: 'auto' // Разрешаем взаимодействие с контролами
           }}
           controls
           playsInline
@@ -132,6 +133,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             setIsVideoPlaying(false);
             setShowVideo(false);
           }}
+          onClick={(e) => e.stopPropagation()} // Останавливаем всплытие клика
         />
       )}
 
