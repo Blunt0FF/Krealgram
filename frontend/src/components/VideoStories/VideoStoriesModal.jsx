@@ -220,6 +220,17 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   };
 
   const handleTouchStart = (e) => {
+    // Проверяем, не находимся ли мы в области комментариев
+    const target = e.target;
+    const isCommentsArea = target.closest('.stories-comments-list') || 
+                          target.closest('.stories-add-comment') ||
+                          target.closest('.stories-comment-input');
+    
+    // Если касание в области комментариев, не начинаем свайп
+    if (isCommentsArea) {
+      return;
+    }
+    
     setTouchStart({
       x: e.targetTouches[0].clientX,
       y: e.targetTouches[0].clientY
@@ -229,6 +240,21 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
 
   const handleTouchMove = (e) => {
     if (!isDragging) return;
+    
+    // Дополнительная проверка - если касание в области комментариев, останавливаем свайп
+    const target = e.target;
+    const isCommentsArea = target.closest('.stories-comments-list') || 
+                          target.closest('.stories-add-comment') ||
+                          target.closest('.stories-comment-input');
+    
+    if (isCommentsArea) {
+      setIsDragging(false);
+      if (modalRef.current) {
+        modalRef.current.style.transform = '';
+        modalRef.current.style.opacity = '';
+      }
+      return;
+    }
     
     const currentY = e.targetTouches[0].clientY;
     const deltaY = currentY - touchStart.y;

@@ -165,19 +165,36 @@
 }
 
 /* Адаптивные размеры видео */
+/* Стили для планшетов и средних экранов */
+@media (min-width: 769px) and (max-width: 1199px) {
+  .stories-video-container {
+    padding: 80px 20px 180px 20px; /* Увеличил отступ снизу для интерфейса */
+  }
+  
+  .stories-video {
+    max-width: 700px;
+    max-height: 65vh;
+  }
+  
+  .stories-video[src*="youtube.com"] {
+    max-width: 800px;
+    height: 65vh;
+  }
+}
+
 @media (min-width: 1200px) {
   .stories-video-container {
-    padding: 80px 20px 140px 20px;
+    padding: 80px 20px 200px 20px; /* Увеличил отступ снизу для интерфейса */
   }
   
   .stories-video {
     max-width: 900px;
-    max-height: 80vh;
+    max-height: 70vh; /* Уменьшил высоту для интерфейса */
   }
   
   .stories-video[src*="youtube.com"] {
     max-width: 1000px;
-    height: 80vh;
+    height: 70vh; /* Уменьшил высоту для интерфейса */
   }
 }
 
@@ -209,8 +226,10 @@
 .stories-bottom-interface {
   position: absolute;
   bottom: 20px;
-  left: 20px;
-  right: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 40px);
+  max-width: 600px;
   z-index: 10000;
   color: white;
 }
@@ -220,12 +239,14 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  pointer-events: none; /* Отключаем взаимодействие с пустым пространством */
 }
 
 .stories-actions-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  pointer-events: auto; /* Включаем взаимодействие для кнопок */
 }
 
 .stories-like-btn,
@@ -236,6 +257,7 @@
   padding: 8px;
   border-radius: 50%;
   transition: background-color 0.2s;
+  pointer-events: auto; /* Включаем взаимодействие для кнопок */
 }
 
 .stories-like-btn:hover,
@@ -248,6 +270,7 @@
   font-weight: 600;
   color: white;
   margin-left: 4px;
+  pointer-events: auto; /* Включаем взаимодействие для текста */
 }
 
 .stories-description {
@@ -282,6 +305,8 @@
 .stories-comments-list {
   margin-bottom: 12px;
   max-height: 150px;
+  max-width: 50vw;
+  width: fit-content;
   overflow-y: auto;
   border-radius: 12px;
   padding: 12px;
@@ -434,6 +459,9 @@
     bottom: 15px;
     left: 15px;
     right: 15px;
+    transform: none;
+    width: auto;
+    max-width: none;
   }
   
   .stories-actions {
@@ -450,10 +478,12 @@
     font-size: 13px;
   }
   
-  .stories-comments-list {
-    max-height: 100px;
-    padding: 8px;
-  }
+     .stories-comments-list {
+     max-height: 100px;
+     max-width: none;
+     width: auto;
+     padding: 8px;
+   }
   
   .stories-comment {
     font-size: 13px;
