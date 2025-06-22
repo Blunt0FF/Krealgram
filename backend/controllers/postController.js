@@ -8,29 +8,53 @@ const YTDlpWrap = require('yt-dlp-wrap').default;
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
 
-const ytdlpBinaryPath = path.join(__dirname, '..', 'bin', 'yt-dlp');
+let ytdlpPath; // Глобальная переменная для хранения пути
 
-// --- YTDLP DEBUG START ---
-console.log(`[YTDLP_DEBUG] Checking for yt-dlp at: ${ytdlpBinaryPath}`);
-try {
-  fs.accessSync(ytdlpBinaryPath, fs.constants.F_OK);
-  console.log('[YTDLP_DEBUG] File exists.');
-  fs.accessSync(ytdlpBinaryPath, fs.constants.X_OK);
-  console.log('[YTDLP_DEBUG] File is executable.');
-} catch (err) {
-  console.error(`[YTDLP_DEBUG] File access error: ${err.message}`);
-  // Попробуем вывести содержимое родительской папки для диагностики
-  try {
-    const binDir = path.join(__dirname, '..', 'bin');
-    const dirContents = fs.readdirSync(binDir);
-    console.log(`[YTDLP_DEBUG] Contents of ${binDir}: ${dirContents.join(', ')}`);
-  } catch (listErr) {
-    console.error(`[YTDLP_DEBUG] Could not read directory ${path.join(__dirname, '..', 'bin')}: ${listErr.message}`);
+// Рекурсивный поиск файла
+const findFile = (startPath, filter) => {
+  if (!fs.existsSync(startPath)) {
+    console.log("[FIND_FILE] Directory does not exist:", startPath);
+    return;
   }
-}
-// --- YTDLP DEBUG END ---
+  const files = fs.readdirSync(startPath);
+  for (let i = 0; i < files.length; i++) {
+    const filename = path.join(startPath, files[i]);
+    const stat = fs.lstatSync(filename);
+    if (stat.isDirectory()) {
+      const foundPath = findFile(filename, filter);
+      if (foundPath) return foundPath;
+    } else if (filename.endsWith(filter)) {
+      return filename;
+    }
+  }
+};
 
-const ytdlpWrap = new YTDlpWrap(ytdlpBinaryPath);
+// --- YTDLP Initialization and Debug ---
+console.log('[YTDLP_INIT] Starting yt-dlp initialization...');
+console.log(`[YTDLP_INIT] Project root (cwd): ${process.cwd()}`);
+
+ytdlpPath = findFile(process.cwd(), 'yt-dlp');
+
+if (ytdlpPath) {
+  console.log(`[YTDLP_INIT] Found yt-dlp at: ${ytdlpPath}`);
+  try {
+    fs.accessSync(ytdlpPath, fs.constants.X_OK);
+    console.log('[YTDLP_INIT] yt-dlp is executable.');
+  } catch (err) {
+    console.error(`[YTDLP_INIT] yt-dlp is NOT executable: ${err.message}. Attempting to chmod...`);
+    try {
+      fs.chmodSync(ytdlpPath, '755');
+      console.log('[YTDLP_INIT] chmod 755 successful.');
+    } catch (chmodErr) {
+      console.error(`[YTDLP_INIT] Failed to chmod: ${chmodErr.message}`);
+    }
+  }
+} else {
+  console.error('[YTDLP_INIT] CRITICAL: yt-dlp binary not found anywhere in the project!');
+}
+// --- End YTDLP Initialization ---
+
+const ytdlpWrap = new YTDlpWrap(ytdlpPath);
 
 // @desc    Create a new post
 // @route   POST /api/posts

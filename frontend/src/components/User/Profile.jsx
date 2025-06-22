@@ -272,6 +272,9 @@ const Profile = ({ user: currentUserProp }) => {
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   const handlePostClick = (post) => {
+    // Останавливаем все остальные видео на странице
+    videoManager.pauseAllExcept(null);
+
     // console.log('handlePostClick called with post:', post);
     
     // Create YouTube data if this is a YouTube video - check all fields
