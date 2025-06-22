@@ -52,6 +52,30 @@ const postSchema = new mongoose.Schema({
   videoUrl: {
     type: String,
     trim: true
+  },
+  // Данные для внешних видео (TikTok, Instagram, VK и т.д.)
+  externalVideoData: {
+    platform: String, // tiktok, instagram, vk, youtube, twitter
+    originalUrl: String, // Оригинальная ссылка
+    videoInfo: {
+      title: String,
+      description: String,
+      duration: Number,
+      uploader: String,
+      thumbnail: String,
+      viewCount: Number,
+      uploadDate: String
+    },
+    cloudinaryData: {
+      publicId: String,
+      url: String,
+      thumbnailUrl: String,
+      duration: Number,
+      width: Number,
+      height: Number,
+      format: String,
+      bytes: Number
+    }
   }
 }, { 
   timestamps: true // Добавляет createdAt и updatedAt

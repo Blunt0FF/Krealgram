@@ -70,6 +70,11 @@ exports.createPost = async (req, res) => {
       // Обычная загрузка файла
       imagePath = req.file.path || req.file.filename;
       mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      
+      // Сохраняем MIME-type для правильного отображения GIF
+      if (req.file.mimetype) {
+        console.log('File MIME type:', req.file.mimetype);
+      }
     }
 
     // Проверяем что у нас есть хотя бы что-то для отображения
@@ -107,6 +112,7 @@ exports.createPost = async (req, res) => {
       author: authorId,
       image: imagePath,
       mediaType: mediaType,
+      mimeType: req.file ? req.file.mimetype : null,
       caption: caption || '',
       videoUrl: videoUrl || null,
       youtubeUrl: videoUrl || null, // Для обратной совместимости
@@ -608,8 +614,6 @@ exports.getVideoUsers = async (req, res) => {
 exports.getUserVideos = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
-    const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 
     const userVideos = await Post.find({
       author: userId,
@@ -712,46 +716,88 @@ exports.testVideoUsers = async (req, res) => {
 };
 
 // @desc    Скачать и загрузить внешнее видео (TikTok, Instagram)
+
+// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram, VK)
 // @route   POST /api/posts/external-video/download
 // @access  Private
 exports.downloadExternalVideo = async (req, res) => {
   try {
-    const { url, platform } = req.body;
+    const { url, caption } = req.body;
     
-    if (!url || !platform) {
+    if (!url) {
       return res.status(400).json({
         success: false,
-        message: "URL and platform are required"
+        message: "URL обязателен для загрузки"
       });
     }
 
-    // Поддерживаемые платформы для загрузки
-    const supportedPlatforms = ["tiktok", "instagram"];
-    if (!supportedPlatforms.includes(platform.toLowerCase())) {
+    // Импортируем VideoDownloader
+    const VideoDownloader = require('../services/simpleVideoDownloader');
+    
+    // Проверяем валидность URL
+    if (!VideoDownloader.isValidUrl(url)) {
       return res.status(400).json({
         success: false,
-        message: `Platform ${platform} is not supported for download`
+        message: "Неверный формат URL"
       });
     }
 
-    // Здесь можно добавить логику загрузки видео
-    // Пока возвращаем mock данные для тестирования
-    const mockResponse = {
+    const downloader = new VideoDownloader();
+    
+    // Определяем платформу
+    const platform = downloader.detectPlatform(url);
+    const supportedPlatforms = VideoDownloader.getSupportedPlatforms();
+    
+    if (!supportedPlatforms.includes(platform)) {
+      return res.status(400).json({
+        success: false,
+        message: `Платформа ${platform} не поддерживается. Поддерживаемые: ${supportedPlatforms.join(', ')}`
+      });
+    }
+
+    console.log(`🔄 Начинаю обработку видео с ${platform}: ${url}`);
+
+    // Обрабатываем видео
+    const result = await downloader.processExternalVideo(url);
+
+    // Создаем пост в базе данных
+    const Post = require('../models/Post');
+    
+    const newPost = new Post({
+      author: req.user.id,
+      image: result.image, // publicId из Cloudinary
+      mediaType: 'video',
+      mimeType: 'video/mp4',
+      caption: caption || result.videoInfo?.title || '',
+      videoUrl: result.cloudinary.url,
+      externalVideoData: {
+        platform: result.platform,
+        originalUrl: result.originalUrl,
+        videoInfo: result.videoInfo,
+        cloudinaryData: result.cloudinary
+      }
+    });
+
+    await newPost.save();
+
+    // Популяция автора для ответа
+    await newPost.populate('author', 'username avatar');
+
+    console.log(`✅ Пост успешно создан с внешним видео:`, newPost._id);
+
+    res.status(201).json({
       success: true,
-      message: "Video download initiated",
-      videoUrl: `https://res.cloudinary.com/demo/video/upload/sample.mp4`, // Mock URL
-      thumbnailUrl: `https://res.cloudinary.com/demo/image/upload/sample.jpg`, // Mock thumbnail
-      publicId: `external_video_${Date.now()}`,
-      platform: platform,
-      originalUrl: url
-    };
+      message: "Видео успешно загружено и опубликовано",
+      post: newPost,
+      platform: result.platform,
+      videoInfo: result.videoInfo
+    });
 
-    res.json(mockResponse);
   } catch (error) {
-    console.error("Error downloading external video:", error);
+    console.error("❌ Ошибка загрузки внешнего видео:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to download external video",
+      message: "Не удалось загрузить видео",
       error: error.message
     });
   }

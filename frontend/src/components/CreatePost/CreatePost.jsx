@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { compressPostImage } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
-import ExternalVideoUpload from './ExternalVideoUpload';
+import ExternalVideoUpload from '../ExternalVideoUpload/ExternalVideoUpload';
 import './CreatePost.css';
 
 const CreatePost = () => {
@@ -198,9 +198,9 @@ const CreatePost = () => {
             }}
           >
             <div className="platform-icons" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '18px' }}>
-              🎵📱🎬📺
+              📺
             </div>
-            <span className="platform-text">TikTok/Instagram/VK/YouTube</span>
+            <span className="platform-text">YouTube видео</span>
           </button>
         </div>
 
@@ -345,11 +345,16 @@ const CreatePost = () => {
       </div>
 
       {/* Модалка загрузки внешних видео */}
-      <ExternalVideoUpload
-        isOpen={showExternalVideoModal}
-        onClose={() => setShowExternalVideoModal(false)}
-        onVideoSelect={handleExternalVideoSelect}
-      />
+      {showExternalVideoModal && (
+        <ExternalVideoUpload
+          onVideoUploaded={(post) => {
+            console.log('✅ Video uploaded:', post);
+            // Перенаправляем на главную после успешной загрузки
+            navigate('/');
+          }}
+          onClose={() => setShowExternalVideoModal(false)}
+        />
+      )}
     </div>
   );
 };
