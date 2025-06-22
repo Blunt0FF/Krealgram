@@ -4,7 +4,6 @@ import './ExternalVideoUpload.css';
 
 const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
   const [url, setUrl] = useState('');
-  const [caption, setCaption] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [platform, setPlatform] = useState('');
@@ -37,13 +36,13 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
     e.preventDefault();
     
     if (!url.trim()) {
-      setError('Введите ссылку на видео');
+      setError('Please enter a video URL');
       return;
     }
 
     const detectedPlatform = detectPlatform(url);
     if (!detectedPlatform) {
-      setError('Неподдерживаемая платформа. Поддерживаемые: TikTok, Instagram, VK, YouTube, Twitter/X');
+      setError('Unsupported platform. Supported: TikTok, Instagram, VK, YouTube, Twitter/X');
       return;
     }
 
@@ -60,8 +59,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          url: url.trim(),
-          caption: caption.trim()
+          url: url.trim()
         })
       });
 
@@ -86,7 +84,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
     <div className="external-video-upload-overlay">
       <div className="external-video-upload-modal">
         <div className="external-video-upload-header">
-          <h3>Загрузить видео с внешней платформы</h3>
+          <h3>Import video from external platform</h3>
           <button 
             className="close-btn" 
             onClick={onClose}
@@ -97,7 +95,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
         </div>
 
         <div className="supported-platforms">
-          <h4>Поддерживаемые платформы:</h4>
+          <h4>Supported platforms:</h4>
           <div className="platforms-list">
             {supportedPlatforms.map((p) => (
               <div key={p.name} className="platform-item">
@@ -111,40 +109,22 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
         <form onSubmit={handleSubmit} className="external-video-upload-form">
           <div className="form-group">
             <label htmlFor="video-url">
-              Ссылка на видео:
+              Video URL:
             </label>
             <input
               id="video-url"
               type="url"
               value={url}
               onChange={handleUrlChange}
-              placeholder="Вставьте ссылку на видео..."
+              placeholder="Paste video link here..."
               disabled={isLoading}
               required
             />
             {platform && (
               <div className="detected-platform">
-                Обнаружена платформа: <strong>{platform}</strong>
+                Detected platform: <strong>{platform}</strong>
               </div>
             )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="video-caption">
-              Описание (необязательно):
-            </label>
-            <textarea
-              id="video-caption"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              placeholder="Добавьте описание к видео..."
-              disabled={isLoading}
-              maxLength="500"
-              rows="3"
-            />
-            <div className="caption-counter">
-              {caption.length}/500
-            </div>
           </div>
 
           {error && (
@@ -160,7 +140,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
               disabled={isLoading}
               className="cancel-btn"
             >
-              Отмена
+              Cancel
             </button>
             <button
               type="submit"
@@ -170,10 +150,10 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
               {isLoading ? (
                 <>
                   <div className="loading-spinner"></div>
-                  Загрузка...
+                  Importing...
                 </>
               ) : (
-                'Загрузить видео'
+                'Import Video'
               )}
             </button>
           </div>
@@ -181,8 +161,8 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
 
         {isLoading && (
           <div className="loading-info">
-            <p>⏳ Загружаем видео с {platform}...</p>
-            <p>Это может занять несколько минут в зависимости от размера видео.</p>
+            <p>⏳ Importing video from {platform}...</p>
+            <p>This may take a few minutes depending on video size.</p>
           </div>
         )}
       </div>
