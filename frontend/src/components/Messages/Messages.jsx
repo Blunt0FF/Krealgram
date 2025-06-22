@@ -8,6 +8,8 @@ import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import SharedPost from './SharedPost';
 import './Messages.css';
+import './MessagesTimeFix.css';
+import '../Post/ShareModal.css';
 import { API_URL } from '../../config';
 
 // Функция для проверки и извлечения YouTube ID
@@ -62,6 +64,8 @@ const Messages = ({ currentUser }) => {
   const [messageOffset, setMessageOffset] = useState(0);
   const [totalMessages, setTotalMessages] = useState(0);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
 
   // Обработка пересылаемого поста
   useEffect(() => {
@@ -559,6 +563,10 @@ const Messages = ({ currentUser }) => {
         
         // Обновляем список диалогов
         await fetchConversations();
+        
+        // Закрываем модальное окно
+        setShowDeleteConfirm(false);
+        setMessageToDelete(null);
       } else {
         const errorData = await response.json();
         console.error('Error deleting message:', errorData.message);
@@ -566,6 +574,22 @@ const Messages = ({ currentUser }) => {
     } catch (error) {
       console.error('Network error deleting message:', error);
     }
+  };
+
+  const handleDeleteClick = (messageId) => {
+    setMessageToDelete(messageId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (messageToDelete) {
+      deleteMessage(messageToDelete);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setMessageToDelete(null);
   };
 
   const handlePostClickInMessage = (post) => {
@@ -756,7 +780,7 @@ const Messages = ({ currentUser }) => {
                     {message.sender?._id === currentUser?._id && (
                       <button 
                         className="message-options-btn"
-                        onClick={() => deleteMessage(message._id)}
+                        onClick={() => handleDeleteClick(message._id)}
                         title="Delete message"
                       >
                         ×
@@ -859,7 +883,7 @@ const Messages = ({ currentUser }) => {
                       if (imagePreview && imagePreview.includes('cloudinary.com')) {
                         return imagePreview.replace(
                           '/video/upload/',
-                                                            '/video/upload/w_400,c_limit,f_jpg,so_0,q_auto/'
+                          '/video/upload/w_400,c_limit,f_jpg,so_0,q_auto/'
                         );
                       }
                       return null;
@@ -1057,6 +1081,46 @@ const Messages = ({ currentUser }) => {
         isOpen={imageModalOpen}
         onClose={closeImageModal}
       />
+
+              {showDeleteConfirm && (
+         <div className="share-modal-overlay" onClick={cancelDelete}>
+           <div className="share-modal-content" onClick={(e) => e.stopPropagation()}>
+             <div className="share-modal-header">
+               <h3>Delete Message</h3>
+               <button onClick={cancelDelete} className="share-modal-close">
+                 ×
+               </button>
+             </div>
+             <div className="share-modal-body">
+               <p style={{ marginBottom: '20px', color: '#8e8e8e', fontSize: '14px', textAlign: 'center' }}>
+                 Are you sure you want to delete this message? This action cannot be undone.
+               </p>
+               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                 <button onClick={cancelDelete} style={{
+                   background: '#f5f5f5',
+                   color: '#666',
+                   border: 'none',
+                   padding: '8px 16px',
+                   borderRadius: '6px',
+                   fontWeight: '600',
+                   cursor: 'pointer',
+                   fontSize: '14px'
+                 }}>Cancel</button>
+                 <button onClick={confirmDelete} style={{
+                   background: '#ed4956',
+                   color: 'white',
+                   border: 'none',
+                   padding: '8px 16px',
+                   borderRadius: '6px',
+                   fontWeight: '600',
+                   cursor: 'pointer',
+                   fontSize: '14px'
+                 }}>Delete</button>
+               </div>
+             </div>
+           </div>
+         </div>
+        )}
     </div>
   );
 };

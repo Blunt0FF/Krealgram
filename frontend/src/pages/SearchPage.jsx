@@ -96,6 +96,34 @@ const SearchPage = () => {
     setRecentUsers(getRecentUsers());
   };
 
+  // Функция для отладки аватарок
+  const debugAvatar = (user) => {
+    const avatarUrl = getAvatarUrl(user.avatar);
+    console.log('Debug avatar for', user.username, ':', {
+      originalAvatar: user.avatar,
+      processedUrl: avatarUrl,
+      userAgent: navigator.userAgent,
+      isSafari: /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)
+    });
+    return avatarUrl;
+  };
+
+  // Специальная функция для Safari
+  const getSafeAvatarUrl = (user) => {
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    
+    if (!user.avatar) {
+      return '/default-avatar.png';
+    }
+
+    // Для Safari попробуем сначала дефолтную аватарку, если проблемы с загрузкой
+    if (isSafari) {
+      console.log('Safari detected, using safe avatar loading for', user.username);
+    }
+    
+    return getAvatarUrl(user.avatar) || '/default-avatar.png';
+  };
+
   return (
     <div className="search-page">
       <div className="search-container">
@@ -126,12 +154,21 @@ const SearchPage = () => {
               onClick={() => handleUserClick(user)}
             >
               <img 
-                src={getAvatarUrl(user.avatar)} 
+                src={getSafeAvatarUrl(user)} 
                 alt={user.username} 
                 className="search-result-avatar"
+                crossOrigin="anonymous"
                 onError={(e) => {
+                  console.log('Search avatar error for', user.username, '- falling back to default');
                   e.target.onerror = null;
                   e.target.src = '/default-avatar.png';
+                }}
+                onLoad={(e) => {
+                  // Дополнительная проверка для Safari
+                  if (e.target.naturalWidth === 0) {
+                    console.log('Search avatar loaded but width is 0 for', user.username);
+                    e.target.src = '/default-avatar.png';
+                  }
                 }}
               />
               <div className="search-result-info">
@@ -152,12 +189,21 @@ const SearchPage = () => {
                   onClick={() => handleUserClick(user)}
                 >
                   <img 
-                    src={getAvatarUrl(user.avatar)} 
+                    src={getAvatarUrl(user.avatar) || '/default-avatar.png'} 
                     alt={user.username} 
                     className="search-result-avatar"
+                    crossOrigin="anonymous"
                     onError={(e) => {
+                      console.log('Recent avatar error for', user.username, '- falling back to default');
                       e.target.onerror = null;
                       e.target.src = '/default-avatar.png';
+                    }}
+                    onLoad={(e) => {
+                      // Дополнительная проверка для Safari
+                      if (e.target.naturalWidth === 0) {
+                        console.log('Recent avatar loaded but width is 0 for', user.username);
+                        e.target.src = '/default-avatar.png';
+                      }
                     }}
                   />
                   <div className="search-result-info">

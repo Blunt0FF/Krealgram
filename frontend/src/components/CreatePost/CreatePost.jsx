@@ -20,7 +20,7 @@ const CreatePost = () => {
   const [showExternalVideoModal, setShowExternalVideoModal] = useState(false);
 
   useEffect(() => {
-    // Прокручиваем в верх при переходе на страницу создания поста
+    // Scroll to top when navigating to create post page
     window.scrollTo(0, 0);
   }, []);
 
@@ -33,11 +33,11 @@ const CreatePost = () => {
       setOriginalFileName(file.name);
       setError('');
       
-      // Очищаем данные внешнего видео при загрузке файла
+      // Clear external video data when uploading file
       setParsedVideoData(null);
       setVideoUrl('');
       
-      // Сжатие применяем только для изображений
+      // Apply compression only for images
       if (fileType === 'image') {
         setCompressing(true);
         setCompressedFile(null);
@@ -46,12 +46,12 @@ const CreatePost = () => {
           const compressedBlob = await compressPostImage(file);
           setCompressedFile(compressedBlob);
         } catch (err) {
-          setError('Ошибка сжатия изображения');
+          setError('Image compression error');
         } finally {
           setCompressing(false);
         }
-      } else {
-        // Для видео используем оригинальный файл без сжатия
+              } else {
+        // For video use original file without compression
         setCompressedFile(file);
         setCompressing(false);
       }
@@ -65,25 +65,25 @@ const CreatePost = () => {
   const handleExternalVideoSelect = (videoData) => {
     console.log('🎬 External video selected:', videoData);
     
-    // Очищаем данные файла при выборе внешнего видео
+    // Clear file data when selecting external video
     setCompressedFile(null);
     setOriginalFileName('');
     
-    // Устанавливаем данные видео
+    // Set video data
     setParsedVideoData(videoData);
     setVideoUrl(videoData.originalUrl || videoData.videoUrl);
     setMediaType('video');
     
-    // Устанавливаем превью
+    // Set preview
     if (videoData.thumbnailUrl) {
       setPreviewUrl(videoData.thumbnailUrl);
     } else if (videoData.platform === 'youtube' && videoData.videoId) {
       setPreviewUrl(`https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`);
     } else if (videoData.platform === 'tiktok') {
-      // Для TikTok создаем простое превью с логотипом
+      // For TikTok create simple preview with logo
       setPreviewUrl(`https://via.placeholder.com/300x400/000000/FFFFFF?text=🎵+TikTok+Video`);
     } else {
-      // Для других платформ
+      // For other platforms
       setPreviewUrl(`https://via.placeholder.com/300x300/000000/FFFFFF?text=${videoData.platform?.toUpperCase()}+Video`);
     }
     
@@ -94,7 +94,7 @@ const CreatePost = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Проверяем, что выбран либо файл, либо внешнее видео
+    // Check that either file or external video is selected
     if (!compressedFile && !parsedVideoData) {
       setError('Please select a file or external video first');
       return;
@@ -111,7 +111,7 @@ const CreatePost = () => {
       };
 
       if (parsedVideoData && videoUrl) {
-        // Для внешних видео используем JSON
+        // For external videos use JSON
         headers['Content-Type'] = 'application/json';
         requestData = JSON.stringify({
           caption,
@@ -128,7 +128,7 @@ const CreatePost = () => {
           originalUrl: parsedVideoData?.originalUrl
         });
       } else {
-        // Для файлов используем FormData
+        // For files use FormData
         requestData = new FormData();
         requestData.append('image', compressedFile, originalFileName);
         requestData.append('caption', caption);
@@ -155,7 +155,7 @@ const CreatePost = () => {
         setCompressedFile(null);
         setOriginalFileName('');
         
-        // Обновляем ленту или перенаправляем
+        // Update feed or redirect
         navigate('/');
       } else {
         setError(data.message || 'Error creating post');
@@ -173,7 +173,7 @@ const CreatePost = () => {
       <div className="create-post-box">
         <h2>Create new post</h2>
         
-        {/* Кнопка внешних ресурсов */}
+        {/* External resources button */}
         <div className="upload-mode-switcher">
           <button 
             type="button"
@@ -204,7 +204,7 @@ const CreatePost = () => {
           </button>
         </div>
 
-        {/* Нижний функционал загрузки как был */}
+        {/* File upload functionality */}
         <div className="file-upload-section">
           <label className="file-input-label">
             Choose Image/Video
@@ -229,12 +229,12 @@ const CreatePost = () => {
           </div>
         )}
 
-        {/* Превью выбранного контента */}
+        {/* Preview of selected content */}
         {previewUrl && (
           <div className="video-preview-container">
             <div className="video-preview">
               {parsedVideoData ? (
-                // Для внешних видео показываем карточку
+                // For external videos show card
                 <div style={{
                   width: '100%',
                   maxWidth: '400px',
@@ -299,7 +299,7 @@ const CreatePost = () => {
           </div>
         )}
 
-        {/* Форма для описания - всегда видна */}
+        {/* Caption form - always visible */}
         <form className="create-post-form" onSubmit={handleSubmit}>
             <div className="form-group">
               <textarea
@@ -344,17 +344,19 @@ const CreatePost = () => {
           </form>
       </div>
 
-      {/* Модалка загрузки внешних видео */}
-      {showExternalVideoModal && (
-        <ExternalVideoUpload
-          onVideoUploaded={(post) => {
-            console.log('✅ Video uploaded:', post);
-            // Перенаправляем на главную после успешной загрузки
-            navigate('/');
-          }}
-          onClose={() => setShowExternalVideoModal(false)}
-        />
-      )}
+      {/* External video upload modal */}
+      <ExternalVideoUpload
+        isOpen={showExternalVideoModal}
+        onVideoDownloaded={(post) => {
+          console.log('✅ Video uploaded:', post);
+          // Call handleExternalVideoSelect to process video data
+          if (post.videoData) {
+            handleExternalVideoSelect(post.videoData);
+          }
+          // Don't redirect immediately, allow user to add caption
+        }}
+        onClose={() => setShowExternalVideoModal(false)}
+      />
     </div>
   );
 };

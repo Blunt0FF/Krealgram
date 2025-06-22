@@ -45,7 +45,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Ошибка входа');
+        throw new Error(data.message || 'Login error');
       }
 
       if (!data.token || !data.user) {
@@ -64,7 +64,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       navigate('/feed');
     } catch (error) {
       console.error('Login error:', error);
-      setError(error.message || 'Произошла ошибка при входе. Пожалуйста, попробуйте снова.');
+      setError(error.message || 'An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }

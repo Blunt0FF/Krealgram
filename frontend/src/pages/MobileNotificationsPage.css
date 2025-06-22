@@ -24,8 +24,8 @@ body.mobile-notifications-page-active {
   width: 100%;
   height: calc(100vh - 60px);
   background-color: #fff;
-  z-index: 1000;
-  /* Такой же как у мобильной навигации, чтобы навигация была видна */
+  z-index: 1100;
+  /* Выше, чем обычный контент, но может быть ниже других модалок, если они есть */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -70,7 +70,7 @@ body.mobile-notifications-page-active {
 .mobile-notifications-body {
   flex-grow: 1;
   overflow-y: auto;
-  padding: 0 0 60px 0;
+  padding: 0;
   background-color: #fff;
 }
 
@@ -249,4 +249,17 @@ body.mobile-notifications-page-active {
 .mark-all-read-btn-mobile:disabled {
   color: #b2dffc;
   cursor: not-allowed;
+}
+
+/* Safari iOS исправления для мобильных уведомлений */
+@media (max-width: 680px) {
+  .mobile-notifications-page {
+    height: calc(100vh - 60px);
+    max-height: calc(100vh - 60px);
+
+    @supports (height: 1dvh) {
+      height: calc(100dvh - 60px);
+      max-height: calc(100dvh - 60px);
+    }
+  }
 }

@@ -147,7 +147,7 @@
 .chat-header {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid #dbdbdb;
   background: #fff;
 }
@@ -519,7 +519,8 @@
     top: 0;
     background: #fff;
     border-bottom: 1px solid #dbdbdb;
-    z-index: 15;
+    z-index: 100;
+    padding-top: calc(16px + env(safe-area-inset-top, 0)) !important;
   }
 
      .messages-area {
@@ -530,7 +531,9 @@
      overflow-y: auto;
      flex: 1;
      min-height: 0;
-     padding-bottom: 80px;
+     padding-bottom: calc(80px + env(safe-area-inset-bottom, 0)) !important;
+     padding-top: 16px !important;
+     height: calc(100% - 80px) !important;
    }
 
   .message {
@@ -547,7 +550,7 @@
      bottom: 60px;
      left: 0;
      right: 0;
-     z-index: 10;
+     z-index: 1000;
    }
 
    .conversation-item {

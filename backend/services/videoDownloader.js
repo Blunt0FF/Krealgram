@@ -1,284 +1,317 @@
-const YTDlpWrap = require('yt-dlp-wrap');
-const axios = require('axios');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const cloudinary = require('../config/cloudinary');
+const cloudinary = require('cloudinary').v2;
+const Tiktok = require('tiktokapi-src');
+const fetch = require('node-fetch');
 
 class VideoDownloader {
   constructor() {
-    // Автоматически определяем путь к yt-dlp
-    let ytDlpPath;
-    if (process.env.RENDER) {
-      // На Render используем pip установку
-      ytDlpPath = 'yt-dlp';
-    } else if (fs.existsSync('/Users/admin/Library/Python/3.9/bin/yt-dlp')) {
-      // Локальная установка через pip
-      ytDlpPath = '/Users/admin/Library/Python/3.9/bin/yt-dlp';
-    } else {
-      // Системная установка
-      ytDlpPath = 'yt-dlp';
-    }
-    
-    this.ytDlp = new YTDlpWrap(ytDlpPath);
     this.tempDir = path.join(__dirname, '../temp');
-    
-    // Создаем временную директорию если её нет
-    if (!fs.existsSync(this.tempDir)) {
-      fs.mkdirSync(this.tempDir, { recursive: true });
+    this.ensureTempDir();
+
+    // Cloudinary configuration
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
+
+  async ensureTempDir() {
+    try {
+      await fs.promises.access(this.tempDir);
+    } catch {
+      await fs.promises.mkdir(this.tempDir, { recursive: true });
     }
   }
 
-  // Определяем платформу по URL
   detectPlatform(url) {
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     if (url.includes('tiktok.com')) return 'tiktok';
     if (url.includes('instagram.com')) return 'instagram';
-    if (url.includes('vk.com') || url.includes('vk.ru')) return 'vk';
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
+    if (url.includes('vk.com')) return 'vk';
     if (url.includes('twitter.com') || url.includes('x.com')) return 'twitter';
-    return 'unknown';
+    return null;
   }
 
-  // Загрузка видео с помощью yt-dlp
-  async downloadVideo(url, platform) {
-    const videoId = uuidv4();
-    const tempVideoPath = path.join(this.tempDir, `${videoId}.%(ext)s`);
-    
-    try {
-      console.log(`🔄 Начинаю загрузку видео с ${platform}: ${url}`);
-      
-      // Настройки для разных платформ
-      const options = [
-        '--format', 'best[height<=720]', // Ограничиваем качество для экономии места
-        '--output', tempVideoPath,
-        '--no-playlist',
-        '--extract-flat', 'false'
-      ];
-
-      // Специальные настройки для разных платформ
-      if (platform === 'tiktok') {
-        options.push('--cookies-from-browser', 'chrome');
-      } else if (platform === 'instagram') {
-        options.push('--cookies-from-browser', 'chrome');
-      }
-
-      // Загружаем видео
-      await this.ytDlp.execPromise([url, ...options]);
-      
-      // Находим загруженный файл
-      const files = fs.readdirSync(this.tempDir);
-      const videoFile = files.find(file => file.startsWith(videoId));
-      
-      if (!videoFile) {
-        throw new Error('Видео файл не найден после загрузки');
-      }
-
-      const fullVideoPath = path.join(this.tempDir, videoFile);
-      console.log(`✅ Видео успешно загружено: ${fullVideoPath}`);
-      
-      return {
-        filePath: fullVideoPath,
-        fileName: videoFile,
-        videoId: videoId
-      };
-      
-    } catch (error) {
-      console.error(`❌ Ошибка загрузки видео с ${platform}:`, error);
-      throw new Error(`Не удалось загрузить видео с ${platform}: ${error.message}`);
-    }
+  getSupportedPlatforms() {
+    return ['youtube', 'tiktok', 'instagram'];
   }
 
-  // Загрузка в Cloudinary
-  async uploadToCloudinary(filePath, platform) {
+  async downloadTikTokVideo(url) {
     try {
-      console.log(`🔄 Загружаю видео в Cloudinary: ${filePath}`);
+      console.log('🎵 Downloading TikTok video:', url);
       
-      const result = await cloudinary.uploader.upload(filePath, {
-        resource_type: 'video',
-        folder: `external_videos/${platform}`,
-        quality: 'auto',
-        format: 'mp4',
-        transformation: [
-          { width: 720, height: 1280, crop: 'limit' },
-          { quality: 'auto:good' }
-        ]
-      });
-
-      console.log(`✅ Видео успешно загружено в Cloudinary:`, result.secure_url);
+      // Пробуем разные версии API
+      let result = null;
+      let videoUrl = null;
       
-      return {
-        publicId: result.public_id,
-        url: result.secure_url,
-        thumbnailUrl: result.secure_url.replace('/video/upload/', '/image/upload/').replace('.mp4', '.jpg'),
-        duration: result.duration,
-        width: result.width,
-        height: result.height,
-        format: result.format,
-        bytes: result.bytes
-      };
-      
-    } catch (error) {
-      console.error('❌ Ошибка загрузки в Cloudinary:', error);
-      throw new Error(`Не удалось загрузить видео в Cloudinary: ${error.message}`);
-    }
-  }
-
-  // Получение информации о видео
-  async getVideoInfo(url) {
-    try {
-      const info = await this.ytDlp.getVideoInfo(url);
-      return {
-        title: info.title,
-        description: info.description,
-        duration: info.duration,
-        uploader: info.uploader,
-        thumbnail: info.thumbnail,
-        viewCount: info.view_count,
-        uploadDate: info.upload_date
-      };
-    } catch (error) {
-      console.error('Ошибка получения информации о видео:', error);
-      return null;
-    }
-  }
-
-  // Очистка временных файлов
-  async cleanup(filePath) {
-    try {
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-        console.log(`🗑️ Временный файл удален: ${filePath}`);
-      }
-    } catch (error) {
-      console.error('Ошибка удаления временного файла:', error);
-    }
-  }
-
-  // Основной метод для загрузки и обработки видео
-  async processExternalVideo(url) {
-    let tempFilePath = null;
-    
-    try {
-      // Определяем платформу
-      const platform = this.detectPlatform(url);
-      if (platform === 'unknown') {
-        throw new Error('Неподдерживаемая платформа');
-      }
-
-      console.log(`🎬 Обрабатываю видео с платформы: ${platform}`);
-
-      try {
-        // Пытаемся использовать yt-dlp
-        const videoInfo = await this.getVideoInfo(url);
-        const downloadResult = await this.downloadVideo(url, platform);
-        tempFilePath = downloadResult.filePath;
-        const cloudinaryResult = await this.uploadToCloudinary(tempFilePath, platform);
-        await this.cleanup(tempFilePath);
-
-        return {
-          success: true,
-          platform: platform,
-          originalUrl: url,
-          videoInfo: videoInfo,
-          cloudinary: cloudinaryResult,
-          mediaType: 'video',
-          image: cloudinaryResult.publicId
-        };
-      } catch (ytDlpError) {
-        console.log(`⚠️ yt-dlp не работает для ${platform}, используем fallback:`, ytDlpError.message);
-        
-        // Очищаем временный файл если был создан
-        if (tempFilePath) {
-          await this.cleanup(tempFilePath);
+      for (const version of ['v2', 'v1', 'v3']) {
+        try {
+          console.log(`🔄 Trying TikTok API ${version}...`);
+          result = await Tiktok.Downloader(url, { version });
+          
+          if (result.status === 'success' && result.result) {
+            if (result.result.video) {
+              if (Array.isArray(result.result.video.downloadAddr)) {
+                videoUrl = result.result.video.downloadAddr[0]; // v1 API
+              } else if (typeof result.result.video === 'string') {
+                videoUrl = result.result.video; // v2 API
+              }
+              
+              if (videoUrl) {
+                console.log(`✅ Got video URL from ${version}:`, videoUrl);
+                break;
+              }
+            }
+          }
+        } catch (versionError) {
+          console.log(`❌ ${version} failed:`, versionError.message);
         }
-        
-        // Используем fallback метод
-        return await this.processVideoFallback(url, platform);
       }
 
-    } catch (error) {
-      // Очищаем временный файл в случае ошибки
-      if (tempFilePath) {
-        await this.cleanup(tempFilePath);
+      if (!videoUrl || !result) {
+        throw new Error('Failed to get video URL from all TikTok APIs');
+      }
+
+      // Скачиваем видео
+      console.log('📥 Downloading video buffer...');
+      const response = await fetch(videoUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download video: ${response.status}`);
       }
       
-      console.error('❌ Ошибка обработки внешнего видео:', error);
+      const videoBuffer = await response.buffer();
+      console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
+      
+      // Загружаем в Cloudinary
+      console.log('📤 Uploading to Cloudinary...');
+      const cloudinaryResult = await this.uploadToCloudinary(videoBuffer, 'video', 'tiktok');
+
+      return {
+        success: true,
+        platform: 'tiktok',
+        videoInfo: {
+          title: result.result.description || result.result.desc || 'TikTok Video',
+          duration: result.result.video?.duration || null,
+          uploader: result.result.author?.nickname || 'TikTok User',
+          viewCount: result.result.statistics?.playCount || null
+        },
+        cloudinaryUrl: cloudinaryResult.secure_url,
+        publicId: cloudinaryResult.public_id,
+        duration: cloudinaryResult.duration,
+        width: cloudinaryResult.width,
+        height: cloudinaryResult.height,
+        originalUrl: url
+      };
+
+    } catch (error) {
+      console.error('❌ TikTok download error:', error);
       throw error;
     }
   }
 
-  // Проверка поддерживаемых платформ
-  static getSupportedPlatforms() {
-    return [
-      'tiktok',
-      'instagram', 
-      'vk',
-      'youtube',
-      'twitter'
-    ];
-  }
-
-  // Fallback метод для платформ без yt-dlp
-  async processVideoFallback(url, platform) {
-    console.log(`🔄 Используем fallback для ${platform}`);
-    
-    // Для YouTube используем простой метод
-    if (platform === 'youtube') {
-      const SimpleDownloader = require('./simpleVideoDownloader');
-      const simpleDownloader = new SimpleDownloader();
-      return await simpleDownloader.processExternalVideo(url);
-    }
-    
-    // Для других платформ создаем заглушку
-    const videoId = uuidv4();
-    const mockThumbnail = `https://via.placeholder.com/640x360/000000/FFFFFF?text=${platform.toUpperCase()}+Video`;
-    
+  async downloadInstagramVideo(url) {
     try {
-      // Загружаем заглушку в Cloudinary
-      const result = await cloudinary.uploader.upload(mockThumbnail, {
-        resource_type: 'image',
-        folder: `external_videos/${platform}`,
-        public_id: `placeholder_${videoId}`,
-        quality: 'auto',
-        format: 'jpg'
-      });
-
+      console.log('📷 Downloading Instagram video:', url);
+      
+      // Для Instagram пока используем внешние ссылки
+      // В будущем можно добавить instagram-downloader или другие библиотеки
+      
       return {
         success: true,
-        platform: platform,
-        originalUrl: url,
+        platform: 'instagram',
         videoInfo: {
-          title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
-          uploader: 'Unknown',
-          thumbnail: mockThumbnail
+          title: 'Instagram Video',
+          uploader: 'Instagram User',
+          duration: null,
+          viewCount: null
         },
-        cloudinary: {
-          publicId: result.public_id,
-          url: result.secure_url,
-          thumbnailUrl: result.secure_url,
-          width: result.width,
-          height: result.height,
-          format: result.format,
-          bytes: result.bytes
-        },
-        mediaType: 'video',
-        image: result.public_id,
-        isPlaceholder: true // Помечаем как заглушку
+        externalLink: true,
+        originalUrl: url,
+        thumbnailUrl: 'https://via.placeholder.com/400x400/E4405F/FFFFFF?text=📷+Instagram',
+        note: 'External Instagram video link'
       };
+
     } catch (error) {
-      throw new Error(`Не удалось создать заглушку для ${platform}: ${error.message}`);
+      console.error('❌ Instagram download error:', error);
+      throw error;
     }
   }
 
-  // Проверка валидности URL
-  static isValidUrl(url) {
+  async downloadVKVideo(url) {
     try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
+      console.log('🔵 Downloading VK video:', url);
+      
+      // Для VK пока используем внешние ссылки
+      // В будущем можно добавить поддержку VK API
+      
+      return {
+        success: true,
+        platform: 'vk',
+        videoInfo: {
+          title: 'VK Video',
+          uploader: 'VK User',
+          duration: null,
+          viewCount: null
+        },
+        externalLink: true,
+        originalUrl: url,
+        thumbnailUrl: 'https://via.placeholder.com/400x400/4C75A3/FFFFFF?text=🔵+VK',
+        note: 'External VK video link'
+      };
+
+    } catch (error) {
+      console.error('❌ VK download error:', error);
+      throw error;
     }
+  }
+
+  async downloadVideo(url) {
+    const platform = this.detectPlatform(url);
+    
+    if (!platform) {
+      throw new Error('Unsupported platform');
+    }
+
+    switch (platform) {
+      case 'tiktok':
+        return await this.downloadTikTokVideo(url);
+      
+      case 'instagram':
+        return await this.downloadInstagramVideo(url);
+      
+      case 'vk':
+        return await this.downloadVKVideo(url);
+      
+      case 'youtube':
+        // YouTube остается как iframe
+        throw new Error('YouTube should use iframe embedding');
+      
+      default:
+        throw new Error(`Platform ${platform} not supported for download`);
+    }
+  }
+
+  async uploadToCloudinary(buffer, resourceType = 'video', folder = 'external-videos') {
+    return new Promise((resolve, reject) => {
+      const uploadOptions = {
+        resource_type: resourceType,
+        folder: folder,
+        quality: 'auto',
+        fetch_format: 'auto'
+      };
+
+      if (resourceType === 'video') {
+        uploadOptions.transformation = [
+          { quality: '720p', if: 'w_gt_1280' },
+          { quality: 'auto', if: 'else' }
+        ];
+      }
+
+      const uploadStream = cloudinary.uploader.upload_stream(
+        uploadOptions,
+        (error, result) => {
+          if (error) {
+            console.error('❌ Cloudinary upload error:', error);
+            reject(error);
+          } else {
+            console.log('✅ Cloudinary upload successful:', result.public_id);
+            resolve(result);
+          }
+        }
+      );
+
+      uploadStream.end(buffer);
+    });
+  }
+
+  async getVideoInfo(url) {
+    return new Promise((resolve, reject) => {
+      const ytDlp = spawn('yt-dlp', [
+        '--print', '%(title)s|%(uploader)s|%(duration)s|%(view_count)s',
+        url
+      ]);
+
+      let output = '';
+      let errorOutput = '';
+
+      ytDlp.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      ytDlp.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      ytDlp.on('close', (code) => {
+        if (code === 0) {
+          const [title, uploader, duration, viewCount] = output.trim().split('|');
+          resolve({
+            title: title || 'Unknown Title',
+            uploader: uploader || 'Unknown Uploader',
+            duration: parseInt(duration) || 0,
+            viewCount: parseInt(viewCount) || 0
+          });
+        } else {
+          reject(new Error(`yt-dlp failed: ${errorOutput}`));
+        }
+      });
+    });
+  }
+
+  async downloadVideoFile(url, outputPath) {
+    return new Promise((resolve, reject) => {
+      const ytDlp = spawn('yt-dlp', [
+        '-f', 'best[height<=720]', // Ограничиваем качество для экономии места
+        '-o', outputPath,
+        url
+      ]);
+
+      let errorOutput = '';
+
+      ytDlp.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+        console.log('yt-dlp:', data.toString().trim());
+      });
+
+      ytDlp.on('close', async (code) => {
+        if (code === 0) {
+          try {
+            // Находим скачанный файл
+            const files = await fs.promises.readdir(this.tempDir);
+            const videoFile = files.find(file => file.startsWith(path.basename(outputPath, '.%(ext)s')));
+            
+            if (videoFile) {
+              resolve(path.join(this.tempDir, videoFile));
+            } else {
+              reject(new Error('Downloaded file not found'));
+            }
+          } catch (error) {
+            reject(error);
+          }
+        } else {
+          reject(new Error(`yt-dlp download failed: ${errorOutput}`));
+        }
+      });
+    });
+  }
+
+  async cleanup(filePath) {
+    try {
+      await fs.promises.unlink(filePath);
+      console.log('🗑️ Temporary file cleaned up');
+    } catch (error) {
+      console.warn('⚠️ Failed to cleanup temporary file:', error.message);
+    }
+  }
+
+  generateVideoId() {
+    return `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
 
 module.exports = VideoDownloader; 
+

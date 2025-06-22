@@ -50,6 +50,10 @@ router.get('/video-users', authMiddleware, postController.getVideoUsers);
 // @access  Private
 router.post('/external-video/download', authMiddleware, postController.downloadExternalVideo);
 
+// @route   POST api/posts/external-video
+// @desc    Создать пост с внешним видео (YouTube iframe, TikTok ссылки)
+// @access  Private
+router.post("/external-video", authMiddleware, postController.createExternalVideoPost);
 // @route   GET api/posts/user/:userId/videos
 // @desc    Получить все видео конкретного пользователя
 // @access  Private

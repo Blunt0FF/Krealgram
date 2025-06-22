@@ -25,7 +25,7 @@ const Register = ({ setIsAuthenticated, setUser }) => {
     e.preventDefault();
     
     if (formData.password !== formData.confirmPassword) {
-      setError('Пароли не совпадают');
+      setError('Passwords do not match');
       return;
     }
 
@@ -45,7 +45,7 @@ const Register = ({ setIsAuthenticated, setUser }) => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Ошибка регистрации');
+        throw new Error(data.message || 'Registration error');
       }
 
       localStorage.setItem('token', data.token);

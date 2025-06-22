@@ -49,3 +49,11 @@ input, textarea, [contenteditable="true"] {
   -ms-user-select: text;
   user-select: text;
 }
+
+/* Предотвращаем зум при фокусе на инпуты на мобильных устройствах */
+@media screen and (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+    /* Минимальный размер шрифта 16px предотвращает зум в Safari iOS */
+  }
+}

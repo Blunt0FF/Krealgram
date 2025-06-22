@@ -3,6 +3,7 @@ const User = require('../models/userModel'); // Needed to add post to user's pos
 const fs = require('fs'); // For file system operations (deleting images)
 const path = require('path'); // For working with paths
 const Like = require('../models/likeModel'); // Import the Like model
+const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -218,7 +219,7 @@ exports.getAllPosts = async (req, res) => {
         } else if (post.image && post.image.startsWith('http')) {
           imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
         } else if (post.image) {
-          const { getMediaUrl } = require('../utils/urlUtils'); imageUrl = getMediaUrl(post.image, 'image');
+          imageUrl = getMediaUrl(post.image, 'image');
         } else {
           imageUrl = null; // Нет изображения
         }
@@ -286,7 +287,7 @@ exports.getPostById = async (req, res) => {
     } else if (post.image && post.image.startsWith('http')) {
       imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
     } else if (post.image) {
-      const { getMediaUrl } = require('../utils/urlUtils'); imageUrl = getMediaUrl(post.image, 'image');
+      imageUrl = getMediaUrl(post.image, 'image');
     } else {
       imageUrl = null; // Нет изображения
     }
@@ -347,7 +348,7 @@ exports.updatePost = async (req, res) => {
     
     const responsePost = {
         ...populatedPost,
-        imageUrl: (() => { const { getMediaUrl } = require('../utils/urlUtils'); return getMediaUrl(populatedPost.image, 'image'); })()
+        imageUrl: (() => { return getMediaUrl(populatedPost.image, 'image'); })()
     };
 
     res.status(200).json({
@@ -438,7 +439,7 @@ exports.deletePost = async (req, res) => {
 exports.getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { getMediaUrl, getVideoThumbnailUrl, getMobileThumbnailUrl, getReliableThumbnailUrl } = require('../utils/urlUtils');    const page = parseInt(req.query.page) || 1;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
@@ -478,7 +479,7 @@ exports.getUserPosts = async (req, res) => {
     } else if (post.image && post.image.startsWith('http')) {
       imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
     } else if (post.image) {
-      const { getMediaUrl } = require('../utils/urlUtils'); imageUrl = getMediaUrl(post.image, 'image');
+      imageUrl = getMediaUrl(post.image, 'image');
     } else {
       imageUrl = null; // Нет изображения
     }
@@ -639,7 +640,7 @@ exports.getUserVideos = async (req, res) => {
       const videoObj = video.toObject();
       
       // Добавляем правильные URL для видео файлов
-      const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
+  
       
       if (videoObj.image) {
         // Для локальных видео файлов создаем правильные URL
@@ -716,89 +717,173 @@ exports.testVideoUsers = async (req, res) => {
 };
 
 // @desc    Скачать и загрузить внешнее видео (TikTok, Instagram)
-
-// @desc    Скачать и загрузить внешнее видео (TikTok, Instagram, VK)
 // @route   POST /api/posts/external-video/download
 // @access  Private
 exports.downloadExternalVideo = async (req, res) => {
   try {
-    const { url, caption } = req.body;
+    console.log('🎬 External video download request received');
+    console.log('🎬 Request body:', req.body);
+    console.log('🎬 User:', req.user?.username);
     
-    if (!url) {
+    const { url, platform } = req.body;
+    
+    if (!url || !platform) {
+      console.log('❌ Missing URL or platform');
       return res.status(400).json({
         success: false,
-        message: "URL обязателен для загрузки"
+        message: "URL and platform are required"
       });
     }
 
-    // Импортируем VideoDownloader
-    const VideoDownloader = require('../services/videoDownloader');
-    
-    // Проверяем валидность URL
-    if (!VideoDownloader.isValidUrl(url)) {
+    console.log(`🎬 Processing ${platform} video: ${url}`);
+
+    // Поддерживаемые платформы для загрузки
+    const supportedPlatforms = ["tiktok", "instagram"];
+    if (!supportedPlatforms.includes(platform.toLowerCase())) {
+      console.log(`❌ Unsupported platform: ${platform}`);
       return res.status(400).json({
         success: false,
-        message: "Неверный формат URL"
+        message: `Platform ${platform} is not supported for download`
       });
     }
 
-    const downloader = new VideoDownloader();
-    
-    // Определяем платформу
-    const platform = downloader.detectPlatform(url);
-    const supportedPlatforms = VideoDownloader.getSupportedPlatforms();
-    
-    if (!supportedPlatforms.includes(platform)) {
-      return res.status(400).json({
+    // Для TikTok возвращаем данные для встраивания без реального скачивания
+    if (platform.toLowerCase() === 'tiktok') {
+      const response = {
+        success: true,
+        message: "TikTok video will be saved as external link",
+        isExternalLink: true,
+        platform: platform,
+        originalUrl: url,
+        videoUrl: url, // Используем оригинальный URL
+        thumbnailUrl: `https://via.placeholder.com/300x400/FF0050/FFFFFF?text=🎵+TikTok+Video`,
+        note: "External TikTok video link"
+      };
+      res.json(response);
+    } else {
+      const response = {
         success: false,
-        message: `Платформа ${platform} не поддерживается. Поддерживаемые: ${supportedPlatforms.join(', ')}`
-      });
+        message: `${platform.toUpperCase()} video download is not implemented yet`,
+        error: "DOWNLOAD_NOT_IMPLEMENTED",
+        platform: platform,
+        originalUrl: url
+      };
+      res.status(501).json(response);
     }
-
-    console.log(`🔄 Начинаю обработку видео с ${platform}: ${url}`);
-
-    // Обрабатываем видео
-    const result = await downloader.processExternalVideo(url);
-
-    // Создаем пост в базе данных
-    const Post = require('../models/Post');
-    
-    const newPost = new Post({
-      author: req.user.id,
-      image: result.image, // publicId из Cloudinary
-      mediaType: 'video',
-      mimeType: 'video/mp4',
-      caption: caption || result.videoInfo?.title || '',
-      videoUrl: result.cloudinary.url,
-      externalVideoData: {
-        platform: result.platform,
-        originalUrl: result.originalUrl,
-        videoInfo: result.videoInfo,
-        cloudinaryData: result.cloudinary
-      }
+  } catch (error) {
+    console.error("❌ Error in downloadExternalVideo:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to download external video",
+      error: error.message
     });
+  }
+};
+
+
+// @desc    Create post with external video (YouTube iframe, TikTok links, etc.)
+// @route   POST /api/posts/external-video
+// @access  Private
+exports.createExternalVideoPost = async (req, res) => {
+  try {
+    const { url, caption } = req.body;
+    const authorId = req.user._id;
+
+    if (!url || !url.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "URL видео обязателен"
+      });
+    }
+
+    // Определяем платформу
+    const detectPlatform = (url) => {
+      if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
+      if (url.includes("tiktok.com")) return "tiktok";
+      if (url.includes("instagram.com")) return "instagram";
+      if (url.includes("vk.com")) return "vk";
+      if (url.includes("twitter.com") || url.includes("x.com")) return "twitter";
+      return null;
+    };
+
+    const platform = detectPlatform(url);
+    if (!platform) {
+      return res.status(400).json({
+        success: false,
+        message: "Неподдерживаемая платформа"
+      });
+    }
+
+    let newPost;
+
+    if (platform === "youtube") {
+      // YouTube как iframe (как раньше)
+      const extractYouTubeId = (url) => {
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = url.match(regex);
+        return match ? match[1] : null;
+      };
+
+      const videoId = extractYouTubeId(url);
+      if (!videoId) {
+        return res.status(400).json({
+          success: false,
+          message: "Неверный YouTube URL"
+        });
+      }
+
+      const Post = require("../models/postModel");
+
+      newPost = new Post({
+        author: authorId,
+        caption: caption || "YouTube Video",
+        mediaType: "video",
+        youtubeUrl: url,
+        youtubeData: {
+          videoId: videoId,
+          embedUrl: `https://www.youtube.com/embed/${videoId}`,
+          thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          title: caption || "YouTube Video",
+          platform: "youtube",
+          originalUrl: url
+        }
+      });
+
+      console.log("✅ Created YouTube iframe post");
+    } else {
+      // Другие платформы как внешние ссылки
+      const Post = require("../models/postModel");
+
+      newPost = new Post({
+        author: authorId,
+        caption: caption || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
+        mediaType: "video",
+        videoUrl: url,
+        youtubeData: {
+          platform: platform,
+          originalUrl: url,
+          note: `External ${platform} video content`,
+          title: caption || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`
+        }
+      });
+
+      console.log(`✅ Created ${platform} external link post`);
+    }
 
     await newPost.save();
-
-    // Популяция автора для ответа
-    await newPost.populate('author', 'username avatar');
-
-    console.log(`✅ Пост успешно создан с внешним видео:`, newPost._id);
+    await newPost.populate("author", "username avatar");
 
     res.status(201).json({
       success: true,
-      message: "Видео успешно загружено и опубликовано",
-      post: newPost,
-      platform: result.platform,
-      videoInfo: result.videoInfo
+      message: "Видео успешно добавлено",
+      post: newPost
     });
 
   } catch (error) {
-    console.error("❌ Ошибка загрузки внешнего видео:", error);
+    console.error("Error creating external video post:", error);
     res.status(500).json({
       success: false,
-      message: "Не удалось загрузить видео",
-      error: error.message
+      message: "Ошибка сервера при создании поста"
     });
   }
 };

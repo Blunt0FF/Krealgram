@@ -628,11 +628,16 @@
 
   .post-modal-content {
     width: 100vw;
-    height: 100vh; /* Занимает всю высоту видимого экрана */
+    height: calc(110vh - 60px); /* Учитываем мобильную навигацию */
     max-width: 100vw;
-    max-height: 100vh;
+    max-height: calc(110vh - 60px);
     border-radius: 0;
     flex-direction: column;
+
+    @supports (height: 1dvh) {
+      height: calc(110dvh - 60px);
+      max-height: calc(110dvh - 60px);
+    }
   }
 
   .post-modal-image {

@@ -294,5 +294,15 @@ export const getImageUrl = (imagePath, options = {}) => {
 };
 
 export const getAvatarUrl = (avatarPath) => {
-  return getImageUrl(avatarPath) || '/default-avatar.png';
+  if (!avatarPath) {
+    return '/default-avatar.png';
+  }
+  
+  // Для Safari добавляем crossOrigin anonymous для Cloudinary URLs
+  const imageUrl = getImageUrl(avatarPath);
+  if (!imageUrl) {
+    return '/default-avatar.png';
+  }
+  
+  return imageUrl;
 }; 

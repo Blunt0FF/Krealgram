@@ -12,7 +12,7 @@ import { API_URL } from '../../config';
 import { formatLastSeen } from '../../utils/timeUtils';
 import './Profile.css';
 
-// Компонент мобильной навигации
+// Mobile navigation component
 const MobileBottomNav = ({ user }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -60,19 +60,19 @@ const MobileBottomNav = ({ user }) => {
   );
 };
 
-// Компонент для превью поста с асинхронной загрузкой изображения
+// Component for post thumbnail with async image loading
 const PostThumbnail = ({ post, onClick }) => {
   const image = post.imageUrl || post.image;
 
   const getThumbnailSrc = React.useMemo(() => {
-    // Используем специальную функцию для GIF превью в профиле
+    // Use special function for GIF preview in profile
     const thumbnailSrc = getProfileGifThumbnail(post);
     return thumbnailSrc;
   }, [post]);
 
-  // Определяем, является ли это видео для показа индикатора
+  // Determine if this is a video to show indicator
   const isVideo = React.useMemo(() => {
-    // Проверяем YouTube URL во всех возможных полях
+    // Check YouTube URL in all possible fields
     const checkYouTubeUrl = (url) => {
       if (!url) return false;
       const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
@@ -85,7 +85,7 @@ const PostThumbnail = ({ post, onClick }) => {
                          checkYouTubeUrl(post.image) ||
                          checkYouTubeUrl(post.imageUrl);
 
-    // Проверяем загруженные видео (Cloudinary)
+    // Check uploaded videos (Cloudinary)
     const hasCloudinaryVideo = (image && image.includes('cloudinary.com') && image.includes('/video/')) ||
                               post.mediaType === 'video';
 
@@ -100,27 +100,27 @@ const PostThumbnail = ({ post, onClick }) => {
           alt={post.caption || 'Post'} 
           loading="lazy"
           onError={(e) => {
-            // Если thumbnail не загрузился, пробуем альтернативные варианты
+            // If thumbnail failed to load, try alternative options
             if (isVideo) {
-              // Для YouTube видео пробуем fallback thumbnail
+              // For YouTube videos try fallback thumbnail
               if (e.target.src.includes('youtube.com') && e.target.src.includes('maxresdefault')) {
-                // Пробуем hqdefault если maxresdefault не доступен
+                // Try hqdefault if maxresdefault is not available
                 const fallbackUrl = e.target.src.replace('maxresdefault', 'hqdefault');
                 e.target.src = fallbackUrl;
                 return;
               }
               
-              // Для Cloudinary видео пробуем другой формат
+              // For Cloudinary videos try different format
               if (e.target.src.includes('cloudinary.com') && e.target.src.includes('f_gif')) {
                 const fallbackUrl = e.target.src.replace('f_gif', 'f_auto');
                 e.target.src = fallbackUrl;
                 return;
               }
               
-              // Если все не работает, показываем placeholder
+              // If everything fails, show placeholder
               e.target.src = '/video-placeholder.svg';
             } else {
-              // Для изображений скрываем элемент
+              // For images hide element
               e.target.style.display = 'none';
             }
           }}
@@ -153,9 +153,9 @@ const PostThumbnail = ({ post, onClick }) => {
   );
 };
 
-// Компонент модального окна для подписчиков/подписок
+// Component for followers/following modal
 const FollowersModal = ({ isOpen, onClose, title, users, loading, currentUser, onRemoveFollower }) => {
-  // Блокируем скролл при открытии модалки
+  // Block scroll when modal is open
   React.useEffect(() => {
     if (isOpen) {
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
@@ -224,7 +224,7 @@ const FollowersModal = ({ isOpen, onClose, title, users, loading, currentUser, o
                     </div>
                   )}
                   
-                  {/* Показываем кнопку удаления для подписчиков (включая удаленных) и только владельцу профиля */}
+                  {/* Show remove button for followers (including deleted users) and only for profile owner */}
                   {title === 'Followers' && currentUser && onRemoveFollower && (
                     <button
                       className="remove-follower-btn"
@@ -274,194 +274,174 @@ const Profile = ({ user: currentUserProp }) => {
   const handlePostClick = (post) => {
     // console.log('handlePostClick called with post:', post);
     
-    // Создаем YouTube данные если это YouTube видео - проверяем все поля
+    // Create YouTube data if this is a YouTube video - check all fields
     let postToOpen = { ...post, isLikedByCurrentUser: post.isLikedByCurrentUser };
     
-    // Функция для проверки YouTube URL
+    // Function to check YouTube URL
     const checkYouTubeUrl = (url) => {
       if (!url) return null;
-      // console.log('Checking YouTube URL:', url);
       
-      // Более простая проверка - если содержит youtube или youtu.be
-      if (url.includes('youtube') || url.includes('youtu.be')) {
-        // console.log('URL contains YouTube');
-        
-        // Пытаемся извлечь videoId разными способами
-        let videoId = null;
-        
-        // Стандартный YouTube URL
-        if (url.includes('youtube.com/watch?v=')) {
-          const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-          videoId = match ? match[1] : null;
-        }
-        // Короткий YouTube URL
-        else if (url.includes('youtu.be/')) {
-          const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-          videoId = match ? match[1] : null;
-        }
-        // Embed URL
-        else if (url.includes('youtube.com/embed/')) {
-          const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
-          videoId = match ? match[1] : null;
-        }
-        
-        // console.log('Extracted videoId:', videoId);
-        return videoId;
+      // Simpler check - if contains youtube or youtu.be
+      if (!url.includes('youtube') && !url.includes('youtu.be')) {
+        return null;
       }
-      return null;
+      
+      // Try to extract videoId in different ways
+      let videoId = null;
+      
+      // Standard YouTube URL
+      const standardMatch = url.match(/[?&]v=([^&]+)/);
+      if (standardMatch) {
+        videoId = standardMatch[1];
+      }
+      
+      // Short YouTube URL
+      const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
+      if (shortMatch) {
+        videoId = shortMatch[1];
+      }
+      
+      return videoId;
     };
 
-    // Проверяем все поля на YouTube
-    // console.log('Checking post fields:', { videoUrl: post.videoUrl, youtubeUrl: post.youtubeUrl, image: post.image, imageUrl: post.imageUrl });
+    // Check all fields for YouTube
+    let youtubeData = null;
     
-    // Функция для извлечения videoId из YouTube thumbnail URL
+    // Function to extract videoId from YouTube thumbnail URL
     const extractVideoIdFromThumbnail = (url) => {
-      if (!url) return null;
-      // Проверяем thumbnail URL: https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg
-      const thumbnailMatch = url.match(/img\.youtube\.com\/vi\/([a-zA-Z0-9_-]{11})/);
-      return thumbnailMatch ? thumbnailMatch[1] : null;
+      // Check thumbnail URL: https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg
+      const match = url.match(/img\.youtube\.com\/vi\/([^\/]+)/);
+      return match ? match[1] : null;
     };
     
-    // Сначала проверяем прямые YouTube URL
-    let videoId = checkYouTubeUrl(post.videoUrl) || checkYouTubeUrl(post.youtubeUrl);
-    let originalYouTubeUrl = post.videoUrl || post.youtubeUrl;
+    // First check direct YouTube URLs
+    const directVideoId = checkYouTubeUrl(post.videoUrl) || 
+                         checkYouTubeUrl(post.youtubeUrl) || 
+                         checkYouTubeUrl(post.video);
     
-    // Если не нашли, проверяем thumbnail URLs и восстанавливаем оригинальные
-    if (!videoId) {
-      videoId = extractVideoIdFromThumbnail(post.image) || extractVideoIdFromThumbnail(post.imageUrl);
-      if (videoId) {
-        // Восстанавливаем оригинальный YouTube URL из videoId
-        originalYouTubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        // console.log('Restored YouTube URL from thumbnail:', originalYouTubeUrl);
+    // If not found, check thumbnail URLs and restore original ones
+    if (!directVideoId) {
+      const thumbnailVideoId = extractVideoIdFromThumbnail(post.image) || 
+                              extractVideoIdFromThumbnail(post.imageUrl);
+      
+      // Restore original YouTube URL from videoId
+      if (thumbnailVideoId) {
+        const originalUrl = `https://www.youtube.com/watch?v=${thumbnailVideoId}`;
+        youtubeData = createYouTubeData(originalUrl);
       }
     }
     
-    // Если все еще не нашли, проверяем обычные URL
-    if (!videoId) {
-      videoId = checkYouTubeUrl(post.image) || checkYouTubeUrl(post.imageUrl);
-      if (videoId) {
-        originalYouTubeUrl = (post.image && post.image.includes('youtube')) ? post.image : post.imageUrl;
-      }
+    // If still not found, check regular URLs
+    if (!youtubeData && directVideoId) {
+      const videoUrl = post.videoUrl || post.youtubeUrl || post.video;
+      youtubeData = createYouTubeData(videoUrl);
     }
-
-    // console.log('Final videoId:', videoId);
-    // console.log('Original YouTube URL:', originalYouTubeUrl);
-
-    if (videoId) {
-      postToOpen.youtubeData = {
-        videoId: videoId,
-        embedUrl: `https://www.youtube.com/embed/${videoId}`,
-        thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-      };
-      // Сохраняем оригинальный YouTube URL для PostModal
-      postToOpen.videoUrl = originalYouTubeUrl;
-      // Помечаем как YouTube видео
-      postToOpen.mediaType = 'youtube';
-      // console.log('YouTube post prepared:', postToOpen);
+    
+    if (youtubeData) {
+      postToOpen.youtubeData = youtubeData;
+      
+      // Save original YouTube URL for PostModal
+      postToOpen.originalYouTubeUrl = youtubeData.originalUrl;
+      
+      // Mark as YouTube video
+      postToOpen.isYouTubeVideo = true;
     }
-
+    
     setSelectedPost(postToOpen);
     setIsModalOpen(true);
+    
+    // Restore scroll
+    const scrollElement = document.querySelector('.profile-container');
+    
+    // Block scroll and stop background videos when opening modal
+    if (scrollElement) {
+      // Block scroll
+      document.body.style.overflow = 'hidden';
+      
+      // Stop all videos in feed when opening modal
+      videoManager.stopAllVideos();
+    }
   };
 
   const goToPreviousPost = () => {
-    if (!selectedPost || posts.length === 0) return;
-    const currentIndex = posts.findIndex(p => p._id === selectedPost._id);
+    const currentIndex = getCurrentPostIndex();
     if (currentIndex > 0) {
-      setSelectedPost(posts[currentIndex - 1]);
+      const previousPost = posts[currentIndex - 1];
+      setSelectedPost(previousPost);
     }
   };
 
   const goToNextPost = () => {
-    if (!selectedPost || posts.length === 0) return;
-    const currentIndex = posts.findIndex(p => p._id === selectedPost._id);
+    const currentIndex = getCurrentPostIndex();
     if (currentIndex < posts.length - 1) {
-      setSelectedPost(posts[currentIndex + 1]);
+      const nextPost = posts[currentIndex + 1];
+      setSelectedPost(nextPost);
     }
   };
 
   const getCurrentPostIndex = () => {
-    if (!selectedPost || posts.length === 0) return { current: 1, total: posts.length };
-    const currentIndex = posts.findIndex(p => p._id === selectedPost._id);
-    return { current: currentIndex + 1, total: posts.length };
+    if (!selectedPost) return -1;
+    return posts.findIndex(post => post._id === selectedPost._id);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedPost(null);
-    // Восстанавливаем скролл
-    document.body.style.overflow = 'unset';
+    
+    // Restore scroll
+    document.body.style.overflow = '';
   };
 
-  // Блокировка скролла и остановка фоновых видео при открытии модалки
-  useEffect(() => {
-    if (isModalOpen) {
-      // Блокируем скролл
-      document.body.style.overflow = 'hidden';
-      
-      // Останавливаем все видео в ленте при открытии модалки
-      videoManager.pauseAllFeedVideos();
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isModalOpen]);
-
   const handlePostUpdate = (postId, updates) => {
-    setPosts(prevPosts => prevPosts.map(p =>
-      p._id === postId ? { ...p, ...updates } : p
-    ));
-    // Всегда обновляем selectedPost для синхронизации состояния
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post._id === postId ? { ...post, ...updates } : post
+      )
+    );
+    
+    // Always update selectedPost for state synchronization
     if (selectedPost && selectedPost._id === postId) {
-      setSelectedPost(prevSelectedPost => ({ ...prevSelectedPost, ...updates }));
+      setSelectedPost(prev => ({ ...prev, ...updates }));
     }
   };
 
   const handleDeletePost = async (postIdToDelete) => {
-    if (!currentUserProp || !isOwner) return;
-
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/posts/${postIdToDelete}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setPosts(prevPosts => prevPosts.filter(p => p._id !== postIdToDelete));
-        closeModal();
-        if (profile && profile.user) {
-          setProfile(prev => ({
-            ...prev,
-            user: {
-              ...prev.user,
-              postsCount: prev.user.postsCount !== undefined ? Math.max(0, prev.user.postsCount - 1) : (prev.posts?.filter(p => p._id !== postIdToDelete).length || 0)
-            }
-          }));
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-        console.log('Post deleted successfully');
+      });
+
+      if (response.ok) {
+        // Remove post from state
+        setPosts(prevPosts => prevPosts.filter(post => post._id !== postIdToDelete));
+        
+        // Close modal if this post was open
+        if (selectedPost && selectedPost._id === postIdToDelete) {
+          closeModal();
+        }
       } else {
-        console.error('Error deleting post:', data.message);
+        console.error('Failed to delete post');
       }
     } catch (error) {
       console.error('Error deleting post:', error);
-      console.error('Network error when deleting post:', error);
     }
   };
 
   const openFollowersModal = async () => {
-    if (!profile || !profile.user) return;
-
+    if (!profile?.user?._id) return;
+    
     setFollowersLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/users/${profile.user._id}/followers`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
-
+      
       if (response.ok) {
         const data = await response.json();
         setModalTitle('Followers');
@@ -469,8 +449,9 @@ const Profile = ({ user: currentUserProp }) => {
         setIsFollowersModalOpen(true);
       } else {
         console.error('Failed to load followers:', response.status, response.statusText);
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('Error details:', errorData);
+        setModalUsers([]);
+        setModalTitle('Followers');
+        setIsFollowersModalOpen(true);
       }
     } catch (error) {
       console.error('Error loading followers:', error);
@@ -480,15 +461,16 @@ const Profile = ({ user: currentUserProp }) => {
   };
 
   const openFollowingModal = async () => {
-    if (!profile || !profile.user) return;
-
+    if (!profile?.user?._id) return;
+    
     setFollowingLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/users/${profile.user._id}/following`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
-
+      
       if (response.ok) {
         const data = await response.json();
         setModalTitle('Following');
@@ -496,8 +478,9 @@ const Profile = ({ user: currentUserProp }) => {
         setIsFollowersModalOpen(true);
       } else {
         console.error('Failed to load following:', response.status, response.statusText);
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('Error details:', errorData);
+        setModalUsers([]);
+        setModalTitle('Following');
+        setIsFollowersModalOpen(true);
       }
     } catch (error) {
       console.error('Error loading following:', error);
@@ -507,12 +490,15 @@ const Profile = ({ user: currentUserProp }) => {
   };
 
   const removeFollower = async (followerToRemove) => {
-    if (!isOwner || !profile?.user?._id) return;
-
     try {
       const token = localStorage.getItem('token');
       
-      // Для удаленных пользователей используем специальный ID
+      if (!token || !profile?.user?._id) {
+        console.error('No token or profile ID available');
+        return;
+      }
+      
+      // For deleted users use special ID
       const followerId = followerToRemove._id || (followerToRemove.isDeleted ? 'deleted' : null);
       
       if (!followerId) {
@@ -522,30 +508,33 @@ const Profile = ({ user: currentUserProp }) => {
       
       const response = await fetch(`${API_URL}/api/users/${profile.user._id}/followers/${followerId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-
+      
       if (response.ok) {
         const data = await response.json();
         
-        // Для удаленных пользователей удаляем всех с isDeleted: true
+        // For deleted users remove all with isDeleted: true
         if (followerToRemove.isDeleted) {
           setModalUsers(prevUsers => prevUsers.filter(user => !user.isDeleted));
         } else {
-          // Для обычных пользователей удаляем по ID
+          // For regular users remove by ID
           setModalUsers(prevUsers => prevUsers.filter(user => user._id !== followerToRemove._id));
         }
         
-        // Обновляем счетчики из ответа API
+        // Update counters from API response
         setFollowInfo(prev => ({
           ...prev,
           followersCount: data.followersCount,
           followingCount: data.followingCount
         }));
-
+        
         console.log('Follower removed successfully');
       } else {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        const errorData = await response.json();
         console.error('Failed to remove follower:', errorData);
       }
     } catch (error) {
@@ -554,10 +543,11 @@ const Profile = ({ user: currentUserProp }) => {
   };
 
   const toggleFollow = async () => {
-    if (!currentUserProp || isOwner) return;
-
+    if (!profile?.user?._id) return;
+    
     const wasFollowing = followInfo.isFollowing;
-
+    
+    // Optimistic update
     setFollowInfo(prev => ({
       ...prev,
       isFollowing: !wasFollowing,
@@ -567,22 +557,25 @@ const Profile = ({ user: currentUserProp }) => {
     try {
       const token = localStorage.getItem('token');
       const method = wasFollowing ? 'DELETE' : 'POST';
-
+      
       const response = await fetch(`${API_URL}/api/users/${profile.user._id}/follow`, {
-        method: method,
-        headers: { 'Authorization': `Bearer ${token}` }
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
 
       if (response.ok) {
         const data = await response.json();
-        // Если API возвращает обновленные счетчики, используем их
+        // If API returns updated counters, use them
         setFollowInfo({
           isFollowing: data.isFollowing,
           followersCount: data.followersCount,
           followingCount: data.followingCount || followInfo.followingCount
         });
       } else {
-        // Откатываем изменения при ошибке
+        // Rollback changes on error
         setFollowInfo(prev => ({
           ...prev,
           isFollowing: wasFollowing,
@@ -591,7 +584,7 @@ const Profile = ({ user: currentUserProp }) => {
       }
     } catch (error) {
       console.error('Error toggling follow:', error);
-      // Откатываем изменения при ошибке
+      // Rollback changes on error
       setFollowInfo(prev => ({
         ...prev,
         isFollowing: wasFollowing,
@@ -601,71 +594,51 @@ const Profile = ({ user: currentUserProp }) => {
   };
 
   useEffect(() => {
-    if (selectedPost) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [selectedPost]);
+    // Scroll to top when navigating to profile
+    window.scrollTo(0, 0);
+  }, []);
 
   useEffect(() => {
-    // Прокручиваем в верх при переходе на профиль
-    window.scrollTo(0, 0);
-    
+    if (!username) {
+      setProfile(null);
+      setPosts([]);
+      setFollowInfo({ isFollowing: false, followersCount: 0, followingCount: 0 });
+      return;
+    }
+
     setLoadingProfile(true);
-    setProfile(null);
-    setPosts([]);
-    setSelectedPost(null);
-    setIsModalOpen(false);
-    setFollowInfo({ isFollowing: false, followersCount: 0, followingCount: 0 });
-    setIsOwner(false);
-
+    
+    // Get token for authenticated requests
     const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
-    fetch(`${API_URL}/api/users/profile/${username}`, {
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    fetch(`${API_URL}/api/users/${username}`, {
+      headers
     })
-      .then(res => {
-        if (!res.ok) {
-          if (res.status === 404) {
-            console.error('User not found');
-          }
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.json();
-      })
+      .then(response => response.json())
       .then(data => {
         if (data.user) {
           setProfile(data);
-
-          const processedPosts = (data.user.posts || []).map(p => {
-            // Проверяем, лайкнул ли текущий пользователь этот пост
-            const isLikedByCurrentUser = currentUserProp && p.likes ?
-              p.likes.some(like =>
-                like.user === currentUserProp._id ||
-                like.user?._id === currentUserProp._id ||
-                like === currentUserProp._id
-              ) : false;
-
-            // Обрабатываем лайки поста
-
-            return {
-              ...p,
-              likesCount: p.likes?.length || 0,
-              commentsCount: p.comments?.length || 0,
-              imageUrl: getImageUrl(p.imageUrl || p.image, { mimeType: p.mimeType }),
-              isLikedByCurrentUser: isLikedByCurrentUser,
-              // Сохраняем все данные о видео
-              mediaType: p.mediaType,
-              videoUrl: p.videoUrl,
-              youtubeData: p.youtubeData,
-              author: p.author || p.user
-            };
+          setPosts(data.posts || []);
+          
+          // Save all video data
+          data.posts?.forEach(post => {
+            // Check if current user liked this post
+            if (currentUserProp && post.likes) {
+              post.isLikedByCurrentUser = post.likes.includes(currentUserProp._id);
+            }
+            
+            // Handle post likes
+            if (post.likes && Array.isArray(post.likes)) {
+              post.likesCount = post.likes.length;
+            }
           });
-          setPosts(processedPosts);
 
           setFollowInfo({
             isFollowing: data.user.isFollowedByCurrentUser || false,
@@ -673,7 +646,7 @@ const Profile = ({ user: currentUserProp }) => {
             followingCount: data.user.followingCount || 0
           });
 
-          // Проверяем владельца профиля - используем как currentUser, так и localStorage
+          // Check profile owner - use both currentUser and localStorage
           const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
           const userId = currentUserProp?._id || storedUser?._id;
           if (userId) {
@@ -710,7 +683,7 @@ const Profile = ({ user: currentUserProp }) => {
               alt={profile.user.username}
               loading="lazy"
               onClick={() => {
-                // Проверяем, что аватарка не является дефолтной
+                // Check that avatar is not default
                 const avatarUrl = getAvatarUrl(profile.user.avatar);
                 if (profile.user.avatar && avatarUrl && avatarUrl !== '/default-avatar.png' && !avatarUrl.includes('default-avatar.png')) {
                   setShowAvatarModal(true);
@@ -837,12 +810,12 @@ const Profile = ({ user: currentUserProp }) => {
             onDeletePost={handleDeletePost}
             onPrevious={goToPreviousPost}
             onNext={goToNextPost}
-            canGoPrevious={posts.findIndex(p => p._id === selectedPost._id) > 0}
-            canGoNext={posts.findIndex(p => p._id === selectedPost._id) < posts.length - 1}
+            canGoPrevious={getCurrentPostIndex() > 0}
+            canGoNext={getCurrentPostIndex() < posts.length - 1}
           />
         )}
         
-        {/* ОТЛАДКА */}
+        {/* DEBUG */}
   
 
         <FollowersModal

@@ -1,35 +1,38 @@
 import React, { useState } from 'react';
-import { API_URL } from '../../config';
 import './ExternalVideoUpload.css';
 
-const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
+const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [platform, setPlatform] = useState('');
 
   const supportedPlatforms = [
-    { name: 'TikTok', domain: 'tiktok.com', icon: '🎵' },
-    { name: 'Instagram', domain: 'instagram.com', icon: '📷' },
-    { name: 'VK', domain: 'vk.com', icon: '🔵' },
-    { name: 'YouTube', domain: 'youtube.com', icon: '📺' },
-    { name: 'Twitter/X', domain: 'twitter.com', icon: '🐦' }
+    { name: 'TikTok', icon: '🎵', example: 'https://www.tiktok.com/@username/video/...' },
+    { name: 'Instagram', icon: '📷', example: 'https://www.instagram.com/p/...' },
+    { name: 'VK', icon: '🎬', example: 'https://vk.com/video...' },
+    { name: 'YouTube', icon: '▶️', example: 'https://www.youtube.com/watch?v=...' }
   ];
 
-  const detectPlatform = (inputUrl) => {
-    if (inputUrl.includes('tiktok.com')) return 'TikTok';
-    if (inputUrl.includes('instagram.com')) return 'Instagram';
-    if (inputUrl.includes('vk.com') || inputUrl.includes('vk.ru')) return 'VK';
-    if (inputUrl.includes('youtube.com') || inputUrl.includes('youtu.be')) return 'YouTube';
-    if (inputUrl.includes('twitter.com') || inputUrl.includes('x.com')) return 'Twitter/X';
-    return '';
+  const detectPlatform = (url) => {
+    if (url.includes('tiktok.com') || url.includes('vm.tiktok.com')) return 'tiktok';
+    if (url.includes('instagram.com')) return 'instagram';
+    if (url.includes('vk.com/video') || url.includes('vkvideo.ru')) return 'vk';
+    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
+    return null;
   };
 
   const handleUrlChange = (e) => {
     const inputUrl = e.target.value;
     setUrl(inputUrl);
-    setPlatform(detectPlatform(inputUrl));
     setError('');
+    
+    if (inputUrl.length > 10) {
+      const detectedPlatform = detectPlatform(inputUrl);
+      setPlatform(detectedPlatform || '');
+    } else {
+      setPlatform('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -42,7 +45,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
 
     const detectedPlatform = detectPlatform(url);
     if (!detectedPlatform) {
-      setError('Unsupported platform. Supported: TikTok, Instagram, VK, YouTube, Twitter/X');
+      setError('Unsupported platform. Supported: TikTok, Instagram, VK, YouTube');
       return;
     }
 
@@ -51,8 +54,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
 
     try {
       const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${API_URL}/api/posts/external-video/download`, {
+      const response = await fetch('https://krealgram-backend.onrender.com/api/posts/external-video', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,21 +66,22 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
       });
 
       const data = await response.json();
-
-      if (data.success) {
-        console.log('✅ Видео успешно загружено:', data);
-        onVideoUploaded(data.post);
+      
+      if (response.ok) {
+        onVideoDownloaded(data);
         onClose();
       } else {
-        setError(data.message || 'Ошибка загрузки видео');
+        setError(data.error || 'Failed to import video');
       }
     } catch (error) {
-      console.error('❌ Ошибка загрузки видео:', error);
-      setError('Ошибка соединения с сервером');
+      console.error('Error importing video:', error);
+      setError('Failed to import video');
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="external-video-upload-overlay">
@@ -88,7 +91,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
           <button 
             className="close-btn" 
             onClick={onClose}
-            disabled={isLoading}
+            type="button"
           >
             ×
           </button>
@@ -97,10 +100,13 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
         <div className="supported-platforms">
           <h4>Supported platforms:</h4>
           <div className="platforms-list">
-            {supportedPlatforms.map((p) => (
-              <div key={p.name} className="platform-item">
+            {supportedPlatforms.map((p, index) => (
+              <div key={index} className="platform-item">
                 <span className="platform-icon">{p.icon}</span>
-                <span className="platform-name">{p.name}</span>
+                <div className="platform-info">
+                  <span className="platform-name">{p.name}</span>
+                  <span className="platform-example">{p.example}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -145,7 +151,7 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
             <button
               type="submit"
               disabled={isLoading || !url.trim()}
-              className="upload-btn"
+              className="submit-btn"
             >
               {isLoading ? (
                 <>
@@ -171,3 +177,6 @@ const ExternalVideoUpload = ({ onVideoUploaded, onClose }) => {
 };
 
 export default ExternalVideoUpload; 
+
+
+
