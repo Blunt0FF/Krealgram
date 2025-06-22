@@ -36,10 +36,13 @@ const getMediaUrl = (imagePath, type = 'image') => {
     // Для изображений (включая GIF с анимацией)
     return cloudinary.url(publicId, {
       fetch_format: 'auto',
-      quality: 'auto',
-      flags: 'progressive,animated,awebp', // Добавляем animated для GIF и awebp для оптимизации
+      quality: '100', // Максимальное качество
+      flags: 'progressive,animated,immutable_cache,lossy', // Добавляем lossy для лучшего сжатия без потери FPS
       transformation: [
-        { fps: '60' } // Устанавливаем максимальный FPS для GIF
+        { 
+          quality: '100',
+          format: 'auto' // Автоматический выбор лучшего формата
+        }
       ]
     });
   }
@@ -239,3 +242,4 @@ module.exports = {
   getMobileThumbnailUrl,
   getReliableThumbnailUrl
 }; 
+

@@ -817,7 +817,7 @@ const PostModal = ({
 
               return (
                 <video 
-                  src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
+                  src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`), { mimeType: postData.mimeType })}
                   className="post-modal-video"
                   controls={true}
                   muted={false}
@@ -857,7 +857,7 @@ const PostModal = ({
             // Для обычных изображений
             return (
               <img 
-                src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`))}
+                src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`), { mimeType: postData.mimeType })}
                 alt="Post" 
                 className="post-modal-image"
                 onError={(e) => { 

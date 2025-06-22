@@ -401,7 +401,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
              // На десктопе (≥901px) обычное видео БЕЗ poster как в 5a528d1
              return (
                <video 
-                 src={getImageUrl(post.imageUrl || post.image, { mimeType: post.mimeType })}
+                 src={getImageSrc()}
                  className="post-video"
                  controls={true}
                  muted={false}
@@ -428,7 +428,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
            } else {
              return (
                <img 
-                 src={getImageUrl(post.imageUrl || post.image, { mimeType: post.mimeType })}
+                 src={getImageSrc()}
                  alt="Post" 
                  className="post-image"
                  style={{ cursor: 'pointer' }}

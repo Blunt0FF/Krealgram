@@ -656,7 +656,7 @@ const Profile = ({ user: currentUserProp }) => {
               ...p,
               likesCount: p.likes?.length || 0,
               commentsCount: p.comments?.length || 0,
-              imageUrl: getImageUrl(p.imageUrl || p.image),
+              imageUrl: getImageUrl(p.imageUrl || p.image, { mimeType: p.mimeType }),
               isLikedByCurrentUser: isLikedByCurrentUser,
               // Сохраняем все данные о видео
               mediaType: p.mediaType,

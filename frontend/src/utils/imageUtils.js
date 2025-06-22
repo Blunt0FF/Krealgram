@@ -249,11 +249,15 @@ export const getImageUrl = (imagePath, options = {}) => {
   
   // Если это уже полный URL (начинается с http/https), возвращаем как есть
   if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    // Если это Cloudinary URL и нужно добавить флаг animated для GIF
+    // Если это Cloudinary URL и нужно добавить флаги для GIF
     if (imagePath.includes('res.cloudinary.com') && !imagePath.includes('fl_animated')) {
-      const isGif = options.isGif === true || options.mimeType === 'image/gif';
+      const isGif = options.isGif === true || options.mimeType === 'image/gif' || 
+                    imagePath.toLowerCase().includes('gif');
       if (isGif) {
-        // Вставляем fl_animated после /upload/
+        // Вставляем максимальные настройки для GIF после /upload/
+        return imagePath.replace('/upload/', '/upload/fl_animated,q_100,f_auto/');
+      } else {
+        // Обычный флаг для других изображений
         return imagePath.replace('/upload/', '/upload/fl_animated/');
       }
     }
@@ -275,9 +279,12 @@ export const getImageUrl = (imagePath, options = {}) => {
                   options.isGif === true ||
                   options.mimeType === 'image/gif';
     
-    // По умолчанию добавляем fl_animated для всех изображений чтобы GIF работали
-    // Это безопасно - для обычных изображений флаг просто игнорируется
-    cloudinaryUrl += `fl_animated/`;
+    // Добавляем флаги для максимального качества GIF
+    if (isGif) {
+      cloudinaryUrl += `fl_animated,q_100,f_auto/`; // Максимальное качество + автоформат для лучшей производительности
+    } else {
+      cloudinaryUrl += `fl_animated/`; // Обычный флаг для других изображений
+    }
     
     return cloudinaryUrl + imagePath;
   }
