@@ -1,15 +1,18 @@
 #!/bin/bash
-# Установка yt-dlp на Render
+# install.sh
 
-# Exit on error
 set -e
-
-# Install node dependencies
 npm install
 
-# Install yt-dlp using pip
-echo "Installing yt-dlp via pip..."
-pip3 install yt-dlp
-echo "yt-dlp installed successfully."
+echo "Creating backend/bin directory..."
+mkdir -p backend/bin
+
+echo "Downloading yt-dlp to backend/bin/yt-dlp..."
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o backend/bin/yt-dlp
+
+echo "Making yt-dlp executable..."
+chmod +x backend/bin/yt-dlp
+
+echo "yt-dlp setup finished."
 
  

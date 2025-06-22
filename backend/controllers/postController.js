@@ -8,9 +8,29 @@ const YTDlpWrap = require('yt-dlp-wrap').default;
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
 
-// Инициализация yt-dlp-wrap.
-// Бинарник yt-dlp должен быть установлен глобально через install.sh
-const ytdlpWrap = new YTDlpWrap();
+const ytdlpBinaryPath = path.join(__dirname, '..', 'bin', 'yt-dlp');
+
+// --- YTDLP DEBUG START ---
+console.log(`[YTDLP_DEBUG] Checking for yt-dlp at: ${ytdlpBinaryPath}`);
+try {
+  fs.accessSync(ytdlpBinaryPath, fs.constants.F_OK);
+  console.log('[YTDLP_DEBUG] File exists.');
+  fs.accessSync(ytdlpBinaryPath, fs.constants.X_OK);
+  console.log('[YTDLP_DEBUG] File is executable.');
+} catch (err) {
+  console.error(`[YTDLP_DEBUG] File access error: ${err.message}`);
+  // Попробуем вывести содержимое родительской папки для диагностики
+  try {
+    const binDir = path.join(__dirname, '..', 'bin');
+    const dirContents = fs.readdirSync(binDir);
+    console.log(`[YTDLP_DEBUG] Contents of ${binDir}: ${dirContents.join(', ')}`);
+  } catch (listErr) {
+    console.error(`[YTDLP_DEBUG] Could not read directory ${path.join(__dirname, '..', 'bin')}: ${listErr.message}`);
+  }
+}
+// --- YTDLP DEBUG END ---
+
+const ytdlpWrap = new YTDlpWrap(ytdlpBinaryPath);
 
 // @desc    Create a new post
 // @route   POST /api/posts
