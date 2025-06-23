@@ -297,10 +297,7 @@ textarea[name="bio"] {
 }
 
 @media (max-width: 480px) {
-
-
   .form-actions {
-    flex-direction: column;
     gap: 12px;
   }
 

@@ -8,6 +8,19 @@
   padding: 20px;
 }
 
+/* --- Safari fix: заменяем 100vh на 100dvh при поддержке --- */
+@media (max-width: 768px) {
+  .create-post-container {
+    min-height: 100vh;
+  }
+
+  @supports (height: 100dvh) {
+    .create-post-container {
+      min-height: 100dvh;
+    }
+  }
+}
+
 .create-post-box {
   background: white;
   padding: 30px;
@@ -131,7 +144,6 @@
   color: #ed4956;
 }
 
-/* Переключатель режимов загрузки */
 .upload-mode-switcher {
   display: flex;
   gap: 10px;
@@ -159,7 +171,6 @@
   border-color: #0095f6;
 }
 
-/* Поле для URL */
 .url-input-container {
   margin-bottom: 15px;
 }
@@ -200,4 +211,4 @@
   font-size: 12px;
   color: #8e8e8e;
   font-style: italic;
-} 
+}
