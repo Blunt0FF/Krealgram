@@ -7,7 +7,7 @@ const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 const axios = require('axios');
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 console.log('[VIDEO_DOWNLOADER] Using puppeteer + axios for real video downloads');
 
@@ -735,25 +735,35 @@ const extractTikTokVideo = async (url) => {
   try {
     console.log('🚀 Launching browser for TikTok extraction...');
     
-    // Попробуем разные пути к Chrome
+    // Попробуем разные пути к Chrome/Chromium
     const possiblePaths = [
       process.env.PUPPETEER_EXECUTABLE_PATH,
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
       '/usr/bin/google-chrome-stable',
       '/usr/bin/google-chrome',
-      '/usr/bin/chromium-browser',
-      '/usr/bin/chromium'
+      '/snap/bin/chromium'
     ];
     
     let executablePath = null;
+    console.log('🔍 Searching for browser...');
+    
     for (const path of possiblePaths) {
       if (path && require('fs').existsSync(path)) {
         executablePath = path;
-        console.log(`✅ Found Chrome at: ${path}`);
+        console.log(`✅ Found browser at: ${path}`);
         break;
+      } else if (path) {
+        console.log(`❌ Not found: ${path}`);
       }
     }
     
+    if (!executablePath) {
+      throw new Error('No browser found. Please install chromium-browser or google-chrome');
+    }
+    
     const launchOptions = {
+      executablePath: executablePath,
       headless: true,
       args: [
         '--no-sandbox',
@@ -765,13 +775,12 @@ const extractTikTokVideo = async (url) => {
         '--single-process',
         '--disable-gpu',
         '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
+        '--disable-features=VizDisplayCompositor',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding'
       ]
     };
-    
-    if (executablePath) {
-      launchOptions.executablePath = executablePath;
-    }
     
     browser = await puppeteer.launch(launchOptions);
 
