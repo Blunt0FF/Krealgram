@@ -729,7 +729,7 @@ exports.testVideoUsers = async (req, res) => {
   }
 };
 
-// Функция для извлечения видео через API сервисы
+// Функция для извлечения видео через API сервисы (только для TikTok, Instagram, VK)
 const extractVideoFromPlatform = async (url, platform) => {
   console.log(`🔗 Extracting ${platform} video via API...`);
   
@@ -740,6 +740,8 @@ const extractVideoFromPlatform = async (url, platform) => {
       return await extractInstagramVideoAPI(url);
     } else if (platform === 'vk') {
       return await extractVKVideoAPI(url);
+    } else if (platform === 'youtube') {
+      throw new Error('YouTube should use iframe embedding, not download');
     } else {
       throw new Error(`Unsupported platform: ${platform}`);
     }
@@ -913,8 +915,9 @@ exports.downloadExternalVideo = async (req, res) => {
 
     console.log(`🎬 Downloading video from URL: ${url}`);
 
-    // Определяем платформу
+    // Определяем платформу (для downloadExternalVideo только TikTok, Instagram, VK)
     const detectPlatform = (url) => {
+      if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
       if (url.includes("tiktok.com")) return "tiktok";
       if (url.includes("instagram.com")) return "instagram";
       if (url.includes("vk.com")) return "vk";
@@ -924,10 +927,18 @@ exports.downloadExternalVideo = async (req, res) => {
     const platform = detectPlatform(url);
     console.log(`📱 Detected platform: ${platform}`);
 
+    // YouTube должен использовать iframe, а не загрузку
+    if (platform === "youtube") {
+      return res.status(400).json({
+        success: false,
+        message: 'YouTube videos should use iframe embedding, not download. Use /api/posts/external-video endpoint instead.',
+      });
+    }
+
     if (platform === "unknown") {
       return res.status(400).json({
         success: false,
-        message: 'Unsupported platform. Supported: TikTok, Instagram, VK',
+        message: 'Unsupported platform for download. Supported: TikTok, Instagram, VK',
       });
     }
 
