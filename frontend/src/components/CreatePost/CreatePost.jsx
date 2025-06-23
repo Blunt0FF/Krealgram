@@ -253,33 +253,55 @@ const CreatePost = () => {
           <div className="video-preview-container">
             <div className="video-preview">
               {parsedVideoData ? (
-                // For external videos show card
+                // For external videos show preview
                 <div style={{
                   width: '100%',
                   maxWidth: '400px',
-                  height: '300px',
+                  margin: '0 auto',
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   borderRadius: '12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  textAlign: 'center',
-                  padding: '20px',
+                  overflow: 'hidden',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
                 }}>
-                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>
-                    {parsedVideoData.platform === 'tiktok' ? '🎵' :
-                     parsedVideoData.platform === 'youtube' ? '📺' :
-                     parsedVideoData.platform === 'instagram' ? '📱' :
-                     parsedVideoData.platform === 'vk' ? '🎬' : '🎥'}
-                  </div>
-                  <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
-                    {parsedVideoData.platform?.toUpperCase()} Video
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: '0.8', wordBreak: 'break-all', maxWidth: '100%' }}>
-                    {parsedVideoData.originalUrl?.substring(0, 50)}...
+                  {/* Thumbnail image */}
+                  {parsedVideoData.thumbnailUrl && (
+                    <div style={{
+                      width: '100%',
+                      height: '200px',
+                      backgroundImage: `url(${parsedVideoData.thumbnailUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        fontSize: '48px',
+                        color: 'white',
+                        textShadow: '0 2px 8px rgba(0,0,0,0.7)'
+                      }}>
+                        {parsedVideoData.platform === 'tiktok' ? '🎵' :
+                         parsedVideoData.platform === 'youtube' ? '▶️' :
+                         parsedVideoData.platform === 'instagram' ? '📱' :
+                         parsedVideoData.platform === 'vk' ? '🎬' : '🎥'}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Video info */}
+                  <div style={{
+                    padding: '16px',
+                    color: 'white',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
+                      {parsedVideoData.platform?.toUpperCase()} Video
+                    </div>
+                    <div style={{ fontSize: '12px', opacity: '0.8', wordBreak: 'break-all' }}>
+                      {parsedVideoData.originalUrl?.substring(0, 60)}...
+                    </div>
                   </div>
                 </div>
               ) : mediaType === 'video' ? (
@@ -370,10 +392,20 @@ const CreatePost = () => {
           console.log('✅ Video processed:', data);
           
           if (data.success) {
-            if (data.post) {
-              // YouTube iframe - пост уже создан, редиректим
-              console.log('🎉 YouTube video post created successfully, redirecting to feed...');
-              navigate('/');
+            if (data.isExternalLink) {
+              // YouTube iframe или внешние ссылки - позволяем добавить описание
+              console.log('📺 External video prepared, allowing user to add caption...');
+              const videoData = {
+                platform: data.platform,
+                videoId: data.videoData?.videoId || null,
+                originalUrl: data.originalUrl,
+                embedUrl: data.videoData?.embedUrl || null,
+                thumbnailUrl: data.thumbnailUrl,
+                note: data.note,
+                isExternalLink: true,
+                videoData: data.videoData
+              };
+              handleExternalVideoSelect(videoData);
             } else if (data.videoData || data.videoUrl) {
               // TikTok/Instagram/VK - видео скачано, позволяем добавить описание
               console.log('📹 Video downloaded, allowing user to add caption...');

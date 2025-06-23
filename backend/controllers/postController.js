@@ -803,46 +803,41 @@ const extractTikTokVideoAPI = async (url) => {
 // Instagram API извлечение
 const extractInstagramVideoAPI = async (url) => {
   try {
-    console.log('📷 Extracting Instagram video via API...');
+    console.log('📷 Extracting Instagram video via simplified approach...');
     
-    // Простой подход для Instagram - используем публичный API
-    const response = await axios.get(`https://api.snapinsta.app/v1/download?url=${encodeURIComponent(url)}`, {
+    // Упрощенный подход - пытаемся получить прямую ссылку через разные методы
+    const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'
+      },
+      timeout: 10000
     });
 
-    if (response.data && response.data.data && response.data.data.video_url) {
-      console.log('✅ Instagram video URL extracted via API');
-      return response.data.data.video_url;
+    const html = response.data;
+    
+    // Ищем видео URL в HTML различными способами
+    const videoPatterns = [
+      /"video_url":"([^"]+)"/,
+      /"videoUrl":"([^"]+)"/,
+      /videoUrl['"]\s*:\s*['"]([^'"]+)['"]/,
+      /"src":"([^"]+\.mp4[^"]*)"/
+    ];
+    
+    for (const pattern of videoPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        let videoUrl = match[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
+        if (videoUrl.includes('.mp4')) {
+          console.log('✅ Instagram video URL found');
+          return videoUrl;
+        }
+      }
     }
     
-    throw new Error('Could not extract Instagram video URL');
+    throw new Error('Could not extract Instagram video URL from HTML');
   } catch (error) {
-    // Альтернативный подход - парсинг HTML
-    try {
-      console.log('📷 Trying alternative Instagram extraction...');
-      
-      const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
-
-      const html = response.data;
-      
-      // Ищем видео URL в HTML
-      const videoMatch = html.match(/"video_url":"([^"]+)"/);
-      if (videoMatch) {
-        const videoUrl = videoMatch[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
-        console.log('✅ Instagram video URL extracted via HTML parsing');
-        return videoUrl;
-      }
-      
-      throw new Error('Could not find video in Instagram HTML');
-    } catch (altError) {
-      throw new Error(`Instagram extraction failed: ${error.message}`);
-    }
+    console.log('❌ Instagram extraction failed:', error.message);
+    throw new Error(`Instagram extraction failed: ${error.message}`);
   }
 };
 
@@ -920,7 +915,7 @@ exports.downloadExternalVideo = async (req, res) => {
       if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
       if (url.includes("tiktok.com")) return "tiktok";
       if (url.includes("instagram.com")) return "instagram";
-      if (url.includes("vk.com")) return "vk";
+      if (url.includes("vk.com") || url.includes("vkvideo.ru")) return "vk";
       return "unknown";
     };
 
@@ -1044,7 +1039,7 @@ exports.createExternalVideoPost = async (req, res) => {
       if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
       if (url.includes("tiktok.com")) return "tiktok";
       if (url.includes("instagram.com")) return "instagram";
-      if (url.includes("vk.com")) return "vk";
+      if (url.includes("vk.com") || url.includes("vkvideo.ru")) return "vk";
       if (url.includes("twitter.com") || url.includes("x.com")) return "twitter";
       return null;
     };
@@ -1075,52 +1070,56 @@ exports.createExternalVideoPost = async (req, res) => {
         });
       }
 
-      const Post = require("../models/postModel");
+      // Возвращаем данные YouTube для создания поста во фронтенде (НЕ создаем пост автоматически)
+      const youtubeData = {
+        videoId: videoId,
+        embedUrl: `https://www.youtube.com/embed/${videoId}`,
+        thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        title: caption || "",
+        platform: "youtube",
+        originalUrl: url,
+        isExternalLink: true
+      };
 
-      newPost = new Post({
-        author: authorId,
-        caption: caption || "YouTube Video",
-        mediaType: "video",
-        youtubeUrl: url,
-        youtubeData: {
-          videoId: videoId,
-          embedUrl: `https://www.youtube.com/embed/${videoId}`,
-          thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-          title: caption || "YouTube Video",
-          platform: "youtube",
-          originalUrl: url
-        }
+      console.log("✅ Prepared YouTube iframe data");
+      // Для YouTube возвращаем данные
+      res.status(200).json({
+        success: true,
+        message: "YouTube video data prepared",
+        isExternalLink: true,
+        platform: "youtube",
+        videoData: youtubeData,
+        originalUrl: url,
+        thumbnailUrl: youtubeData.thumbnailUrl,
+        title: "",
+        note: "YouTube iframe video"
       });
-
-      console.log("✅ Created YouTube iframe post");
+      return;
     } else {
-      // Другие платформы как внешние ссылки
-      const Post = require("../models/postModel");
+      // Другие платформы как внешние ссылки - тоже не создаем пост автоматически
+      const platformData = {
+        platform: platform,
+        originalUrl: url,
+        note: `External ${platform} video content`,
+        title: "",
+        isExternalLink: true
+      };
 
-      newPost = new Post({
-        author: authorId,
-        caption: caption || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
-        mediaType: "video",
-        videoUrl: url,
-        youtubeData: {
-          platform: platform,
-          originalUrl: url,
-          note: `External ${platform} video content`,
-          title: caption || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`
-        }
+      console.log(`✅ Prepared ${platform} external link data`);
+      
+      res.status(200).json({
+        success: true,
+        message: `${platform} video data prepared`,
+        isExternalLink: true,
+        platform: platform,
+        videoData: platformData,
+        originalUrl: url,
+        thumbnailUrl: `https://via.placeholder.com/400x400/000000/FFFFFF?text=${platform.toUpperCase()}`,
+        title: "",
+        note: `External ${platform} video content`
       });
-
-      console.log(`✅ Created ${platform} external link post`);
+      return;
     }
-
-    await newPost.save();
-    await newPost.populate("author", "username avatar");
-
-    res.status(201).json({
-      success: true,
-      message: "Видео успешно добавлено",
-      post: newPost
-    });
 
   } catch (error) {
     console.error("Error creating external video post:", error);

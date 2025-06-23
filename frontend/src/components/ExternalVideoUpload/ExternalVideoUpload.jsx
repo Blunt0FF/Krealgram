@@ -31,7 +31,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
   const detectPlatform = (url) => {
     if (url.includes('tiktok.com') || url.includes('vm.tiktok.com')) return 'tiktok';
     if (url.includes('instagram.com')) return 'instagram';
-    if (url.includes('vk.com/video') || url.includes('vkvideo.ru')) return 'vk';
+    if (url.includes('vk.com') || url.includes('vkvideo.ru')) return 'vk';
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     return null;
   };
