@@ -7,9 +7,9 @@ const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 const axios = require('axios');
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
-const puppeteer = require('puppeteer');
+// const puppeteer = require('puppeteer'); // Отключаем puppeteer
 
-console.log('[VIDEO_DOWNLOADER] Using puppeteer + axios for real video downloads');
+console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -729,62 +729,149 @@ exports.testVideoUsers = async (req, res) => {
   }
 };
 
-// Функция для извлечения прямой ссылки на видео из TikTok
-const extractTikTokVideo = async (url) => {
-  let browser;
+// Функция для извлечения видео через API сервисы
+const extractVideoFromPlatform = async (url, platform) => {
+  console.log(`🔗 Extracting ${platform} video via API...`);
+  
   try {
-    console.log('🚀 Launching browser for TikTok extraction...');
-    
-    // Используем встроенный Chromium из puppeteer
-    console.log('🚀 Launching browser with built-in Chromium...');
-    
-    const launchOptions = {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding'
-      ]
-    };
-    
-    browser = await puppeteer.launch(launchOptions);
+    if (platform === 'tiktok') {
+      return await extractTikTokVideoAPI(url);
+    } else if (platform === 'instagram') {
+      return await extractInstagramVideoAPI(url);
+    } else if (platform === 'vk') {
+      return await extractVKVideoAPI(url);
+    } else {
+      throw new Error(`Unsupported platform: ${platform}`);
+    }
+  } catch (error) {
+    console.log(`❌ API extraction failed for ${platform}:`, error.message);
+    throw error;
+  }
+};
 
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+// TikTok API извлечение
+const extractTikTokVideoAPI = async (url) => {
+  try {
+    console.log('🎵 Extracting TikTok video via API...');
     
-    console.log('📱 Loading TikTok page...');
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    // Используем публичный API для TikTok
+    const apiUrl = 'https://tikwm.com/api/';
     
-    // Ждем загрузки видео элемента
-    await page.waitForSelector('video', { timeout: 10000 });
-    
-    // Извлекаем src видео
-    const videoSrc = await page.evaluate(() => {
-      const video = document.querySelector('video');
-      return video ? video.src : null;
+    const response = await axios.post(apiUrl, {
+      url: url,
+      hd: 1
+    }, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
     });
 
-    if (!videoSrc) {
-      throw new Error('Could not find video source');
+    if (response.data && response.data.code === 0 && response.data.data) {
+      const videoUrl = response.data.data.hdplay || response.data.data.play;
+      if (videoUrl) {
+        console.log('✅ TikTok video URL extracted via API');
+        return videoUrl;
+      }
     }
-
-    console.log('✅ Found video source:', videoSrc.substring(0, 100) + '...');
-    return videoSrc;
-
-  } finally {
-    if (browser) {
-      await browser.close();
+    
+    throw new Error('Could not extract TikTok video URL');
+  } catch (error) {
+    console.log('❌ TikTok API failed, trying alternative...');
+    
+    // Альтернативный API
+    try {
+      const altResponse = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=1`);
+      
+      if (altResponse.data && altResponse.data.code === 0 && altResponse.data.data) {
+        const videoUrl = altResponse.data.data.hdplay || altResponse.data.data.play;
+        if (videoUrl) {
+          console.log('✅ TikTok video URL extracted via alternative API');
+          return videoUrl;
+        }
+      }
+      
+      throw new Error('Alternative TikTok API also failed');
+    } catch (altError) {
+      throw new Error(`TikTok extraction failed: ${error.message}`);
     }
+  }
+};
+
+// Instagram API извлечение
+const extractInstagramVideoAPI = async (url) => {
+  try {
+    console.log('📷 Extracting Instagram video via API...');
+    
+    // Простой подход для Instagram - используем публичный API
+    const response = await axios.get(`https://api.snapinsta.app/v1/download?url=${encodeURIComponent(url)}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (response.data && response.data.data && response.data.data.video_url) {
+      console.log('✅ Instagram video URL extracted via API');
+      return response.data.data.video_url;
+    }
+    
+    throw new Error('Could not extract Instagram video URL');
+  } catch (error) {
+    // Альтернативный подход - парсинг HTML
+    try {
+      console.log('📷 Trying alternative Instagram extraction...');
+      
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      const html = response.data;
+      
+      // Ищем видео URL в HTML
+      const videoMatch = html.match(/"video_url":"([^"]+)"/);
+      if (videoMatch) {
+        const videoUrl = videoMatch[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
+        console.log('✅ Instagram video URL extracted via HTML parsing');
+        return videoUrl;
+      }
+      
+      throw new Error('Could not find video in Instagram HTML');
+    } catch (altError) {
+      throw new Error(`Instagram extraction failed: ${error.message}`);
+    }
+  }
+};
+
+// VK API извлечение
+const extractVKVideoAPI = async (url) => {
+  try {
+    console.log('🔵 Extracting VK video via API...');
+    
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    const html = response.data;
+    
+    // Ищем ссылки на видео в HTML
+    const videoUrlMatch = html.match(/"url720":"([^"]+)"|"url480":"([^"]+)"|"url360":"([^"]+)"/);
+    
+    if (videoUrlMatch) {
+      let videoUrl = videoUrlMatch[1] || videoUrlMatch[2] || videoUrlMatch[3];
+      // Декодируем URL
+      videoUrl = videoUrl.replace(/\\u0026/g, '&').replace(/\\/g, '');
+      
+      console.log('✅ VK video URL extracted');
+      return videoUrl;
+    }
+    
+    throw new Error('Could not extract VK video URL');
+  } catch (error) {
+    throw new Error(`VK extraction failed: ${error.message}`);
   }
 };
 
@@ -853,15 +940,7 @@ exports.downloadExternalVideo = async (req, res) => {
     let videoUrl;
     
     // Извлекаем прямую ссылку на видео в зависимости от платформы
-    if (platform === "tiktok") {
-      videoUrl = await extractTikTokVideo(url);
-    } else {
-      // Для других платформ пока возвращаем ошибку
-      return res.status(400).json({
-        success: false,
-        message: `${platform} download not implemented yet. Currently only TikTok is supported.`,
-      });
-    }
+    videoUrl = await extractVideoFromPlatform(url, platform);
 
     // Скачиваем видео файл
     const fileName = `video_${Date.now()}.mp4`;
