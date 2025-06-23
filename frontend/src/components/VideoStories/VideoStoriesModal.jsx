@@ -49,7 +49,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const [likesCount, setLikesCount] = useState(0);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(true);
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   
   // Swipe functionality
@@ -88,7 +88,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       setIsLiked(currentVideo.likes?.includes(currentUser._id) || false);
       setLikesCount(currentVideo.likesCount || currentVideo.likes?.length || 0);
       setComments(currentVideo.comments || []);
-      setShowComments(false);
+      setShowComments(true);
       setVideoLoading(true);
     }
   }, [currentVideo]);
