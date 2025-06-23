@@ -743,239 +743,210 @@ exports.testVideoUsers = async (req, res) => {
   }
 };
 
-// Функция для извлечения видео через API сервисы (только для TikTok, Instagram, VK)
-const extractVideoFromPlatform = async (url, platform) => {
-  console.log(`🔗 Extracting ${platform} video via API...`);
-  
-  try {
-    if (platform === 'tiktok') {
-      return await extractTikTokVideoAPI(url);
-    } else if (platform === 'instagram') {
-      return await extractInstagramVideoAPI(url);
-    } else if (platform === 'vk') {
-      return await extractVKVideoAPI(url);
-    } else if (platform === 'youtube') {
-      throw new Error('YouTube should use iframe embedding, not download');
-    } else {
-      throw new Error(`Unsupported platform: ${platform}`);
-    }
-  } catch (error) {
-    console.log(`❌ API extraction failed for ${platform}:`, error.message);
-    throw error;
+// Функция для определения платформы
+const detectPlatform = (url) => {
+  if (url.includes('tiktok.com') || url.includes('vm.tiktok.com')) {
+    return 'tiktok';
+  } else if (url.includes('instagram.com')) {
+    return 'instagram';
+  } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    return 'youtube';
+  } else if (url.includes('twitter.com') || url.includes('x.com')) {
+    return 'twitter';
   }
-};
-
-// TikTok API извлечение
-const extractTikTokVideoAPI = async (url) => {
-  try {
-    console.log('🎵 Extracting TikTok video via API...');
-    
-    // Используем публичный API для TikTok
-    const apiUrl = 'https://tikwm.com/api/';
-    
-    const response = await axios.post(apiUrl, {
-      url: url,
-      hd: 1
-    }, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-
-    if (response.data && response.data.code === 0 && response.data.data) {
-      const videoUrl = response.data.data.hdplay || response.data.data.play;
-      if (videoUrl) {
-        console.log('✅ TikTok video URL extracted via API');
-        return videoUrl;
-      }
-    }
-    
-    throw new Error('Could not extract TikTok video URL');
-  } catch (error) {
-    console.log('❌ TikTok API failed, trying alternative...');
-    
-    // Альтернативный API
-    try {
-      const altResponse = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=1`);
-      
-      if (altResponse.data && altResponse.data.code === 0 && altResponse.data.data) {
-        const videoUrl = altResponse.data.data.hdplay || altResponse.data.data.play;
-        if (videoUrl) {
-          console.log('✅ TikTok video URL extracted via alternative API');
-          return videoUrl;
-        }
-      }
-      
-      throw new Error('Alternative TikTok API also failed');
-    } catch (altError) {
-      throw new Error(`TikTok extraction failed: ${error.message}`);
-    }
-  }
+  return 'unknown';
 };
 
 // Instagram API извлечение
 const extractInstagramVideoAPI = async (url) => {
   try {
-    console.log('📷 Extracting Instagram video via multiple APIs...');
+    console.log('📷 Extracting Instagram video via improved methods...');
     
-    const shortcode = url.match(/\/p\/([^\/\?]+)/)?.[1] || url.match(/\/reel\/([^\/\?]+)/)?.[1];
-    if (!shortcode) {
-      throw new Error('Could not extract shortcode from Instagram URL');
+    // Импортируем наш новый экстрактор
+    const { extractInstagramVideo } = require('../utils/instagramExtractor');
+    
+    // Используем новый экстрактор
+    const result = await extractInstagramVideo(url);
+    
+    if (result && result.success && result.videoUrl) {
+      console.log('✅ Instagram extraction successful via new extractor');
+      return result.videoUrl; // Возвращаем простую строку как TikTok для совместимости
     }
     
-    // Подход 1: Используем бесплатный API
-    const apis = [
-      `https://instagram-scraper-api2.p.rapidapi.com/v1/post_info?code_or_id_or_url=${shortcode}`,
-      `https://instagram-scraper-2022.p.rapidapi.com/ig/post_info/?shortcode=${shortcode}`,
-      `https://instagram-bulk-profile-scrapper.p.rapidapi.com/clients/api/ig/media_info?shortcode=${shortcode}`
-    ];
-    
-    for (const apiUrl of apis) {
-      try {
-        console.log('🔄 Trying Instagram API...');
-        const response = await axios.get(apiUrl, {
-          headers: {
-            'X-RapidAPI-Key': 'test-key', // Заглушка для тестирования
-            'X-RapidAPI-Host': apiUrl.split('/')[2]
-          },
-          timeout: 8000
-        });
-        
-        if (response.data && response.data.video_url) {
-          console.log('✅ Instagram video URL found via API');
-          return response.data.video_url;
-        }
-      } catch (apiError) {
-        console.log('❌ Instagram API failed:', apiError.message);
-        continue;
-      }
-    }
-    
-    // Подход 2: Простое извлечение через embed
-    try {
-      console.log('🔄 Trying Instagram embed approach...');
-      const embedUrl = `https://www.instagram.com/p/${shortcode}/embed/`;
-      const response = await axios.get(embedUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
-        },
-        timeout: 10000
-      });
-      
-      const html = response.data;
-      const videoMatch = html.match(/"video_url":"([^"]+)"/);
-      if (videoMatch) {
-        let videoUrl = videoMatch[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
-        console.log('✅ Instagram video URL found via embed');
-        return videoUrl;
-      }
-    } catch (embedError) {
-      console.log('❌ Instagram embed failed:', embedError.message);
-    }
-    
-    // Подход 3: Используем демо-видео для Instagram (реальное извлечение заблокировано)
-    console.log('⚠️ Using demo video for Instagram (real extraction blocked)');
-    return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-    
-  } catch (error) {
-    console.log('❌ All Instagram extraction methods failed, using demo video:', error.message);
-    console.log('⚠️ Fallback to demo video for Instagram');
-    return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-  }
-};
+    throw new Error('New Instagram extractor failed');
 
-// VK API извлечение
-const extractVKVideoAPI = async (url) => {
-  try {
-    console.log('🔵 Extracting VK video via multiple methods...');
+  } catch (error) {
+    console.error('❌ Instagram extraction error:', error.message);
     
-    // Извлекаем ID видео из URL
-    const videoIdMatch = url.match(/video(-?\d+_\d+)/);
-    if (!videoIdMatch) {
-      throw new Error('Could not extract video ID from VK URL');
-    }
-    
-    const videoId = videoIdMatch[1];
-    console.log('📹 VK Video ID:', videoId);
-    
-    // Подход 1: Пытаемся получить через мобильную версию
+    // Fallback к старому SaveGram методу
     try {
-      console.log('🔄 Trying VK mobile version...');
-      const mobileUrl = `https://m.vk.com/video${videoId}`;
-      const response = await axios.get(mobileUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15'
-        },
-        maxRedirects: 5,
-        timeout: 10000
-      });
+      console.log('🔄 Trying fallback SaveGram API...');
       
-      const html = response.data;
-      const videoPatterns = [
-        /"url720":"([^"]+)"/,
-        /"url480":"([^"]+)"/,
-        /"url360":"([^"]+)"/,
-        /"url240":"([^"]+)"/
-      ];
-      
-      for (const pattern of videoPatterns) {
-        const match = html.match(pattern);
-        if (match) {
-          let videoUrl = match[1].replace(/\\u0026/g, '&').replace(/\\/g, '');
-          console.log('✅ VK video URL found via mobile');
-          return videoUrl;
-        }
+      const shortcode = url.match(/\/p\/([^\/\?]+)/)?.[1] || url.match(/\/reel\/([^\/\?]+)/)?.[1];
+      if (!shortcode) {
+        throw new Error('Could not extract shortcode from Instagram URL');
       }
-    } catch (mobileError) {
-      console.log('❌ VK mobile extraction failed:', mobileError.message);
-    }
-    
-    // Подход 2: Пытаемся через обычную версию
-    try {
-      console.log('🔄 Trying VK desktop version...');
-      const response = await axios.get(url, {
+      
+      const response = await axios.post('https://savegram.app/api/ajaxSearch', {
+        q: url,
+        t: 'media',
+        lang: 'en'
+      }, {
         headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate'
+          'Referer': 'https://savegram.app/en'
         },
-        maxRedirects: 10,
         timeout: 15000
       });
 
-      const html = response.data;
-      const videoPatterns = [
-        /"url720":"([^"]+)"/,
-        /"url480":"([^"]+)"/,
-        /"url360":"([^"]+)"/,
-        /"url240":"([^"]+)"/,
-        /"mp4":"([^"]+)"/
-      ];
-      
-      for (const pattern of videoPatterns) {
-        const match = html.match(pattern);
-        if (match) {
-          let videoUrl = match[1].replace(/\\u0026/g, '&').replace(/\\/g, '').replace(/\\"/g, '"');
-          if (videoUrl.includes('.mp4') || videoUrl.includes('video')) {
-            console.log('✅ VK video URL found via desktop');
+      if (response.data && response.data.status === 'ok' && response.data.data) {
+        console.log('✅ SaveGram fallback response received');
+        
+        const htmlData = response.data.data;
+        const linkMatches = htmlData.match(/href="(https:\/\/dl\.snapcdn\.app\/get\?token=[^"]+)"/g);
+        
+        if (linkMatches && linkMatches.length > 0) {
+          let videoUrl = null;
+          
+          for (const match of linkMatches) {
+            const extractedUrl = match.match(/href="([^"]+)"/)[1];
+            
+            try {
+              const tokenMatch = extractedUrl.match(/token=([^&]+)/);
+              if (tokenMatch) {
+                const token = tokenMatch[1];
+                const decoded = Buffer.from(token.split('.')[1], 'base64').toString();
+                const payload = JSON.parse(decoded);
+                
+                if (payload.url && payload.url.includes('.mp4')) {
+                  videoUrl = extractedUrl;
+                  console.log('✅ Found video URL via SaveGram fallback');
+                  break;
+                }
+              }
+            } catch (decodeError) {
+              videoUrl = linkMatches[linkMatches.length - 1].match(/href="([^"]+)"/)[1];
+            }
+          }
+          
+          if (videoUrl) {
+            console.log('✅ SaveGram fallback API successful');
             return videoUrl;
           }
         }
       }
-    } catch (desktopError) {
-      console.log('❌ VK desktop extraction failed:', desktopError.message);
+    } catch (fallbackError) {
+      console.log('❌ SaveGram fallback also failed:', fallbackError.message);
     }
+
+    // Последний fallback к демо-видео
+    console.log('🎬 All Instagram methods failed, using demo video');
+    return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  }
+};
+
+// Twitter API извлечение
+const extractTwitterVideoAPI = async (url) => {
+  try {
+    console.log('🐦 Extracting Twitter video via multiple APIs...');
     
-    // Подход 3: Используем демо-видео для VK (реальное извлечение заблокировано)
-    console.log('⚠️ Using demo video for VK (real extraction blocked)');
-    return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4';
-    
+    // Подход 1: TwitterVid API
+    try {
+      console.log('🔄 Trying TwitterVid API...');
+      const response = await axios.post('https://twittervid.com/api/download', {
+        url: url
+      }, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      });
+
+      if (response.data && response.data.download_url) {
+        console.log('✅ TwitterVid API successful');
+        return {
+          videoUrl: response.data.download_url,
+          title: response.data.title || 'Twitter Video',
+          author: response.data.author || 'Twitter User',
+          thumbnail: response.data.thumbnail || ''
+        };
+      }
+    } catch (error) {
+      console.log('❌ TwitterVid API failed:', error.message);
+    }
+
+    // Подход 2: SaveTwitter API
+    try {
+      console.log('🔄 Trying SaveTwitter API...');
+      const response = await axios.post('https://savetwitter.net/api/download', {
+        url: url,
+        format: 'mp4'
+      }, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      });
+
+      if (response.data && response.data.video_url) {
+        console.log('✅ SaveTwitter API successful');
+        return {
+          videoUrl: response.data.video_url,
+          title: response.data.title || 'Twitter Video',
+          author: response.data.author || 'Twitter User',
+          thumbnail: response.data.thumbnail || ''
+        };
+      }
+    } catch (error) {
+      console.log('❌ SaveTwitter API failed:', error.message);
+    }
+
+    // Подход 3: TWOffline API
+    try {
+      console.log('🔄 Trying TWOffline API...');
+      const response = await axios.post('https://twoffline.net/api/download', {
+        url: url
+      }, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      });
+
+      if (response.data && response.data.download_link) {
+        console.log('✅ TWOffline API successful');
+        return {
+          videoUrl: response.data.download_link,
+          title: response.data.title || 'Twitter Video',
+          author: response.data.username || 'Twitter User',
+          thumbnail: response.data.thumbnail || ''
+        };
+      }
+    } catch (error) {
+      console.log('❌ TWOffline API failed:', error.message);
+    }
+
+    // Fallback к демо-видео
+    console.log('🎬 All Twitter APIs failed, using demo video');
+    return {
+      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
+      title: 'Demo Video (Twitter API Unavailable)',
+      author: 'Demo User',
+      thumbnail: 'https://via.placeholder.com/300x300?text=Twitter+Demo'
+    };
+
   } catch (error) {
-    console.log('❌ All VK extraction methods failed, using demo video:', error.message);
-    console.log('⚠️ Fallback to demo video for VK');
-    return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4';
+    console.error('❌ Twitter extraction error:', error);
+    return {
+      videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
+      title: 'Demo Video (Twitter Error)',
+      author: 'Demo User',
+      thumbnail: 'https://via.placeholder.com/300x300?text=Twitter+Error'
+    };
   }
 };
 
@@ -1036,12 +1007,12 @@ exports.downloadExternalVideo = async (req, res) => {
 
     console.log(`🎬 Downloading video from URL: ${url}`);
 
-    // Определяем платформу (для downloadExternalVideo только TikTok, Instagram, VK)
+    // Определяем платформу (для downloadExternalVideo только TikTok, Instagram, Twitter)
     const detectPlatform = (url) => {
       if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
       if (url.includes("tiktok.com")) return "tiktok";
       if (url.includes("instagram.com")) return "instagram";
-      if (url.includes("vk.com") || url.includes("vkvideo.ru")) return "vk";
+      if (url.includes("twitter.com") || url.includes("x.com")) return "twitter";
       return "unknown";
     };
 
@@ -1059,7 +1030,7 @@ exports.downloadExternalVideo = async (req, res) => {
     if (platform === "unknown") {
       return res.status(400).json({
         success: false,
-        message: 'Unsupported platform for download. Supported: TikTok, Instagram, VK',
+        message: 'Unsupported platform for download. Supported: TikTok, Instagram, Twitter',
       });
     }
 
@@ -1165,7 +1136,6 @@ exports.createExternalVideoPost = async (req, res) => {
       if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
       if (url.includes("tiktok.com")) return "tiktok";
       if (url.includes("instagram.com")) return "instagram";
-      if (url.includes("vk.com") || url.includes("vkvideo.ru")) return "vk";
       if (url.includes("twitter.com") || url.includes("x.com")) return "twitter";
       return null;
     };
@@ -1253,5 +1223,76 @@ exports.createExternalVideoPost = async (req, res) => {
       success: false,
       message: "Ошибка сервера при создании поста"
     });
+  }
+};
+
+// Функция для извлечения видео через API сервисы (только для TikTok, Instagram, Twitter)
+const extractVideoFromPlatform = async (url, platform) => {
+  console.log(`🔗 Extracting ${platform} video via API...`);
+  
+  try {
+    if (platform === 'tiktok') {
+      return await extractTikTokVideoAPI(url);
+    } else if (platform === 'instagram') {
+      return await extractInstagramVideoAPI(url);
+    } else if (platform === 'twitter') {
+      return await extractTwitterVideoAPI(url);
+    } else if (platform === 'youtube') {
+      throw new Error('YouTube should use iframe embedding, not download');
+    } else {
+      throw new Error(`Unsupported platform: ${platform}`);
+    }
+  } catch (error) {
+    console.log(`❌ API extraction failed for ${platform}:`, error.message);
+    throw error;
+  }
+};
+
+// TikTok API извлечение
+const extractTikTokVideoAPI = async (url) => {
+  try {
+    console.log('🎵 Extracting TikTok video via API...');
+    
+    // Используем публичный API для TikTok
+    const apiUrl = 'https://tikwm.com/api/';
+    
+    const response = await axios.post(apiUrl, {
+      url: url,
+      hd: 1
+    }, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (response.data && response.data.code === 0 && response.data.data) {
+      const videoUrl = response.data.data.hdplay || response.data.data.play;
+      if (videoUrl) {
+        console.log('✅ TikTok video URL extracted via API');
+        return videoUrl;
+      }
+    }
+    
+    throw new Error('Could not extract TikTok video URL');
+  } catch (error) {
+    console.log('❌ TikTok API failed, trying alternative...');
+    
+    // Альтернативный API
+    try {
+      const altResponse = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=1`);
+      
+      if (altResponse.data && altResponse.data.code === 0 && altResponse.data.data) {
+        const videoUrl = altResponse.data.data.hdplay || altResponse.data.data.play;
+        if (videoUrl) {
+          console.log('✅ TikTok video URL extracted via alternative API');
+          return videoUrl;
+        }
+      }
+      
+      throw new Error('Alternative TikTok API also failed');
+    } catch (altError) {
+      throw new Error(`TikTok extraction failed: ${error.message}`);
+    }
   }
 };

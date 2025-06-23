@@ -24,14 +24,12 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
   const supportedPlatforms = [
     'TikTok',
     'Instagram', 
-    'VK',
     'YouTube'
   ];
 
   const detectPlatform = (url) => {
     if (url.includes('tiktok.com') || url.includes('vm.tiktok.com')) return 'tiktok';
     if (url.includes('instagram.com')) return 'instagram';
-    if (url.includes('vk.com') || url.includes('vkvideo.ru')) return 'vk';
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     return null;
   };
@@ -59,7 +57,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
 
     const detectedPlatform = detectPlatform(url);
     if (!detectedPlatform) {
-      setError('Unsupported platform. Supported: TikTok, Instagram, VK, YouTube');
+      setError('Unsupported platform. Supported: TikTok, Instagram, YouTube');
       return;
     }
 
@@ -81,7 +79,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
           caption: '' // Пустое описание, пользователь сможет добавить позже
         };
       } else {
-        // TikTok, Instagram, VK - реальное скачивание
+        // TikTok, Instagram, - реальное скачивание
         endpoint = 'https://krealgram-backend.onrender.com/api/posts/external-video/download';
         requestBody = {
           url: url.trim()

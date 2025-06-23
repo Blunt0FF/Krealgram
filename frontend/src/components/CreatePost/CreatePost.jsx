@@ -79,9 +79,6 @@ const CreatePost = () => {
       setPreviewUrl(videoData.thumbnailUrl);
     } else if (videoData.platform === 'youtube' && videoData.videoId) {
       setPreviewUrl(`https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`);
-    } else if (videoData.platform === 'tiktok') {
-      // For TikTok create simple preview with logo
-      setPreviewUrl(`https://via.placeholder.com/300x400/000000/FFFFFF?text=🎵+TikTok+Video`);
     } else {
       // For other platforms
       setPreviewUrl(`https://via.placeholder.com/300x300/000000/FFFFFF?text=${videoData.platform?.toUpperCase()}+Video`);
@@ -217,9 +214,9 @@ const CreatePost = () => {
             }}
           >
             <div className="platform-icons" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '18px' }}>
-              📱📺🐦
+              🎥🎬📺
             </div>
-            <span className="platform-text">TikTok/Instagram/VK/YouTube/Twitter</span>
+            <span className="platform-text">TikTok/Instagram/YouTube</span>
           </button>
         </div>
 
@@ -263,46 +260,46 @@ const CreatePost = () => {
                   overflow: 'hidden',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
                 }}>
-                  {/* Thumbnail image */}
-                  {parsedVideoData.thumbnailUrl && (
-                    <div style={{
-                      width: '100%',
-                      height: '200px',
-                      backgroundImage: `url(${parsedVideoData.thumbnailUrl})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      position: 'relative'
-                    }}>
-                      <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        fontSize: '48px',
-                        color: 'white',
-                        textShadow: '0 2px 8px rgba(0,0,0,0.7)'
-                      }}>
-                        {parsedVideoData.platform === 'tiktok' ? '🎵' :
-                         parsedVideoData.platform === 'youtube' ? '▶️' :
-                         parsedVideoData.platform === 'instagram' ? '📱' :
-                         parsedVideoData.platform === 'vk' ? '🎬' : '🎥'}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Video info */}
                   <div style={{
-                    padding: '16px',
-                    color: 'white',
-                    textAlign: 'center'
+                    padding: '20px',
+                    textAlign: 'center',
+                    color: 'white'
                   }}>
-                    <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
+                    <div style={{
+                      fontSize: '24px',
+                      marginBottom: '12px'
+                    }}>
+                      {parsedVideoData.platform === 'youtube' ? '📺' : '🎥'}
+                      {' '}
                       {parsedVideoData.platform?.toUpperCase()} Video
                     </div>
-                    <div style={{ fontSize: '12px', opacity: '0.8', wordBreak: 'break-all' }}>
-                      {parsedVideoData.originalUrl?.substring(0, 60)}...
+                    {parsedVideoData.title && (
+                      <div style={{
+                        fontSize: '16px',
+                        marginBottom: '12px',
+                        opacity: 0.9
+                      }}>
+                        {parsedVideoData.title}
+                      </div>
+                    )}
+                    <div style={{
+                      fontSize: '14px',
+                      opacity: 0.7
+                    }}>
+                      {parsedVideoData.description || 'No description available'}
                     </div>
                   </div>
+                  {previewUrl && (
+                    <img 
+                      src={previewUrl} 
+                      alt="Video preview" 
+                      style={{ 
+                        width: '100%', 
+                        height: 'auto',
+                        display: 'block'
+                      }} 
+                    />
+                  )}
                 </div>
               ) : mediaType === 'video' ? (
                 <video 

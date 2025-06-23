@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getImageUrl, getVideoUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import ShareModal from '../Post/ShareModal';
@@ -320,21 +320,28 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       );
     }
 
-    // Определяем источник видео - ИСПРАВЛЕННАЯ ЛОГИКА
+    // Определяем источник видео - ПРАВИЛЬНАЯ ЛОГИКА ДЛЯ ВИДЕО
     let videoSrc = null;
     
-    // Приоритет: videoUrl > image (для загруженных видео) > imageUrl
-    if (currentVideo?.videoUrl) {
-      videoSrc = currentVideo.videoUrl;
+    // Простой приоритет: imageUrl > image
+    if (currentVideo?.imageUrl) {
+      // Для видео используем getVideoUrl если это не изображение
+      if (currentVideo.mediaType === 'video' || currentVideo.imageUrl.includes('.mp4') || currentVideo.imageUrl.includes('video/')) {
+        videoSrc = getVideoUrl(currentVideo.imageUrl);
+      } else {
+        videoSrc = getImageUrl(currentVideo.imageUrl, { mimeType: currentVideo.mimeType });
+      }
     } else if (currentVideo?.image) {
-      // Для загруженных видео файлов - они хранятся в поле image
       if (currentVideo.image.startsWith('http')) {
         videoSrc = currentVideo.image;
       } else {
-        videoSrc = `${API_URL}/uploads/${currentVideo.image}`;
+        // Для видео используем getVideoUrl если это не изображение
+        if (currentVideo.mediaType === 'video' || currentVideo.image.includes('.mp4') || currentVideo.image.includes('video/')) {
+          videoSrc = getVideoUrl(`${API_URL}/uploads/${currentVideo.image}`);
+        } else {
+          videoSrc = getImageUrl(`${API_URL}/uploads/${currentVideo.image}`, { mimeType: currentVideo.mimeType });
+        }
       }
-    } else if (currentVideo?.imageUrl) {
-      videoSrc = currentVideo.imageUrl;
     }
     
     console.log('🎥 Video source determined:', { 
@@ -342,7 +349,10 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       originalImage: currentVideo?.image,
       videoUrl: currentVideo?.videoUrl,
       imageUrl: currentVideo?.imageUrl,
-      mediaType: currentVideo?.mediaType 
+      mediaType: currentVideo?.mediaType,
+      videoData: currentVideo?.videoData,
+      hasVideoData: !!currentVideo?.videoData,
+      platform: currentVideo?.videoData?.platform
     });
     
     if (videoSrc) {
@@ -382,19 +392,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           onError={(e) => {
             console.error('Video error:', e.target.error);
             console.log('Failed video src:', e.target.src);
-            console.log('Error details:', {
-              error: e.target.error,
-              networkState: e.target.networkState,
-              readyState: e.target.readyState,
-              currentSrc: e.target.currentSrc
-            });
-            
-            // Попробуем альтернативный путь
-            if (!e.target.src.includes('http://localhost:5000')) {
-              const altSrc = `http://localhost:5000/uploads/${currentVideo?.image}`;
-              console.log('Trying alternative src:', altSrc);
-              e.target.src = altSrc;
-            }
           }}
           onPause={(e) => {
             if (videoManager.getCurrentVideo() === e.target) {
@@ -435,7 +432,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           <div style={{ marginTop: '20px' }}>
             <p style={{ color: '#a8a8a8', fontSize: '12px' }}>Trying to display as image:</p>
             <img 
-              src={currentVideo.image.startsWith('http') ? currentVideo.image : `${API_URL}/uploads/${currentVideo.image}`}
+              src={currentVideo.image.startsWith('http') ? currentVideo.image : getImageUrl(`${API_URL}/uploads/${currentVideo.image}`, { mimeType: currentVideo.mimeType })}
               alt="Debug preview"
               style={{ maxWidth: '200px', maxHeight: '200px', border: '1px solid #333' }}
               onError={(e) => {

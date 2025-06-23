@@ -242,7 +242,7 @@ export const isImageFile = (file) => {
 // Получение размера файла в КБ
 export const getFileSizeKB = (dataUrl) => {
   return Math.round(dataUrl.length / 1024);
-}; 
+};
 
 export const getImageUrl = (imagePath, options = {}) => {
   if (!imagePath) return null;
@@ -305,4 +305,28 @@ export const getAvatarUrl = (avatarPath) => {
   }
   
   return imageUrl;
+};
+
+// Специальная функция для видео URLs
+export const getVideoUrl = (videoPath, options = {}) => {
+  if (!videoPath) return null;
+  
+  // Если это уже полный URL (начинается с http/https), возвращаем как есть
+  if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
+    return videoPath;
+  }
+  
+  // Если это base64 данные, возвращаем как есть
+  if (videoPath.startsWith('data:')) {
+    return videoPath;
+  }
+  
+  // Если путь начинается с krealgram/, значит это путь к Cloudinary
+  if (videoPath.startsWith('krealgram/')) {
+    let cloudinaryUrl = `https://res.cloudinary.com/dibcwdwsd/video/upload/`;
+    return cloudinaryUrl + videoPath;
+  }
+  
+  // Для остальных файлов используем локальный путь
+  return `${API_URL}/uploads/${videoPath}`;
 }; 

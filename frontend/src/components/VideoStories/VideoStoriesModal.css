@@ -178,16 +178,16 @@
 /* Стили для планшетов и средних экранов */
 @media (min-width: 769px) and (max-width: 1199px) {
   .stories-video-container {
-    padding: 80px 20px 180px 20px; /* Увеличил отступ снизу для интерфейса */
+    padding-top: 1px;
   }
   
   .stories-video {
     max-width: 700px;
-    max-height: 65vh;
+    max-height: 70vh;
 
     /* Исправление для Safari с использованием dvh */
     @supports (height: 1dvh) {
-      max-height: 65dvh;
+      max-height: 70dvh;
     }
   }
   
