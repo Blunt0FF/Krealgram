@@ -7,5 +7,5 @@ ffmpeg
 # Для sharp (обработка изображений)
 libvips
 
-# Для Puppeteer - Google Chrome
-google-chrome-stable
+# Для Puppeteer
+chromium-browser

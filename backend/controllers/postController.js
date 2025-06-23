@@ -734,7 +734,26 @@ const extractTikTokVideo = async (url) => {
   let browser;
   try {
     console.log('🚀 Launching browser for TikTok extraction...');
-    browser = await puppeteer.launch({
+    
+    // Попробуем разные пути к Chrome
+    const possiblePaths = [
+      process.env.PUPPETEER_EXECUTABLE_PATH,
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium'
+    ];
+    
+    let executablePath = null;
+    for (const path of possiblePaths) {
+      if (path && require('fs').existsSync(path)) {
+        executablePath = path;
+        console.log(`✅ Found Chrome at: ${path}`);
+        break;
+      }
+    }
+    
+    const launchOptions = {
       headless: true,
       args: [
         '--no-sandbox',
@@ -747,10 +766,14 @@ const extractTikTokVideo = async (url) => {
         '--disable-gpu',
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor'
-      ],
-      // Для Render используем системный Chrome
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable'
-    });
+      ]
+    };
+    
+    if (executablePath) {
+      launchOptions.executablePath = executablePath;
+    }
+    
+    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');

@@ -1,5 +1,5 @@
 .external-video-upload-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   width: 100%;
@@ -8,8 +8,9 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 9999;
   padding: 20px;
+  box-sizing: border-box;
 }
 
 .external-video-upload-modal {
@@ -20,6 +21,8 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  margin: auto;
+  position: relative;
 }
 
 .external-video-upload-header {
@@ -73,6 +76,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+      justify-content: center;
+
 }
 
 .platform-item {

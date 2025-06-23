@@ -7,6 +7,20 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
   const [error, setError] = useState('');
   const [platform, setPlatform] = useState('');
 
+  // Блокировка скролла при открытой модалке
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    // Очистка при размонтировании
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   const supportedPlatforms = [
     'TikTok',
     'Instagram', 
@@ -81,10 +95,17 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
     }
   };
 
+  // Закрытие по клику на фон
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="external-video-upload-overlay">
+    <div className="external-video-upload-overlay" onClick={handleOverlayClick}>
       <div className="external-video-upload-modal">
         <div className="external-video-upload-header">
           <h3>Import video from external platform</h3>
