@@ -4,11 +4,9 @@ services:
     env: node
     plan: free
     region: frankfurt
-    buildCommand: "chmod +x install.sh && ./install.sh && cd backend && npm install"
+    buildCommand: "cd backend && npm install"
     startCommand: "cd backend && node index.js"
     envVars:
       - fromGroup: Krealgram
-      - key: CHROME_BIN
-        value: /usr/bin/google-chrome-stable
       - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: true
+        value: false

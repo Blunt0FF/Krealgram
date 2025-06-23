@@ -7,7 +7,7 @@ const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 const axios = require('axios');
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 
 console.log('[VIDEO_DOWNLOADER] Using puppeteer + axios for real video downloads');
 
@@ -735,89 +735,10 @@ const extractTikTokVideo = async (url) => {
   try {
     console.log('🚀 Launching browser for TikTok extraction...');
     
-    // Расширенный поиск браузера для Render
-    console.log('🔍 Searching for browser...');
-    
-    const possiblePaths = [
-      // Переменные окружения
-      process.env.PUPPETEER_EXECUTABLE_PATH,
-      process.env.CHROME_BIN,
-      process.env.CHROMIUM_PATH,
-      process.env.GOOGLE_CHROME_BIN,
-      
-      // Основные пути для Ubuntu/Render
-      '/usr/bin/chromium-browser',
-      '/usr/bin/chromium',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/google-chrome',
-      
-      // Дополнительные пути
-      '/snap/bin/chromium',
-      '/opt/google/chrome/chrome',
-      '/opt/google/chrome/google-chrome',
-      '/usr/local/bin/chromium',
-      '/usr/local/bin/chromium-browser',
-      '/usr/local/bin/google-chrome',
-      '/usr/lib/chromium-browser/chromium-browser',
-      '/usr/lib/chromium/chromium'
-    ].filter(Boolean);
-    
-    let executablePath = null;
-    
-    // Поиск по путям
-    for (const path of possiblePaths) {
-      if (path && require('fs').existsSync(path)) {
-        executablePath = path;
-        console.log(`✅ Found browser at: ${path}`);
-        break;
-      } else if (path) {
-        console.log(`❌ Not found: ${path}`);
-      }
-    }
-    
-    // Если не найден, пытаемся найти через which команду
-    if (!executablePath) {
-      const { execSync } = require('child_process');
-      const commands = ['chromium-browser', 'chromium', 'google-chrome-stable', 'google-chrome'];
-      
-      for (const cmd of commands) {
-        try {
-          const result = execSync(`which ${cmd}`, { encoding: 'utf8' }).trim();
-          if (result && require('fs').existsSync(result)) {
-            executablePath = result;
-            console.log(`✅ Found browser via 'which ${cmd}': ${result}`);
-            break;
-          }
-        } catch (e) {
-          console.log(`❌ 'which ${cmd}' failed`);
-        }
-      }
-    }
-    
-    if (!executablePath) {
-      // Выводим подробную информацию для отладки
-      console.log('🔍 Debug info:');
-      console.log('Environment variables:');
-      console.log('- PUPPETEER_EXECUTABLE_PATH:', process.env.PUPPETEER_EXECUTABLE_PATH);
-      console.log('- CHROME_BIN:', process.env.CHROME_BIN);
-      console.log('- CHROMIUM_PATH:', process.env.CHROMIUM_PATH);
-      console.log('- GOOGLE_CHROME_BIN:', process.env.GOOGLE_CHROME_BIN);
-      
-      // Проверяем содержимое /usr/bin/
-      try {
-        const { execSync } = require('child_process');
-        const binContents = execSync('ls -la /usr/bin/ | grep -i chrom', { encoding: 'utf8' });
-        console.log('Chrome/Chromium files in /usr/bin/:');
-        console.log(binContents);
-      } catch (e) {
-        console.log('Could not list /usr/bin/ contents:', e.message);
-      }
-      
-      throw new Error('No browser found. Please install chromium-browser or google-chrome');
-    }
+    // Используем встроенный Chromium из puppeteer
+    console.log('🚀 Launching browser with built-in Chromium...');
     
     const launchOptions = {
-      executablePath: executablePath,
       headless: true,
       args: [
         '--no-sandbox',
