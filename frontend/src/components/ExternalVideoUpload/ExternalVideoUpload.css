@@ -262,9 +262,9 @@
     flex-direction: column-reverse;
   }
 
-  .cancel-btn,
+  /* .cancel-btn,
   .submit-btn {
     width: 100%;
     justify-content: center;
-  }
+  } */
 } 
