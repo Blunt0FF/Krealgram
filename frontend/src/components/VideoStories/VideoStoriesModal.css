@@ -274,7 +274,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 40px);
-  max-width: 600px;
+  max-width: 900px;
   z-index: 10000;
   color: white;
 }

@@ -242,7 +242,7 @@ export const isImageFile = (file) => {
 // Получение размера файла в КБ
 export const getFileSizeKB = (dataUrl) => {
   return Math.round(dataUrl.length / 1024);
-};
+}; 
 
 export const getImageUrl = (imagePath, options = {}) => {
   if (!imagePath) return null;

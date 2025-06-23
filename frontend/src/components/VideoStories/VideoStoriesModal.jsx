@@ -285,8 +285,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     setIsDragging(false);
   };
 
-
-
   const renderVideo = () => {
     if (!currentVideo) return null;
 
@@ -299,50 +297,29 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       mediaType: currentVideo?.mediaType
     });
 
-    // YouTube видео
-    if (currentVideo?.youtubeData) {
-      return (
-        <iframe
-          src={currentVideo.youtubeData.embedUrl}
-          className="stories-video"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          loading="eager"
-          style={{ 
-            display: 'block',
-            backgroundColor: '#000',
-            border: 'none'
-          }}
-          onLoad={() => console.log('Stories YouTube iframe loaded')}
-          onError={(e) => console.error('Stories YouTube iframe error:', e)}
-        />
-      );
-    }
-
     // Определяем источник видео - ПРАВИЛЬНАЯ ЛОГИКА ДЛЯ ВИДЕО
     let videoSrc = null;
     
-    // Простой приоритет: imageUrl > image
-    if (currentVideo?.imageUrl) {
-      // Для видео используем getVideoUrl если это не изображение
-      if (currentVideo.mediaType === 'video' || currentVideo.imageUrl.includes('.mp4') || currentVideo.imageUrl.includes('video/')) {
-        videoSrc = getVideoUrl(currentVideo.imageUrl);
-      } else {
-        videoSrc = getImageUrl(currentVideo.imageUrl, { mimeType: currentVideo.mimeType });
-      }
-    } else if (currentVideo?.image) {
-      if (currentVideo.image.startsWith('http')) {
-        videoSrc = currentVideo.image;
-      } else {
-        // Для видео используем getVideoUrl если это не изображение
-        if (currentVideo.mediaType === 'video' || currentVideo.image.includes('.mp4') || currentVideo.image.includes('video/')) {
-          videoSrc = getVideoUrl(`${API_URL}/uploads/${currentVideo.image}`);
-        } else {
-          videoSrc = getImageUrl(`${API_URL}/uploads/${currentVideo.image}`, { mimeType: currentVideo.mimeType });
-        }
-      }
+    // Для YouTube видео используем embedUrl
+    if (currentVideo?.youtubeData?.videoId) {
+      return (
+        <iframe
+          key={currentVideo.youtubeData.videoId}
+          src={`https://www.youtube.com/embed/${currentVideo.youtubeData.videoId}?autoplay=1`}
+          className="stories-video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          style={{
+            width: '100%',
+            height: '100%',
+            border: 'none'
+          }}
+        />
+      );
     }
+    
+    // Для обычных видео используем videoUrl или image
+    videoSrc = currentVideo?.videoUrl || currentVideo?.image;
     
     console.log('🎥 Video source determined:', { 
       videoSrc, 
@@ -358,6 +335,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     if (videoSrc) {
       return (
         <video
+          key={videoSrc}
           src={videoSrc}
           className="stories-video"
           controls={true}
@@ -372,7 +350,10 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           preload="auto"
           style={{
             display: 'block',
-            backgroundColor: '#000'
+            backgroundColor: '#000',
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain'
           }}
           onPlay={(e) => videoManager.setCurrentVideo(e.target)}
           onLoadStart={() => console.log('Video loading started')}
