@@ -973,33 +973,9 @@ exports.downloadExternalVideo = async (req, res) => {
 
     console.log(`🚀 Video uploaded to Cloudinary: ${cloudinaryResult.secure_url}`);
 
-    // Создаем пост с загруженным видео
-    const Post = require("../models/postModel");
-    const authorId = req.user._id;
+    console.log(`✅ Video downloaded and uploaded to Cloudinary successfully`);
 
-    const newPost = new Post({
-      author: authorId,
-      caption: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
-      mediaType: "video",
-      image: cloudinaryResult.secure_url, // Cloudinary URL видео
-      videoUrl: cloudinaryResult.secure_url,
-      youtubeData: {
-        platform: platform,
-        originalUrl: url,
-        note: `Downloaded ${platform} video`,
-        title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
-        isExternalLink: false, // Это загруженное видео
-        cloudinaryUrl: cloudinaryResult.secure_url,
-        thumbnailUrl: cloudinaryResult.eager[0]?.secure_url
-      }
-    });
-
-    await newPost.save();
-    await newPost.populate("author", "username avatar");
-
-    console.log(`✅ Created ${platform} downloaded video post`);
-
-    // Возвращаем результат
+    // Возвращаем данные видео для дальнейшего использования (НЕ создаем пост автоматически)
     res.json({
       success: true,
       message: 'Video downloaded and uploaded successfully',
@@ -1008,9 +984,23 @@ exports.downloadExternalVideo = async (req, res) => {
       thumbnailUrl: cloudinaryResult.eager[0]?.secure_url,
       originalUrl: url,
       platform: platform,
-      title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
+      title: '', // Убираем стандартную подпись
       note: `Downloaded ${platform} video`,
-      post: newPost
+      // Данные для создания поста (но пост НЕ создается автоматически)
+      videoData: {
+        mediaType: "video",
+        image: cloudinaryResult.secure_url,
+        videoUrl: cloudinaryResult.secure_url,
+        youtubeData: {
+          platform: platform,
+          originalUrl: url,
+          note: `Downloaded ${platform} video`,
+          title: '',
+          isExternalLink: false,
+          cloudinaryUrl: cloudinaryResult.secure_url,
+          thumbnailUrl: cloudinaryResult.eager[0]?.secure_url
+        }
+      }
     });
 
   } catch (error) {

@@ -68,24 +68,44 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('https://krealgram-backend.onrender.com/api/posts/external-video/download', {
+      
+      // Определяем endpoint в зависимости от платформы
+      let endpoint;
+      let requestBody;
+      
+      if (detectedPlatform === 'youtube') {
+        // YouTube - iframe embedding
+        endpoint = 'https://krealgram-backend.onrender.com/api/posts/external-video';
+        requestBody = {
+          url: url.trim(),
+          caption: '' // Пустое описание, пользователь сможет добавить позже
+        };
+      } else {
+        // TikTok, Instagram, VK - реальное скачивание
+        endpoint = 'https://krealgram-backend.onrender.com/api/posts/external-video/download';
+        requestBody = {
+          url: url.trim()
+        };
+      }
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          url: url.trim()
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const data = await response.json();
       
       if (response.ok) {
+        // Для скачанных видео возвращаем данные как есть
+        // Для YouTube iframe - тоже возвращаем данные
         onVideoDownloaded(data);
         onClose();
       } else {
-        setError(data.error || 'Failed to import video');
+        setError(data.message || data.error || 'Failed to import video');
       }
     } catch (error) {
       console.error('Error importing video:', error);

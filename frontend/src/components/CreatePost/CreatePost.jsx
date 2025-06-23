@@ -110,23 +110,42 @@ const CreatePost = () => {
         'Authorization': `Bearer ${token}`
       };
 
-      if (parsedVideoData && videoUrl) {
+      if (parsedVideoData) {
         // For external videos use JSON
         headers['Content-Type'] = 'application/json';
-        requestData = JSON.stringify({
-          caption,
-          videoUrl,
-          videoData: parsedVideoData,
-          mediaType: 'video'
-        });
-        console.log('🚀 Sending external video post:', {
-          videoUrl,
-          videoData: parsedVideoData,
-          caption,
-          platform: parsedVideoData?.platform,
-          embedUrl: parsedVideoData?.embedUrl,
-          originalUrl: parsedVideoData?.originalUrl
-        });
+        
+        if (parsedVideoData.isDownloaded && parsedVideoData.videoData) {
+          // Скачанное видео (TikTok/Instagram/VK) - создаем пост с данными из Cloudinary
+          requestData = JSON.stringify({
+            caption,
+            mediaType: 'video',
+            image: parsedVideoData.videoData.image, // Cloudinary URL
+            videoUrl: parsedVideoData.videoData.videoUrl,
+            youtubeData: parsedVideoData.videoData.youtubeData
+          });
+          console.log('🚀 Sending downloaded video post:', {
+            caption,
+            platform: parsedVideoData.platform,
+            videoUrl: parsedVideoData.videoData.videoUrl,
+            originalUrl: parsedVideoData.originalUrl
+          });
+        } else {
+          // Внешние ссылки или iframe (YouTube)
+          requestData = JSON.stringify({
+            caption,
+            videoUrl,
+            videoData: parsedVideoData,
+            mediaType: 'video'
+          });
+          console.log('🚀 Sending external video post:', {
+            videoUrl,
+            videoData: parsedVideoData,
+            caption,
+            platform: parsedVideoData?.platform,
+            embedUrl: parsedVideoData?.embedUrl,
+            originalUrl: parsedVideoData?.originalUrl
+          });
+        }
       } else {
         // For files use FormData
         requestData = new FormData();
@@ -350,21 +369,29 @@ const CreatePost = () => {
         onVideoDownloaded={(data) => {
           console.log('✅ Video processed:', data);
           
-          if (data.success && data.post) {
-            // Video was successfully downloaded and post created
-            console.log('🎉 Video downloaded successfully, redirecting to feed...');
-            navigate('/'); // Redirect to feed to see the new post
-          } else if (data.isExternalLink) {
-            // Fallback for external links (if any)
-            const videoData = {
-              platform: data.platform,
-              videoId: null,
-              originalUrl: data.originalUrl,
-              embedUrl: null,
-              thumbnailUrl: data.thumbnailUrl,
-              note: data.note || `External ${data.platform} video content`
-            };
-            handleExternalVideoSelect(videoData);
+          if (data.success) {
+            if (data.post) {
+              // YouTube iframe - пост уже создан, редиректим
+              console.log('🎉 YouTube video post created successfully, redirecting to feed...');
+              navigate('/');
+            } else if (data.videoData || data.videoUrl) {
+              // TikTok/Instagram/VK - видео скачано, позволяем добавить описание
+              console.log('📹 Video downloaded, allowing user to add caption...');
+              const videoData = {
+                platform: data.platform,
+                videoId: null,
+                originalUrl: data.originalUrl,
+                embedUrl: null,
+                thumbnailUrl: data.thumbnailUrl,
+                note: data.note || `Downloaded ${data.platform} video`,
+                isDownloaded: true,
+                videoUrl: data.videoUrl,
+                videoData: data.videoData
+              };
+              handleExternalVideoSelect(videoData);
+            }
+          } else {
+            console.error('❌ Video processing failed:', data.message);
           }
         }}
         onClose={() => setShowExternalVideoModal(false)}
