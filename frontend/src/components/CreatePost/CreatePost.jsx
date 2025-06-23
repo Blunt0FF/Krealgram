@@ -349,19 +349,23 @@ const CreatePost = () => {
         isOpen={showExternalVideoModal}
         onVideoDownloaded={(data) => {
           console.log('✅ Video processed:', data);
-          // For external link posts, create videoData structure
-          if (data.isExternalLink) {
+          
+          if (data.success && data.post) {
+            // Video was successfully downloaded and post created
+            console.log('🎉 Video downloaded successfully, redirecting to feed...');
+            navigate('/'); // Redirect to feed to see the new post
+          } else if (data.isExternalLink) {
+            // Fallback for external links (if any)
             const videoData = {
               platform: data.platform,
               videoId: null,
               originalUrl: data.originalUrl,
               embedUrl: null,
-              thumbnailUrl: null,
+              thumbnailUrl: data.thumbnailUrl,
               note: data.note || `External ${data.platform} video content`
             };
             handleExternalVideoSelect(videoData);
           }
-          // Don't redirect immediately, allow user to add caption
         }}
         onClose={() => setShowExternalVideoModal(false)}
       />

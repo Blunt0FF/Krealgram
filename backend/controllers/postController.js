@@ -7,8 +7,9 @@ const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 const axios = require('axios');
 const os = require('os');
 const cloudinary = require('cloudinary').v2;
+const puppeteer = require('puppeteer');
 
-console.log('[VIDEO_DOWNLOADER] Using axios for video downloads');
+console.log('[VIDEO_DOWNLOADER] Using puppeteer + axios for real video downloads');
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -721,10 +722,80 @@ exports.testVideoUsers = async (req, res) => {
   }
 };
 
+// Функция для извлечения прямой ссылки на видео из TikTok
+const extractTikTokVideo = async (url) => {
+  let browser;
+  try {
+    console.log('🚀 Launching browser for TikTok extraction...');
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    });
+
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+    
+    console.log('📱 Loading TikTok page...');
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    
+    // Ждем загрузки видео элемента
+    await page.waitForSelector('video', { timeout: 10000 });
+    
+    // Извлекаем src видео
+    const videoSrc = await page.evaluate(() => {
+      const video = document.querySelector('video');
+      return video ? video.src : null;
+    });
+
+    if (!videoSrc) {
+      throw new Error('Could not find video source');
+    }
+
+    console.log('✅ Found video source:', videoSrc.substring(0, 100) + '...');
+    return videoSrc;
+
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+};
+
+// Функция для скачивания файла по URL
+const downloadFile = async (url, filepath) => {
+  const response = await axios({
+    method: 'GET',
+    url: url,
+    responseType: 'stream',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+  });
+
+  const writer = fs.createWriteStream(filepath);
+  response.data.pipe(writer);
+
+  return new Promise((resolve, reject) => {
+    writer.on('finish', resolve);
+    writer.on('error', reject);
+  });
+};
+
 // @desc    Скачать и загрузить внешнее видео (TikTok, Instagram, VK)
 // @route   POST /api/posts/external-video/download
 // @access  Private
 exports.downloadExternalVideo = async (req, res) => {
+  let tempFilePath = null;
+  
   try {
     const { url } = req.body;
 
@@ -735,7 +806,7 @@ exports.downloadExternalVideo = async (req, res) => {
       });
     }
 
-    console.log(`🎬 Processing video URL: ${url}`);
+    console.log(`🎬 Downloading video from URL: ${url}`);
 
     // Определяем платформу
     const detectPlatform = (url) => {
@@ -748,8 +819,53 @@ exports.downloadExternalVideo = async (req, res) => {
     const platform = detectPlatform(url);
     console.log(`📱 Detected platform: ${platform}`);
 
-    // Пока что создаем пост с внешней ссылкой
-    // В будущем можно добавить реальное скачивание для конкретных платформ
+    if (platform === "unknown") {
+      return res.status(400).json({
+        success: false,
+        message: 'Unsupported platform. Supported: TikTok, Instagram, VK',
+      });
+    }
+
+    // Временная директория для скачивания
+    const tempDir = path.join(os.tmpdir(), 'krealgram-downloads');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    let videoUrl;
+    
+    // Извлекаем прямую ссылку на видео в зависимости от платформы
+    if (platform === "tiktok") {
+      videoUrl = await extractTikTokVideo(url);
+    } else {
+      // Для других платформ пока возвращаем ошибку
+      return res.status(400).json({
+        success: false,
+        message: `${platform} download not implemented yet. Currently only TikTok is supported.`,
+      });
+    }
+
+    // Скачиваем видео файл
+    const fileName = `video_${Date.now()}.mp4`;
+    tempFilePath = path.join(tempDir, fileName);
+    
+    console.log('⬇️ Downloading video file...');
+    await downloadFile(videoUrl, tempFilePath);
+    
+    console.log('☁️ Uploading to Cloudinary...');
+    
+    // Загружаем в Cloudinary
+    const cloudinaryResult = await cloudinary.uploader.upload(tempFilePath, {
+      resource_type: 'video',
+      folder: 'posts',
+      eager: [
+        { width: 300, height: 400, crop: 'pad', format: 'jpg' }
+      ]
+    });
+
+    console.log(`🚀 Video uploaded to Cloudinary: ${cloudinaryResult.secure_url}`);
+
+    // Создаем пост с загруженным видео
     const Post = require("../models/postModel");
     const authorId = req.user._id;
 
@@ -757,31 +873,35 @@ exports.downloadExternalVideo = async (req, res) => {
       author: authorId,
       caption: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
       mediaType: "video",
-      videoUrl: url,
+      image: cloudinaryResult.secure_url, // Cloudinary URL видео
+      videoUrl: cloudinaryResult.secure_url,
       youtubeData: {
         platform: platform,
         originalUrl: url,
-        note: `External ${platform} video content`,
+        note: `Downloaded ${platform} video`,
         title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
-        isExternalLink: true
+        isExternalLink: false, // Это загруженное видео
+        cloudinaryUrl: cloudinaryResult.secure_url,
+        thumbnailUrl: cloudinaryResult.eager[0]?.secure_url
       }
     });
 
     await newPost.save();
     await newPost.populate("author", "username avatar");
 
-    console.log(`✅ Created ${platform} external link post`);
+    console.log(`✅ Created ${platform} downloaded video post`);
 
-    // Возвращаем результат в формате, который ожидает фронтенд
+    // Возвращаем результат
     res.json({
       success: true,
-      message: 'External video post created successfully',
-      isExternalLink: true, // Это внешняя ссылка, не загруженное видео
-      videoUrl: url,
+      message: 'Video downloaded and uploaded successfully',
+      isExternalLink: false, // Это загруженное видео
+      videoUrl: cloudinaryResult.secure_url,
+      thumbnailUrl: cloudinaryResult.eager[0]?.secure_url,
       originalUrl: url,
       platform: platform,
       title: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Video`,
-      note: `External ${platform} video content`,
+      note: `Downloaded ${platform} video`,
       post: newPost
     });
 
@@ -789,9 +909,19 @@ exports.downloadExternalVideo = async (req, res) => {
     console.error('❌ Error in downloadExternalVideo:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to process external video',
+      message: 'Failed to download external video',
       error: error.message,
     });
+  } finally {
+    // Очищаем временный файл
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try {
+        fs.unlinkSync(tempFilePath);
+        console.log('🗑️ Cleaned up temporary file');
+      } catch (cleanupError) {
+        console.error('⚠️ Failed to cleanup temporary file:', cleanupError);
+      }
+    }
   }
 };
 
