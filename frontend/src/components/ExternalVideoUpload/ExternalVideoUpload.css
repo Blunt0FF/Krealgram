@@ -202,8 +202,8 @@
 }
 
 .loading-spinner {
-  width: 16px;
-  height: 16px;
+  width: 8px;
+  height: 8px;
   border: 2px solid transparent;
   border-top: 2px solid currentColor;
   border-radius: 50%;
@@ -259,12 +259,23 @@
   }
 
   .form-actions {
-    flex-direction: column-reverse;
+    display: block;
   }
 
-  /* .cancel-btn,
+  .cancel-btn,
   .submit-btn {
     width: 100%;
     justify-content: center;
-  } */
+  }
+  .external-video-upload-overlay {
+    height: 100vh;
+    max-height: 100vh;
+  }
+
+  @supports (height: 100dvh) {
+    .external-video-upload-overlay {
+      height: 100dvh;
+      max-height: 100dvh;
+    }
+  }
 } 
