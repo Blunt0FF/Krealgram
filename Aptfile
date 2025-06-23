@@ -1,26 +1,8 @@
 # Aptfile
-# Устанавливаем зависимости для сборки и работы
+# Основные зависимости для системы
 
 # Для обработки видео
 ffmpeg
 
 # Для sharp (обработка изображений)
 libvips
-
-# Для Puppeteer - устанавливаем все необходимые пакеты
-chromium-browser
-chromium-chromedriver
-fonts-liberation
-libappindicator3-1
-libasound2
-libatk-bridge2.0-0
-libdrm2
-libgtk-3-0
-libnspr4
-libnss3
-libxcomposite1
-libxdamage1
-libxrandr2
-libxss1
-libxtst6
-xdg-utils
