@@ -393,15 +393,22 @@ exports.deletePost = async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not the author of this post.' });
     }
 
-    // 1. Delete the image from the uploads/ folder
-    const imageFilePath = path.join(__dirname, '..', 'uploads', post.image);
-    fs.unlink(imageFilePath, (err) => {
-      if (err) {
-        // Log the error, but do not interrupt the process of deleting the post from the DB,
-        // as it might just be a missing file or an access issue.
-        console.error(`Error deleting image file ${post.image}:`, err);
-      }
-    });
+    // 1. Delete the image from the uploads/ folder (only for local files)
+    if (post.image && 
+        typeof post.image === 'string' && 
+        !post.image.startsWith('http') && 
+        !post.image.startsWith('/')) {
+      const imageFilePath = path.join(__dirname, '..', 'uploads', post.image);
+      fs.unlink(imageFilePath, (err) => {
+        if (err) {
+          // Log the error, but do not interrupt the process of deleting the post from the DB,
+          // as it might just be a missing file or an access issue.
+          console.error(`Error deleting image file ${post.image}:`, err);
+        }
+      });
+    } else {
+      console.log('Skipping file deletion - external URL or no image:', post.image);
+    }
 
     // 2. Delete the post from the DB (this should also trigger Mongoose pre/post remove hooks if defined for cascading delete)
     await post.deleteOne(); // Use deleteOne() on the document or Post.findByIdAndDelete(postId)
@@ -737,8 +744,12 @@ const extractTikTokVideo = async (url) => {
         '--no-first-run',
         '--no-zygote',
         '--single-process',
-        '--disable-gpu'
-      ]
+        '--disable-gpu',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor'
+      ],
+      // Для Render используем системный Chrome
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable'
     });
 
     const page = await browser.newPage();
