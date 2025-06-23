@@ -8,10 +8,10 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
   const [platform, setPlatform] = useState('');
 
   const supportedPlatforms = [
-    { name: 'TikTok', icon: '🎵', example: 'https://www.tiktok.com/@username/video/...' },
-    { name: 'Instagram', icon: '📷', example: 'https://www.instagram.com/p/...' },
-    { name: 'VK', icon: '🎬', example: 'https://vk.com/video...' },
-    { name: 'YouTube', icon: '▶️', example: 'https://www.youtube.com/watch?v=...' }
+    'TikTok',
+    'Instagram', 
+    'VK',
+    'YouTube'
   ];
 
   const detectPlatform = (url) => {
@@ -100,13 +100,9 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
         <div className="supported-platforms">
           <h4>Supported platforms:</h4>
           <div className="platforms-list">
-            {supportedPlatforms.map((p, index) => (
+            {supportedPlatforms.map((platform, index) => (
               <div key={index} className="platform-item">
-                <span className="platform-icon">{p.icon}</span>
-                <div className="platform-info">
-                  <span className="platform-name">{p.name}</span>
-                  <span className="platform-example">{p.example}</span>
-                </div>
+                {platform}
               </div>
             ))}
           </div>
