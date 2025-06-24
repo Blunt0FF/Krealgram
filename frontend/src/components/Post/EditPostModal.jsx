@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getMediaThumbnail } from '../../utils/videoUtils';
 import './EditPostModal.css';
 
 const EditPostModal = ({ isOpen, onClose, post, onSave }) => {
@@ -26,6 +27,12 @@ const EditPostModal = ({ isOpen, onClose, post, onSave }) => {
 
   if (!isOpen) return null;
 
+  // Проверяем является ли пост видео
+  const isVideo = post?.mediaType === 'video' || post?.videoUrl || post?.youtubeData;
+  
+  // Получаем превью изображение
+  const previewSrc = isVideo ? getMediaThumbnail(post) : (post?.imageUrl || post?.image);
+
   return (
     <div className="edit-post-modal-overlay" onClick={handleCancel}>
       <div className="edit-post-modal" onClick={(e) => e.stopPropagation()}>
@@ -40,11 +47,28 @@ const EditPostModal = ({ isOpen, onClose, post, onSave }) => {
         
         <div className="edit-post-modal-body">
           <div className="edit-post-preview">
-            <img 
-              src={post?.imageUrl || post?.image} 
-              alt="Post preview" 
-              className="edit-post-image"
-            />
+            <div className="edit-post-image-wrapper">
+              <img 
+                src={previewSrc} 
+                alt="Post preview" 
+                className="edit-post-image"
+                onError={(e) => {
+                  // Если изображение не загрузилось и это видео, показываем placeholder
+                  if (isVideo && e.target.src !== '/video-placeholder.svg') {
+                    e.target.src = '/video-placeholder.svg';
+                  }
+                }}
+              />
+              {isVideo && (
+                <div className="edit-post-play-overlay">
+                  <div className="edit-post-play-button">
+                    <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z"/>
+                    </svg>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="edit-post-form">

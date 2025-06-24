@@ -8,9 +8,9 @@ import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import SharedPost from './SharedPost';
 import './Messages.css';
-import './MessagesTimeFix.css';
 import '../Post/ShareModal.css';
 import { API_URL } from '../../config';
+import { getMediaThumbnail } from '../../utils/videoUtils';
 
 // Функция для проверки и извлечения YouTube ID
 const extractYouTubeId = (url) => {
@@ -978,16 +978,57 @@ const Messages = ({ currentUser }) => {
                 alignItems: 'center',
                 gap: '12px'
               }}>
-                <img 
-                  src={sharedPost.image} 
-                  alt="Post preview" 
-                  style={{ 
-                    width: '44px', 
-                    height: '44px', 
-                    borderRadius: '4px', 
-                    objectFit: 'cover' 
-                  }}
-                />
+                <div style={{ position: 'relative', width: '44px', height: '44px' }}>
+                  <img 
+                    src={(() => {
+                      // Определяем является ли пост видео
+                      const isVideo = sharedPost.mediaType === 'video' || 
+                                      sharedPost.videoUrl || 
+                                      sharedPost.youtubeData ||
+                                      (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
+                      
+                      // Для видео используем превью, для изображений - обычное изображение
+                      return isVideo ? getMediaThumbnail(sharedPost) : (sharedPost.imageUrl || sharedPost.image);
+                    })()} 
+                    alt="Post preview" 
+                    style={{ 
+                      width: '44px', 
+                      height: '44px', 
+                      borderRadius: '4px', 
+                      objectFit: 'cover' 
+                    }}
+                    onError={(e) => {
+                      // Fallback на заглушку видео если превью не загрузилось
+                      if (e.target.src !== '/video-placeholder.svg') {
+                        e.target.src = '/video-placeholder.svg';
+                      }
+                    }}
+                  />
+                  {/* Показываем иконку плеера для видео */}
+                  {(sharedPost.mediaType === 'video' || 
+                    sharedPost.videoUrl || 
+                    sharedPost.youtubeData ||
+                    (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'))) && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      background: 'rgba(0,0,0,0.6)',
+                      borderRadius: '50%',
+                      width: '18px',
+                      height: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none'
+                    }}>
+                      <svg width="8" height="8" fill="white" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
                 <div>
                   <div style={{ fontWeight: '600', fontSize: '14px' }}>
                     Post by {sharedPost.author}

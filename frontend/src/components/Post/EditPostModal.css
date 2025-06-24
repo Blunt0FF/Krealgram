@@ -102,11 +102,49 @@
   }
 }
 
+.edit-post-image-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .edit-post-image {
   width: 100%;
   height: 100%;
   object-fit: contain; /* Изображение будет вписано полностью */
   display: block; /* Убирает лишние пробелы под изображением */
+}
+
+.edit-post-play-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  transition: opacity 0.2s ease;
+}
+
+.edit-post-play-button {
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.edit-post-image-wrapper:hover .edit-post-play-button {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
 }
 
 .edit-post-form {

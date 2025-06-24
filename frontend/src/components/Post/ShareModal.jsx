@@ -21,7 +21,11 @@ const ShareModal = ({ isOpen, onClose, postId, post }) => {
       image: post.imageUrl || post.image,
       caption: post.caption || '',
       author: typeof post.author === 'string' ? post.author : post.author?.username || 'Unknown',
-      createdAt: post.createdAt
+      createdAt: post.createdAt,
+      mediaType: post.mediaType,
+      videoUrl: post.videoUrl,
+      youtubeData: post.youtubeData,
+      imageUrl: post.imageUrl
     };
 
     // Закрываем модальное окно перед навигацией
@@ -90,9 +94,7 @@ const ShareModal = ({ isOpen, onClose, postId, post }) => {
           
           <div className="share-options">
             <button className="share-option-btn" onClick={handleSendInMessages}>
-              <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.003 2.001a9.705 9.705 0 1 1 0 19.4 10.876 10.876 0 0 1-2.895-.384.798.798 0 0 0-.533.04l-1.984.876a.801.801 0 0 1-1.123-.708l-.054-1.78a.806.806 0 0 0-.27-.569 9.49 9.49 0 0 1-3.14-7.175 9.65 9.65 0 0 1 10-9.7Z"/>
-              </svg>
+              <img src="/messenger.svg" alt="Messages" width="24" height="24" />
               Send in message
             </button>
           </div>
