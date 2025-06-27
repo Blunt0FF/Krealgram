@@ -3,6 +3,15 @@
   max-width: 600px;
   margin: 0 auto;
   min-height: calc(100vh - 60px);
+  @media(max-width: 680px) {
+    height: calc(90vh - 60px);
+    max-height: calc(90vh - 60px);
+
+    @supports (height: 1dvh) {
+      height: calc(90dvh - 60px);
+      max-height: calc(90dvh - 60px);
+    }
+  }
 }
 
 .search-container {
@@ -11,7 +20,7 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   border: 1px solid #dbdbdb;
-  
+
 }
 
 .search-header {
