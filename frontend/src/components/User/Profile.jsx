@@ -6,7 +6,7 @@ import EditPostModal from '../Post/EditPostModal';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
-import { getProfileGifThumbnail } from '../../utils/videoUtils';
+import { getProfileGifThumbnail, createYouTubeData } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import { formatLastSeen } from '../../utils/timeUtils';

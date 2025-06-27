@@ -5,7 +5,7 @@ import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
-import { getMediaThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
+import { getMediaThumbnail, getStaticThumbnail, extractYouTubeId } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import VideoPreview from './VideoPreview';
 import { API_URL } from '../../config';
@@ -296,91 +296,120 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
         {(() => {
           if (post.youtubeData && post.youtubeData.embedUrl) {
             return (
-              <iframe
-                width="100%"
-                height="500"
-                src={post.youtubeData.embedUrl}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ borderRadius: '0', cursor: 'pointer' }}
+              <div 
+                style={{ 
+                  position: 'relative', 
+                  width: '100%', 
+                  height: '500px', 
+                  cursor: 'pointer',
+                  backgroundImage: `url(${post.youtubeData.thumbnailUrl})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#000'
+                }}
                 onClick={() => onImageClick(post)}
-              />
-            );
-          } else if (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be'))) {
-            // Улучшенная обработка YouTube URL
-            const createYouTubeEmbedUrl = (url) => {
-              const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-              const match = url.match(youtubeRegex);
-              if (match && match[1]) {
-                const embedUrl = `https://www.youtube.com/embed/${match[1]}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-                return embedUrl;
-              }
-              // Fallback для старой логики
-              if (url.includes('youtu.be/')) {
-                const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-                return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-              }
-              const videoId = url.split('v=')[1]?.split('&')[0];
-              return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-            };
-            
-            return (
-              <div style={{ position: 'relative', width: '100%', height: '500px', cursor: 'pointer' }} onClick={() => onImageClick(post)}>
-                <iframe
-                  width="100%"
-                  height="500"
-                  src={createYouTubeEmbedUrl(post.videoUrl)}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  style={{ borderRadius: '0' }}
-                  onLoad={() => {
-                    // Убираем логи для уменьшения консольного спама
-                  }}
+              >
+                <img 
+                  src={post.youtubeData.thumbnailUrl}
+                  alt=""
+                  style={{ display: 'none' }}
                   onError={(e) => {
-                    // Тихо обрабатываем ошибки
+                    if (e.target.src.includes('maxresdefault')) {
+                      const fallbackUrl = e.target.src.replace('maxresdefault', 'hqdefault');
+                      e.target.parentElement.style.backgroundImage = `url(${fallbackUrl})`;
+                    }
                   }}
                 />
+                <div style={{
+                  background: 'rgba(0,0,0,0.7)',
+                  borderRadius: '50%',
+                  width: '80px',
+                  height: '80px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+              </div>
+            );
+          } else if (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be'))) {
+            // Показываем превью вместо iframe
+            const videoId = extractYouTubeId(post.videoUrl);
+            const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null;
+            
+            return (
+              <div 
+                style={{ 
+                  position: 'relative', 
+                  width: '100%', 
+                  height: '500px', 
+                  cursor: 'pointer',
+                  backgroundImage: thumbnailUrl ? `url(${thumbnailUrl})` : 'none',
+                  backgroundColor: thumbnailUrl ? 'transparent' : '#000',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onClick={() => onImageClick(post)}
+              >
+                <div style={{
+                  background: 'rgba(0,0,0,0.7)',
+                  borderRadius: '50%',
+                  width: '80px',
+                  height: '80px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
               </div>
             );
           } else if (post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')) && window.innerWidth <= 768) {
-            // YouTube на мобильных - тоже показываем iframe
-            const createYouTubeEmbedUrl = (url) => {
-              const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-              const match = url.match(youtubeRegex);
-                             if (match && match[1]) {
-                 const embedUrl = `https://www.youtube.com/embed/${match[1]}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-                 return embedUrl;
-               }
-               if (url.includes('youtu.be/')) {
-                 const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-                 return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-               }
-               const videoId = url.split('v=')[1]?.split('&')[0];
-               return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-            };
+            // YouTube на мобильных - показываем превью
+            const videoId = extractYouTubeId(post.videoUrl);
+            const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null;
             
             return (
-              <div style={{ position: 'relative', width: '100%', height: '300px', cursor: 'pointer' }} onClick={() => onImageClick(post)}>
-                <iframe
-                  width="100%"
-                  height="300"
-                  src={createYouTubeEmbedUrl(post.videoUrl)}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  style={{ borderRadius: '0' }}
-                  onLoad={() => {
-                    // Тихо загружаем iframe
-                  }}
-                  onError={(e) => {
-                    // Тихо обрабатываем ошибки
-                  }}
-                />
+              <div 
+                style={{ 
+                  position: 'relative', 
+                  width: '100%', 
+                  height: '300px', 
+                  cursor: 'pointer',
+                  backgroundImage: thumbnailUrl ? `url(${thumbnailUrl})` : 'none',
+                  backgroundColor: thumbnailUrl ? 'transparent' : '#000',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+                onClick={() => onImageClick(post)}
+              >
+                <div style={{
+                  background: 'rgba(0,0,0,0.7)',
+                  borderRadius: '50%',
+                  width: '60px',
+                  height: '60px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
               </div>
             );
           } else if (post.mediaType === 'video' || 

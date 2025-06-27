@@ -339,4 +339,44 @@ export const isVideoUrl = (url) => {
   ];
 
   return videoPatterns.some(pattern => pattern.test(url));
+};
+
+// Создание данных YouTube для модальных окон
+export const createYouTubeData = (url) => {
+  const videoId = extractYouTubeId(url);
+  if (!videoId) return null;
+  
+  return {
+    type: 'video',
+    youtubeId: videoId,
+    embedUrl: `https://www.youtube.com/embed/${videoId}`,
+    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    originalUrl: url
+  };
+};
+
+// Извлечение YouTube ID из различных форматов URL
+export const extractYouTubeId = (url) => {
+  if (!url) return null;
+  
+  // Улучшенная проверка YouTube URL
+  let videoId = null;
+  
+  // Стандартный YouTube URL
+  if (url.includes('youtube.com/watch?v=')) {
+    const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  // Короткий YouTube URL
+  else if (url.includes('youtu.be/')) {
+    const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  // Embed URL
+  else if (url.includes('youtube.com/embed/')) {
+    const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+    videoId = match ? match[1] : null;
+  }
+  
+  return videoId;
 }; 

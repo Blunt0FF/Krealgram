@@ -5,53 +5,13 @@ import EditPostModal from './EditPostModal';
 import LikesModal from './LikesModal';
 
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
-import { getMediaThumbnail } from '../../utils/videoUtils';
+import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';
 import { API_URL } from '../../config';
 import './PostModal.css';
 
 const MAX_CAPTION_LENGTH_EDIT = 500; // Максимальная длина описания при редактировании
-
-// Функция для проверки и извлечения YouTube ID
-const extractYouTubeId = (url) => {
-  if (!url) return null;
-  
-  // Улучшенная проверка YouTube URL
-  let videoId = null;
-  
-  // Стандартный YouTube URL
-  if (url.includes('youtube.com/watch?v=')) {
-    const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-    videoId = match ? match[1] : null;
-  }
-  // Короткий YouTube URL
-  else if (url.includes('youtu.be/')) {
-    const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-    videoId = match ? match[1] : null;
-  }
-  // Embed URL
-  else if (url.includes('youtube.com/embed/')) {
-    const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
-    videoId = match ? match[1] : null;
-  }
-  
-  return videoId;
-};
-
-// Функция для создания данных YouTube
-const createYouTubeData = (url) => {
-  const videoId = extractYouTubeId(url);
-  if (!videoId) return null;
-  
-  return {
-    type: 'video',
-    youtubeId: videoId,
-    embedUrl: `https://www.youtube.com/embed/${videoId}`,
-    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-    originalUrl: url
-  };
-};
 
 const PostModal = ({
   post: initialPost,

@@ -10,28 +10,7 @@ import SharedPost from './SharedPost';
 import './Messages.css';
 import '../Post/ShareModal.css';
 import { API_URL } from '../../config';
-import { getMediaThumbnail } from '../../utils/videoUtils';
-
-// Функция для проверки и извлечения YouTube ID
-const extractYouTubeId = (url) => {
-  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[7].length === 11) ? match[7] : null;
-};
-
-// Функция для создания данных YouTube
-const createYouTubeData = (url) => {
-  const videoId = extractYouTubeId(url);
-  if (!videoId) return null;
-  
-  return {
-    type: 'video',
-    youtubeId: videoId,
-    embedUrl: `https://www.youtube.com/embed/${videoId}`,
-    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    originalUrl: url
-  };
-};
+import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 
 const Messages = ({ currentUser }) => {
   const location = useLocation();
