@@ -8,16 +8,17 @@
   padding: 20px;
 }
 
-/* --- Safari fix: заменяем 100vh на 100dvh при поддержке ---
 @media (max-width: 768px) {
   .create-post-container {
-height: calc(100vh - 60px);  }
+    height: calc(100vh - 60px);
+  }
 
   @supports (height: 100dvh) {
     .create-post-container {
-height: calc(100dvh - 60px);    }
+      height: calc(100dvh - 60px);
+    }
   }
-} */
+}
 
 .create-post-box {
   background: white;

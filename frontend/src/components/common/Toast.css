@@ -22,4 +22,19 @@
 .toast.show {
   opacity: 1;
   transform: translateX(0);
+}
+
+@media (max-width: 768px) {
+  .toast {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 80px; /* 60px от навигации + 20px отступ */
+    width: auto;
+    max-width: 90%;
+    text-align: center;
+  }
+
+  .toast.show {
+    transform: translateX(-50%);
+  }
 } 
