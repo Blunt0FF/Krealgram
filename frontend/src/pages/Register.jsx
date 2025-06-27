@@ -12,6 +12,10 @@ const Register = ({ setIsAuthenticated, setUser }) => {
     confirmPassword: ''
   });
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -19,6 +23,35 @@ const Register = ({ setIsAuthenticated, setUser }) => {
       [e.target.name]: e.target.value
     });
     setError('');
+  };
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: registeredEmail }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSuccess(data.message);
+        setError('');
+      } else {
+        setError(data.message);
+        setSuccess('');
+      }
+    } catch (error) {
+      console.error('Resend error:', error);
+      setError('Произошла ошибка при отправке письма.');
+      setSuccess('');
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -48,11 +81,20 @@ const Register = ({ setIsAuthenticated, setUser }) => {
         throw new Error(data.message || 'Registration error');
       }
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setIsAuthenticated(true);
-      setUser(data.user);
-      navigate('/feed');
+      // Проверяем требуется ли подтверждение email
+      if (data.requiresVerification) {
+        setShowEmailVerification(true);
+        setRegisteredEmail(data.email);
+        setSuccess(data.message);
+        setError('');
+      } else {
+        // Старая логика для совместимости
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setIsAuthenticated(true);
+        setUser(data.user);
+        navigate('/feed');
+      }
     } catch (error) {
       setError(error.message);
       console.error('Registration error:', error);
@@ -68,55 +110,81 @@ const Register = ({ setIsAuthenticated, setUser }) => {
         <img src="/logo.png" alt="Krealgram" className="krealgram-logo" />
         <div className="auth-box">
           {error && <div className="auth-error">{error}</div>}
-          <form onSubmit={handleSubmit} className="auth-form">
-            <div className="form-group">
-              <input
-                type="text"
-                name="username"
-                placeholder="Username"
-                value={formData.username}
-                onChange={handleChange}
-                required
-              />
+          {success && <div className="auth-success">{success}</div>}
+          
+          {showEmailVerification ? (
+            <div className="email-verification-info">
+              <h3>Проверьте ваш email</h3>
+              <p>Мы отправили письмо с подтверждением на <strong>{registeredEmail}</strong></p>
+              <p>Перейдите по ссылке в письме, чтобы активировать ваш аккаунт.</p>
+              
+              <div className="verification-actions">
+                <button 
+                  type="button" 
+                  className="auth-button secondary"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                >
+                  {resendLoading ? 'Отправляется...' : 'Отправить повторно'}
+                </button>
+                <Link to="/login" className="auth-link">
+                  Вернуться к входу
+                </Link>
+              </div>
             </div>
-            <div className="form-group">
-              <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <input
-                type="password"
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <button type="submit" className="auth-button">Sign up</button>
-          </form>
-          <div className="auth-or">
-            <span>OR</span>
-          </div>
-          <div className="auth-forgot">
-            <Link to="/forgot-password">Forgot password?</Link>
-          </div>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="auth-form">
+                <div className="form-group">
+                  <input
+                    type="text"
+                    name="username"
+                    placeholder="Username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <input
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="Confirm password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <button type="submit" className="auth-button">Sign up</button>
+              </form>
+              <div className="auth-or">
+                <span>OR</span>
+              </div>
+              <div className="auth-forgot">
+                <Link to="/forgot-password">Forgot password?</Link>
+              </div>
+            </>
+          )}
         </div>
         <div className="auth-register-box">
           <span>Already have an account?</span> <Link to="/">Log in</Link>

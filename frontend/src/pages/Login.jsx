@@ -11,6 +11,9 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showResendVerification, setShowResendVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -18,6 +21,32 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       [e.target.name]: e.target.value
     });
     setError('');
+  };
+
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: userEmail }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        alert(data.message);
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      console.error('Resend error:', error);
+      setError('Произошла ошибка при отправке письма.');
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -45,6 +74,13 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       }
 
       if (!response.ok) {
+        // Проверяем требуется ли подтверждение email
+        if (response.status === 403 && data.requiresVerification) {
+          setShowResendVerification(true);
+          setUserEmail(data.email);
+          setError(data.message);
+          return;
+        }
         throw new Error(data.message || 'Login error');
       }
 
@@ -80,6 +116,18 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
         <img src="/logo.png" alt="Krealgram" className="krealgram-logo" />
         <div className="auth-box">
           {error && <div className="auth-error">{error}</div>}
+          {showResendVerification && (
+            <div className="verification-reminder">
+              <button 
+                type="button"
+                className="auth-button secondary"
+                onClick={handleResendVerification}
+                disabled={resendLoading}
+              >
+                {resendLoading ? 'Отправляется...' : 'Отправить письмо повторно'}
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
               <input

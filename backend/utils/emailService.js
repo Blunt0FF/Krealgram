@@ -37,6 +37,36 @@ const sendPasswordResetEmail = async (to, resetToken) => {
   }
 };
 
+const sendEmailVerificationEmail = async (to, verificationToken, username) => {
+  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject: 'Verify Your Krealgram Account',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <img src="https://krealgram.com/logo.png" alt="Krealgram Logo" style="max-width: 150px; margin-bottom: 20px;" />
+        <h2 style="color: #262626;">Welcome to Krealgram, ${username}!</h2>
+        <p>Thank you for creating your Krealgram account. To complete your registration and start using all features, please verify your email address.</p>
+        <a href="${verificationUrl}" style="display: inline-block; background-color: #0095f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Verify Email Address</a>
+        <p>If you did not create a Krealgram account, please ignore this email.</p>
+        <p>This verification link is valid for 24 hours.</p>
+        <hr style="border: none; border-top: 1px solid #dbdbdb; margin: 20px 0;">
+        <p style="color: #8e8e8e; font-size: 12px;">This is an automated email, please do not reply.</p>
+      </div>
+    `
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    throw new Error('Failed to send email verification email');
+  }
+};
+
 module.exports = {
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendEmailVerificationEmail
 }; 

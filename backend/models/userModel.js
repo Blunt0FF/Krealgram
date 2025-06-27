@@ -68,7 +68,13 @@ const userSchema = new mongoose.Schema({
     ref: 'Comment'
   }],
   resetPasswordToken: String,
-  resetPasswordExpires: Date
+  resetPasswordExpires: Date,
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerificationToken: String,
+  emailVerificationExpires: Date
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },

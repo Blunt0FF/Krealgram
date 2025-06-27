@@ -23,6 +23,16 @@ router.post('/forgot-password', authController.forgotPassword);
 // @access  Public
 router.post('/reset-password', authController.resetPassword);
 
+// @route   POST api/auth/verify-email
+// @desc    Подтверждение email адреса
+// @access  Public
+router.post('/verify-email', authController.verifyEmail);
+
+// @route   POST api/auth/resend-verification
+// @desc    Повторная отправка письма подтверждения
+// @access  Public
+router.post('/resend-verification', authController.resendVerification);
+
 // @route   GET api/auth/me
 // @desc    Получение данных текущего аутентифицированного пользователя
 // @access  Private (защищено authMiddleware)

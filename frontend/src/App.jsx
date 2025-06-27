@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import NotFound from './pages/NotFound';
 import SearchPage from './pages/SearchPage';
 import CreatePost from './components/CreatePost/CreatePost';
@@ -146,6 +147,11 @@ const App = () => {
           <Route path="/reset-password" element={
             <PublicRoute isAuthenticated={isAuthenticated}>
               <ResetPassword />
+            </PublicRoute>
+          } />
+          <Route path="/verify-email" element={
+            <PublicRoute isAuthenticated={isAuthenticated}>
+              <VerifyEmail />
             </PublicRoute>
           } />
           {/* Приватные маршруты с Sidebar и мобильной навигацией */}

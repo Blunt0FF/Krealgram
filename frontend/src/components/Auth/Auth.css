@@ -239,3 +239,181 @@
   color: #c62828;
 }
 
+/* Стили для подтверждения email */
+.auth-success {
+  color: #1e7e34;
+  background-color: #d4edda;
+  border: 1px solid #c3e6cb;
+  padding: 10px;
+  border-radius: 3px;
+  font-size: 14px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.email-verification-info {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.email-verification-info h3 {
+  color: #262626;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.email-verification-info p {
+  color: #737373;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.verification-actions {
+  margin-top: 20px;
+}
+
+.verification-actions .auth-button {
+  margin-bottom: 15px;
+}
+
+.verification-actions .auth-link {
+  color: #0095f6;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.verification-actions .auth-link:hover {
+  text-decoration: underline;
+}
+
+.auth-button.secondary {
+  background-color: #ffffff;
+  color: #0095f6;
+  border: 1px solid #0095f6;
+}
+
+.auth-button.secondary:hover {
+  background-color: #f8f9fa;
+}
+
+.auth-button.secondary:disabled {
+  background-color: #f8f9fa;
+  color: #b2dffc;
+  border-color: #b2dffc;
+}
+
+.verification-reminder {
+  margin-bottom: 15px;
+}
+
+/* Стили для страницы подтверждения email */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #FFFFFF;
+  padding: 20px;
+}
+
+.verification-status {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.verification-status.success .success-icon {
+  background-color: #1e7e34;
+  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin: 0 auto 20px;
+}
+
+.verification-status.error .error-icon {
+  background-color: #ed4956;
+  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin: 0 auto 20px;
+}
+
+.verification-status h2 {
+  color: #262626;
+  margin-bottom: 15px;
+}
+
+.verification-status p {
+  color: #737373;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #0095f6;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.resend-section {
+  margin: 30px 0;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 3px;
+}
+
+.resend-section h3 {
+  color: #262626;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.resend-section form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.resend-section input {
+  padding: 12px;
+  border: 1px solid #dbdbdb;
+  border-radius: 3px;
+  background-color: white;
+  font-size: 14px;
+}
+
+.auth-links {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-links a {
+  color: #0095f6;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.auth-links a:hover {
+  text-decoration: underline;
+}
+
