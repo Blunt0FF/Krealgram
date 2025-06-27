@@ -52,8 +52,8 @@ const ForgotPassword = () => {
         <img src="/mockup-phone.png" alt="Instagram App" className="auth-side-image" />
       </div>
       <div className="auth-form-col">
+        <img src="/logo.png" alt="Krealgram" className="krealgram-logo" />
         <div className="auth-box">
-          <img src="/logo.png" alt="Krealgram" className="krealgram-logo" />
           <div className="trouble-logging">
             <h2>Trouble logging in?</h2>
             <p>Enter your email and we'll send you a link to get back into your account.</p>

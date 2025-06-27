@@ -684,7 +684,7 @@ const Messages = ({ currentUser }) => {
         {selectedConversation ? (
           <>
             <div className="chat-header">
-              <button className="back-btn mobile-only" onClick={backToConversations}>
+              <button className="back-btn mobile-only-back" onClick={backToConversations}>
                 <img src="/arrow-left.svg" alt="Back" width="24" height="24" />
               </button>
               <div 

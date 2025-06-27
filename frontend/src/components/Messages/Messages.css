@@ -434,7 +434,7 @@
   font-size: 14px;
 }
 
-.mobile-only {
+.mobile-only-back {
   display: none;
 }
 
@@ -573,7 +573,6 @@
   .search-results {
     flex: 1;
     overflow-y: auto;
-    max-height: none;
   }
 
   .search-input-container {
@@ -813,8 +812,8 @@
 .search-results {
   flex: 1;
   overflow-y: auto;
-  max-height: 400px;
-  min-height: 200px;
+      max-height: 80dvh;
+      min-height: 200px;
 }
 
 .loading {

@@ -16,6 +16,7 @@ const Register = ({ setIsAuthenticated, setUser }) => {
   const [showEmailVerification, setShowEmailVerification] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
+  const [cooldownTime, setCooldownTime] = useState(0);
 
   const handleChange = (e) => {
     setFormData({
@@ -26,6 +27,8 @@ const Register = ({ setIsAuthenticated, setUser }) => {
   };
 
   const handleResendVerification = async () => {
+    if (cooldownTime > 0) return;
+    
     setResendLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
@@ -41,18 +44,28 @@ const Register = ({ setIsAuthenticated, setUser }) => {
       if (response.ok) {
         setSuccess(data.message);
         setError('');
+        setCooldownTime(60);
       } else {
         setError(data.message);
         setSuccess('');
       }
     } catch (error) {
       console.error('Resend error:', error);
-      setError('Произошла ошибка при отправке письма.');
+      setError('An error occurred while sending the email.');
       setSuccess('');
     } finally {
       setResendLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    if (cooldownTime > 0) {
+      const timer = setTimeout(() => {
+        setCooldownTime(cooldownTime - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownTime]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,15 +93,13 @@ const Register = ({ setIsAuthenticated, setUser }) => {
       if (!response.ok) {
         throw new Error(data.message || 'Registration error');
       }
-
-      // Проверяем требуется ли подтверждение email
+      
       if (data.requiresVerification) {
         setShowEmailVerification(true);
         setRegisteredEmail(data.email);
         setSuccess(data.message);
         setError('');
       } else {
-        // Старая логика для совместимости
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         setIsAuthenticated(true);
@@ -114,21 +125,26 @@ const Register = ({ setIsAuthenticated, setUser }) => {
           
           {showEmailVerification ? (
             <div className="email-verification-info">
-              <h3>Проверьте ваш email</h3>
-              <p>Мы отправили письмо с подтверждением на <strong>{registeredEmail}</strong></p>
-              <p>Перейдите по ссылке в письме, чтобы активировать ваш аккаунт.</p>
+              <h3>Check Your Email</h3>
+              <p>We sent a verification email to <strong>{registeredEmail}</strong></p>
+              <p>Click the link in the email to activate your account.</p>
               
               <div className="verification-actions">
                 <button 
                   type="button" 
                   className="auth-button secondary"
                   onClick={handleResendVerification}
-                  disabled={resendLoading}
+                  disabled={resendLoading || cooldownTime > 0}
                 >
-                  {resendLoading ? 'Отправляется...' : 'Отправить повторно'}
+                  {resendLoading 
+                    ? 'Sending...' 
+                    : cooldownTime > 0 
+                      ? `Resend in ${cooldownTime}s`
+                      : 'Resend Email'
+                  }
                 </button>
                 <Link to="/login" className="auth-link">
-                  Вернуться к входу
+                  Back to Login
                 </Link>
               </div>
             </div>

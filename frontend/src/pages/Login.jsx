@@ -14,6 +14,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
   const [showResendVerification, setShowResendVerification] = useState(false);
   const [userEmail, setUserEmail] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
+  const [cooldownTime, setCooldownTime] = useState(0);
 
   const handleChange = (e) => {
     setFormData({
@@ -24,6 +25,8 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
   };
 
   const handleResendVerification = async () => {
+    if (cooldownTime > 0) return;
+
     setResendLoading(true);
     try {
       const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
@@ -38,21 +41,32 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       
       if (response.ok) {
         alert(data.message);
+        setCooldownTime(60);
       } else {
         setError(data.message);
       }
     } catch (error) {
       console.error('Resend error:', error);
-      setError('Произошла ошибка при отправке письма.');
+      setError('An error occurred while sending the email.');
     } finally {
       setResendLoading(false);
     }
   };
 
+  React.useEffect(() => {
+    if (cooldownTime > 0) {
+      const timer = setTimeout(() => {
+        setCooldownTime(cooldownTime - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownTime]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setShowResendVerification(false);
 
     try {
       const response = await fetch(`${API_URL}/api/auth/login`, {
@@ -74,14 +88,14 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       }
 
       if (!response.ok) {
-        // Проверяем требуется ли подтверждение email
         if (response.status === 403 && data.requiresVerification) {
           setShowResendVerification(true);
           setUserEmail(data.email);
           setError(data.message);
-          return;
+        } else {
+          throw new Error(data.message || 'Login error');
         }
-        throw new Error(data.message || 'Login error');
+        return;
       }
 
       if (!data.token || !data.user) {
@@ -116,18 +130,25 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
         <img src="/logo.png" alt="Krealgram" className="krealgram-logo" />
         <div className="auth-box">
           {error && <div className="auth-error">{error}</div>}
+          
           {showResendVerification && (
             <div className="verification-reminder">
               <button 
                 type="button"
                 className="auth-button secondary"
                 onClick={handleResendVerification}
-                disabled={resendLoading}
+                disabled={resendLoading || cooldownTime > 0}
               >
-                {resendLoading ? 'Отправляется...' : 'Отправить письмо повторно'}
+                {resendLoading 
+                  ? 'Sending...' 
+                  : cooldownTime > 0 
+                    ? `Resend in ${cooldownTime}s`
+                    : 'Resend Verification Email'
+                }
               </button>
             </div>
           )}
+
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
               <input

@@ -270,10 +270,16 @@
 
 .verification-actions {
   margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
 }
 
 .verification-actions .auth-button {
-  margin-bottom: 15px;
+  width: 100%;
+  max-width: 300px;
+  margin: 0;
 }
 
 .verification-actions .auth-link {
@@ -304,6 +310,13 @@
 
 .verification-reminder {
   margin-bottom: 15px;
+  display: flex;
+  justify-content: center;
+}
+
+.verification-reminder .auth-button {
+    width: 100%;
+    max-width: 300px;
 }
 
 /* Стили для страницы подтверждения email */
@@ -327,7 +340,7 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 30px;
@@ -340,7 +353,7 @@
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 30px;
@@ -390,6 +403,7 @@
   display: flex;
   flex-direction: column;
   gap: 15px;
+  align-items: center;
 }
 
 .resend-section input {
@@ -398,6 +412,13 @@
   border-radius: 3px;
   background-color: white;
   font-size: 14px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.resend-section .auth-button {
+    width: 100%;
+    max-width: 300px;
 }
 
 .auth-links {

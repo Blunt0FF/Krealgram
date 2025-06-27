@@ -149,11 +149,7 @@ const App = () => {
               <ResetPassword />
             </PublicRoute>
           } />
-          <Route path="/verify-email" element={
-            <PublicRoute isAuthenticated={isAuthenticated}>
-              <VerifyEmail />
-            </PublicRoute>
-          } />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           {/* Приватные маршруты с Sidebar и мобильной навигацией */}
           <Route path="/*" element={
             isAuthenticated ? (

@@ -3,23 +3,21 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  height: 90vh;
   background-color: #fff;
   padding: 20px;
 }
 
-/* --- Safari fix: заменяем 100vh на 100dvh при поддержке --- */
+/* --- Safari fix: заменяем 100vh на 100dvh при поддержке ---
 @media (max-width: 768px) {
   .create-post-container {
-    min-height: 100vh;
-  }
+height: calc(100vh - 60px);  }
 
   @supports (height: 100dvh) {
     .create-post-container {
-      min-height: 100dvh;
-    }
+height: calc(100dvh - 60px);    }
   }
-}
+} */
 
 .create-post-box {
   background: white;

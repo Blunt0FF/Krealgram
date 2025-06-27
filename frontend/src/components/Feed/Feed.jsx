@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import Post from '../Post/Post';
 import PostModal from '../Post/PostModal';
 import VideoStories from '../VideoStories/VideoStories';
+import Toast from '../common/Toast';
 import { API_URL } from '../../config';
 import './Feed.css';
 
@@ -14,6 +16,8 @@ const Feed = ({ user }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const location = useLocation();
+  const [toast, setToast] = useState(null);
 
   const observer = useRef();
   const isFetching = useRef(false);
@@ -23,6 +27,12 @@ const Feed = ({ user }) => {
     setPage(1);
     setPosts([]);
     window.scrollTo(0, 0);
+
+    const toastMessage = sessionStorage.getItem('toastMessage');
+    if (toastMessage) {
+      setToast({ message: toastMessage, type: 'success' });
+      sessionStorage.removeItem('toastMessage');
+    }
   }, []);
 
   useEffect(() => {
@@ -154,6 +164,7 @@ const Feed = ({ user }) => {
 
   return (
     <div className="feed-container">
+      {toast && <Toast message={toast.message} type={toast.type} onDone={() => setToast(null)} />}
       <VideoStories />
       <div className="feed">
         {posts.length > 0 ? (
