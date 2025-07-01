@@ -222,13 +222,23 @@ const CreatePost = () => {
 
         {/* File upload functionality */}
         <div className="file-upload-section">
-          <label className="file-input-label">
-            Choose Image/Video
+          <label className="file-input-label" style={{
+            display: 'block',
+            width: '100%',
+            padding: '20px',
+            textAlign: 'center',
+            border: '2px dashed #ddd',
+            borderRadius: '12px',
+            cursor: 'pointer',
+            marginBottom: '20px'
+          }}>
+            <div style={{ marginBottom: '10px', fontSize: '18px' }}>📸 Choose Image/Video</div>
             <input 
               type="file" 
-              accept="image/*,video/mp4,video/mov,video/webm" 
+              accept="image/*,video/*" 
               onChange={handleImageChange} 
-              disabled={compressing} 
+              disabled={compressing}
+              style={{ display: 'block', width: '100%', cursor: 'pointer' }}
             />
           </label>
         </div>

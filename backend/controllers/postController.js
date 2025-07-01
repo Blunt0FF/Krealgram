@@ -105,19 +105,21 @@ exports.createPost = async (req, res) => {
       // Обычная загрузка файла
       console.log('Processing uploaded file:', req.file);
       
-      // Для Cloudinary используем secure_url, для локальной загрузки - path или filename
+      // Для Cloudinary используем secure_url
       if (req.file.secure_url) {
-        // Cloudinary upload
         imagePath = req.file.secure_url;
         console.log('Cloudinary file uploaded:', imagePath);
         
-        // Если это видео и есть eager превью, сохраняем его
-        if (req.file.mimetype.startsWith('video/') && req.file.eager && req.file.eager[0]) {
-          console.log('Video thumbnail created:', req.file.eager[0].secure_url);
-          // Можно добавить thumbnailUrl к посту если нужно
+        // Для видео создаем превью
+        if (req.file.mimetype.startsWith('video/')) {
+          if (req.file.eager && req.file.eager[0]) {
+            console.log('Video thumbnail created:', req.file.eager[0].secure_url);
+          } else {
+            console.log('Warning: No video thumbnail created');
+          }
         }
       } else {
-        // Local upload
+        // Fallback для локальной загрузки
         imagePath = req.file.path || req.file.filename;
         console.log('Local file uploaded:', imagePath);
       }

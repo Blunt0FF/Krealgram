@@ -48,19 +48,23 @@ const postStorage = new CloudinaryStorage({
       };
     }
 
-    // Для видео создаем превью первого кадра
+    // Для видео создаем превью первого кадра и оптимизируем видео
     if (file.mimetype.startsWith('video/')) {
       return {
         ...baseParams,
+        resource_type: 'video',
         eager: [
           { 
-            resource_type: 'video',
             format: 'jpg',
             transformation: [
               { width: 400, height: 400, crop: 'fill', gravity: 'center', quality: 'auto' }
             ]
           }
         ],
+        eager_async: true,
+        transformation: [
+          { quality: 'auto', fetch_format: 'auto' }
+        ]
       };
     }
 
@@ -115,7 +119,7 @@ const messageStorage = new CloudinaryStorage({
 const uploadPost = multer({ 
   storage: postStorage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB для видео
+    fileSize: 100 * 1024 * 1024, // 100MB для видео
   },
 });
 
