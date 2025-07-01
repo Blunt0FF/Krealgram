@@ -101,37 +101,8 @@
   align-items: center;
   justify-content: center;
   border: 1px solid #fff;
-  box-sizing: border-box;
-  
-  /* Исправления для Safari iOS */
   text-align: center;
   line-height: 1;
-  -webkit-box-align: center;
-  -webkit-box-pack: center;
-  -webkit-justify-content: center;
-  -webkit-align-items: center;
-  
-  /* Дополнительные исправления для позиционирования текста */
-  vertical-align: middle;
-  
-  /* Убираем возможные отступы которые могут влиять на центрирование */
-  margin: 0;
-  
-  /* Принудительное центрирование для Safari */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-}
-
-/* Дополнительные исправления для Safari iOS */
-@supports (-webkit-touch-callout: none) {
-  .notification-badge-mobile {
-    /* Специфично для Safari на iOS */
-    padding-top: 0px;
-    line-height: 16px;
-    display: -webkit-flex;
-    -webkit-align-items: center;
-    -webkit-justify-content: center;
-  }
 }
 
 @media (max-width: 900px) {
