@@ -10,12 +10,12 @@
 
 @media (max-width: 768px) {
   .create-post-container {
-    height: calc(100vh - 60px);
+    height: calc(100vh - 100px);
   }
 
   @supports (height: 100dvh) {
     .create-post-container {
-      height: calc(100dvh - 60px);
+      height: calc(100dvh - 100px);
     }
   }
 }
