@@ -53,6 +53,11 @@ const postSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  // URL превью для видео (создается Cloudinary для загруженных видео)
+  thumbnailUrl: {
+    type: String,
+    trim: true
+  },
   // Данные для внешних видео (TikTok, Instagram, VK и т.д.)
   externalVideoData: {
     platform: String, // tiktok, instagram, vk, youtube, twitter

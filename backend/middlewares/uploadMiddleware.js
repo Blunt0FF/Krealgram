@@ -81,8 +81,14 @@ const uploadMessageMedia = multer({
 // Создаем гибкий middleware для обработки разных полей
 const createFlexibleUpload = (upload, fieldName) => {
   return (req, res, next) => {
+    console.log('=== UPLOAD MIDDLEWARE DEBUG ===');
+    console.log('Field name:', fieldName);
+    console.log('Use Cloudinary:', useCloudinary);
+    console.log('Request has file:', !!req.file);
+    
     upload(req, res, (err) => {
       if (err) {
+        console.error('Upload error:', err);
         if (err.code === 'LIMIT_UNEXPECTED_FILE') {
           // Игнорируем неожиданные поля вместо выброса ошибки
           console.warn(`Unexpected field ignored: ${err.field}`);
@@ -90,6 +96,15 @@ const createFlexibleUpload = (upload, fieldName) => {
         }
         return next(err);
       }
+      
+      console.log('Upload successful, file:', req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        secure_url: req.file.secure_url,
+        public_id: req.file.public_id
+      } : 'No file');
+      
       next();
     });
   };

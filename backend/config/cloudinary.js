@@ -48,7 +48,7 @@ const postStorage = new CloudinaryStorage({
       };
     }
 
-    // Для видео создаем превью
+    // Для видео создаем превью первого кадра
     if (file.mimetype.startsWith('video/')) {
       return {
         ...baseParams,
@@ -57,7 +57,7 @@ const postStorage = new CloudinaryStorage({
             resource_type: 'video',
             format: 'jpg',
             transformation: [
-              { width: 400, height: 400, crop: 'fill', gravity: 'center' }
+              { width: 400, height: 400, crop: 'fill', gravity: 'center', quality: 'auto' }
             ]
           }
         ],

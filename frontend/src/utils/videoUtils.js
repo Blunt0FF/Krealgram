@@ -339,7 +339,7 @@ export const isVideoUrl = (url) => {
   ];
 
   return videoPatterns.some(pattern => pattern.test(url));
-};
+}; 
 
 // Создание данных YouTube для модальных окон
 export const createYouTubeData = (url) => {

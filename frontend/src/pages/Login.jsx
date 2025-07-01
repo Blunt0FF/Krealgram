@@ -93,7 +93,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
           setUserEmail(data.email);
           setError(data.message);
         } else {
-          throw new Error(data.message || 'Login error');
+        throw new Error(data.message || 'Login error');
         }
         return;
       }

@@ -93,18 +93,18 @@ const Register = ({ setIsAuthenticated, setUser }) => {
       if (!response.ok) {
         throw new Error(data.message || 'Registration error');
       }
-      
+
       if (data.requiresVerification) {
         setShowEmailVerification(true);
         setRegisteredEmail(data.email);
         setSuccess(data.message);
         setError('');
       } else {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        setIsAuthenticated(true);
-        setUser(data.user);
-        navigate('/feed');
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      setIsAuthenticated(true);
+      setUser(data.user);
+      navigate('/feed');
       }
     } catch (error) {
       setError(error.message);
@@ -150,55 +150,55 @@ const Register = ({ setIsAuthenticated, setUser }) => {
             </div>
           ) : (
             <>
-              <form onSubmit={handleSubmit} className="auth-form">
-                <div className="form-group">
-                  <input
-                    type="text"
-                    name="username"
-                    placeholder="Username"
-                    value={formData.username}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <input
-                    type="password"
-                    name="password"
-                    placeholder="Password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    placeholder="Confirm password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <button type="submit" className="auth-button">Sign up</button>
-              </form>
-              <div className="auth-or">
-                <span>OR</span>
-              </div>
-              <div className="auth-forgot">
-                <Link to="/forgot-password">Forgot password?</Link>
-              </div>
+          <form onSubmit={handleSubmit} className="auth-form">
+            <div className="form-group">
+              <input
+                type="text"
+                name="username"
+                placeholder="Username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <button type="submit" className="auth-button">Sign up</button>
+          </form>
+          <div className="auth-or">
+            <span>OR</span>
+          </div>
+          <div className="auth-forgot">
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
             </>
           )}
         </div>

@@ -22,6 +22,20 @@ exports.createPost = async (req, res) => {
     console.log('=== CREATE POST DEBUG ===');
     console.log('Request body:', req.body);
     console.log('Has file:', !!req.file);
+    console.log('File details:', req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      secure_url: req.file.secure_url,
+      public_id: req.file.public_id,
+      path: req.file.path,
+      filename: req.file.filename
+    } : 'No file');
+    console.log('Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      use_cloudinary: process.env.USE_CLOUDINARY,
+      api_key_exists: !!process.env.CLOUDINARY_API_KEY
+    });
     console.log('Author ID:', authorId);
 
     let imagePath = null;
@@ -89,7 +103,25 @@ exports.createPost = async (req, res) => {
       }
     } else if (req.file) {
       // Обычная загрузка файла
-      imagePath = req.file.path || req.file.filename;
+      console.log('Processing uploaded file:', req.file);
+      
+      // Для Cloudinary используем secure_url, для локальной загрузки - path или filename
+      if (req.file.secure_url) {
+        // Cloudinary upload
+        imagePath = req.file.secure_url;
+        console.log('Cloudinary file uploaded:', imagePath);
+        
+        // Если это видео и есть eager превью, сохраняем его
+        if (req.file.mimetype.startsWith('video/') && req.file.eager && req.file.eager[0]) {
+          console.log('Video thumbnail created:', req.file.eager[0].secure_url);
+          // Можно добавить thumbnailUrl к посту если нужно
+        }
+      } else {
+        // Local upload
+        imagePath = req.file.path || req.file.filename;
+        console.log('Local file uploaded:', imagePath);
+      }
+      
       mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
       
       // Сохраняем MIME-type для правильного отображения GIF
@@ -137,7 +169,9 @@ exports.createPost = async (req, res) => {
       caption: caption || '',
       videoUrl: videoUrl || null,
       youtubeUrl: videoUrl || null, // Для обратной совместимости
-      youtubeData: youtubeData
+      youtubeData: youtubeData,
+      // Добавляем thumbnailUrl если есть превью из Cloudinary
+      thumbnailUrl: (req.file && req.file.eager && req.file.eager[0]) ? req.file.eager[0].secure_url : null
     });
 
     const savedPost = await newPost.save();
