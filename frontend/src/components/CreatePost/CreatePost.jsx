@@ -29,32 +29,39 @@ const CreatePost = () => {
     if (file) {
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       setMediaType(fileType);
-      setPreviewUrl(URL.createObjectURL(file));
+      
+      // Создаем URL только для предпросмотра
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl(objectUrl);
       setOriginalFileName(file.name);
       setError('');
       
-      // Clear external video data when uploading file
+      // Очищаем данные внешнего видео
       setParsedVideoData(null);
       setVideoUrl('');
       
-      // Apply compression only for images
+      // Применяем сжатие только для изображений
       if (fileType === 'image') {
         setCompressing(true);
         setCompressedFile(null);
         
         try {
           const compressedBlob = await compressPostImage(file);
-          setCompressedFile(compressedBlob);
+          setCompressedFile(new File([compressedBlob], file.name, { type: compressedBlob.type }));
         } catch (err) {
+          console.error('Compression error:', err);
           setError('Image compression error');
         } finally {
           setCompressing(false);
         }
-              } else {
-        // For video use original file without compression
+      } else {
+        // Для видео используем оригинальный файл без сжатия
         setCompressedFile(file);
         setCompressing(false);
       }
+
+      // Очищаем URL при размонтировании компонента
+      return () => URL.revokeObjectURL(objectUrl);
     }
   };
 
@@ -91,7 +98,6 @@ const CreatePost = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Check that either file or external video is selected
     if (!compressedFile && !parsedVideoData) {
       setError('Please select a file or external video first');
       return;
@@ -108,51 +114,35 @@ const CreatePost = () => {
       };
 
       if (parsedVideoData) {
-        // For external videos use JSON
         headers['Content-Type'] = 'application/json';
         
         if (parsedVideoData.isDownloaded && parsedVideoData.videoData) {
-          // Скачанное видео (TikTok/Instagram/VK) - создаем пост с данными из Cloudinary
           requestData = JSON.stringify({
             caption,
             mediaType: 'video',
-            image: parsedVideoData.videoData.image, // Cloudinary URL
+            image: parsedVideoData.videoData.image,
             videoUrl: parsedVideoData.videoData.videoUrl,
             youtubeData: parsedVideoData.videoData.youtubeData
           });
-          console.log('🚀 Sending downloaded video post:', {
-            caption,
-            platform: parsedVideoData.platform,
-            videoUrl: parsedVideoData.videoData.videoUrl,
-            originalUrl: parsedVideoData.originalUrl
-          });
         } else {
-          // Внешние ссылки или iframe (YouTube)
           requestData = JSON.stringify({
             caption,
             videoUrl,
             videoData: parsedVideoData,
             mediaType: 'video'
           });
-          console.log('🚀 Sending external video post:', {
-            videoUrl,
-            videoData: parsedVideoData,
-            caption,
-            platform: parsedVideoData?.platform,
-            embedUrl: parsedVideoData?.embedUrl,
-            originalUrl: parsedVideoData?.originalUrl
-          });
         }
       } else {
-        // For files use FormData
+        // Для файлов используем FormData
         requestData = new FormData();
+        
+        // Убедимся что файл существует и валиден
+        if (!(compressedFile instanceof File || compressedFile instanceof Blob)) {
+          throw new Error('Invalid file object');
+        }
+        
         requestData.append('image', compressedFile, originalFileName);
         requestData.append('caption', caption);
-        console.log('📁 Sending file post:', {
-          fileName: originalFileName,
-          mediaType,
-          caption
-        });
       }
 
       const response = await fetch(`${API_URL}/api/posts`, {
@@ -161,24 +151,24 @@ const CreatePost = () => {
         body: requestData
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setCaption('');
-        setPreviewUrl(null);
-        setVideoUrl('');
-        setParsedVideoData(null);
-        setCompressedFile(null);
-        setOriginalFileName('');
-        
-        // Update feed or redirect
-        navigate('/');
-      } else {
-        setError(data.message || 'Error creating post');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || 'Error creating post');
       }
+
+      const data = await response.json();
+      
+      setCaption('');
+      setPreviewUrl(null);
+      setVideoUrl('');
+      setParsedVideoData(null);
+      setCompressedFile(null);
+      setOriginalFileName('');
+      
+      navigate('/');
     } catch (error) {
       console.error('❌ Error creating post:', error);
-      setError('An error occurred while creating the post');
+      setError(error.message || 'An error occurred while creating the post');
     } finally {
       setLoading(false);
     }
