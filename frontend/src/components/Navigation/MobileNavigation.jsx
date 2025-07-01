@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getAvatarUrl } from '../../utils/imageUtils';
@@ -63,7 +61,7 @@ const MobileNavigation = ({ user, onLogout, unreadCount }) => {
           className={`mobile-nav-item ${isActive('/notifications_mobile') ? 'active' : ''}`}
         >
           <img src="/notifications.svg" alt="Notifications" className="mobile-nav-icon" />
-          {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+          {unreadCount > 0 && <span className="notification-badge-mobile">{unreadCount}</span>}
           <span>Notifications</span>
         </Link>
 

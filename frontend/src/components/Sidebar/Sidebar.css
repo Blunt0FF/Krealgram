@@ -182,6 +182,29 @@
   border: 2px solid white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   z-index: 10;
+  
+  /* Исправления для Safari iOS */
+  text-align: center;
+  -webkit-box-align: center;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  -webkit-align-items: center;
+  
+  /* Дополнительные исправления для позиционирования текста */
+  vertical-align: middle;
+  box-sizing: border-box;
+  
+  /* Убираем возможные отступы которые могут влиять на центрирование */
+  margin: 0;
+}
+
+/* Дополнительные исправления для Safari iOS и для десктопного бейджа */
+@supports (-webkit-touch-callout: none) {
+  .notification-badge {
+    /* Специфично для Safari на iOS */
+    padding-top: 1px;
+    line-height: 0.9;
+  }
 }
 
 .sidebar-logout {
