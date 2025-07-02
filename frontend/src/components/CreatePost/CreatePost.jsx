@@ -29,24 +29,29 @@ const CreatePost = () => {
     if (!file) return;
 
     try {
+      console.log('File selected:', file.name, file.type, file.size);
+      
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       setMediaType(fileType);
-      setPreviewUrl(URL.createObjectURL(file));
       setOriginalFileName(file.name);
       setError('');
       setParsedVideoData(null);
       setVideoUrl('');
       
+      // Для предпросмотра создаем URL только для изображений
       if (fileType === 'image') {
+        setPreviewUrl(URL.createObjectURL(file));
         setCompressing(true);
         const compressedBlob = await compressPostImage(file);
         setCompressedFile(new File([compressedBlob], file.name, { type: compressedBlob.type }));
       } else {
+        // Для видео не создаем предпросмотр, используем placeholder
+        setPreviewUrl('/video-placeholder.svg');
         setCompressedFile(file);
       }
     } catch (err) {
       console.error('File processing error:', err);
-      setError('Error processing file');
+      setError('Error processing file: ' + err.message);
     } finally {
       setCompressing(false);
     }
@@ -94,10 +99,17 @@ const CreatePost = () => {
     setError('');
 
     try {
+      console.log('Starting upload process...');
       const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
       const formData = new FormData();
       
       if (parsedVideoData) {
+        console.log('Uploading external video data');
         const videoData = {
           caption,
           mediaType: 'video',
@@ -107,10 +119,13 @@ const CreatePost = () => {
           formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
         });
       } else {
-        formData.append('image', compressedFile);
+        console.log('Uploading file:', originalFileName, compressedFile.type, compressedFile.size);
+        formData.append('image', compressedFile, originalFileName);
         formData.append('caption', caption);
+        formData.append('mediaType', mediaType);
       }
 
+      console.log('Sending request to server...');
       const response = await fetch(`${API_URL}/api/posts`, {
         method: 'POST',
         headers: {
@@ -119,10 +134,25 @@ const CreatePost = () => {
         body: formData
       });
 
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Error creating post');
+        const contentType = response.headers.get('content-type');
+        let errorMessage = `Server returned ${response.status}`;
+        
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          errorMessage = data.message || errorMessage;
+        } else {
+          const text = await response.text();
+          errorMessage = text || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
+      console.log('Post created successfully:', result);
 
       setCaption('');
       setPreviewUrl(null);

@@ -43,17 +43,17 @@
 
 .mobile-nav-item span {
   font-size: 11px;
-  color: white;
+  color: #262626;
   display: block;
   visibility: visible;
-  opacity: 1 ;
+  opacity: 1;
   text-align: center;
-  line-height: 1.2 ;
-  white-space: nowrap ;
-  max-width: 100% ;
-  overflow: visible ;
-  text-overflow: clip ;
-  font-weight: 400 ;
+  line-height: 1.2;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: clip;
+  font-weight: 400;
 }
 
 .mobile-nav-item.active {
@@ -88,8 +88,8 @@
   position: absolute;
   top: -2px;
   right: -4px;
-  background: #ed4956;
-  color: white;
+  background: #ed4956 !important;
+  color: white !important;
   border-radius: 50%;
   padding: 0;
   font-size: 10px;

@@ -118,6 +118,15 @@ const uploadPost = multer({
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB для видео
   },
+  fileFilter: (req, file, cb) => {
+    console.log('Cloudinary file filter:', file.originalname, file.mimetype);
+    // Проверяем поддерживаемые типы файлов
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file type'), false);
+    }
+  }
 });
 
 const uploadAvatar = multer({ 
