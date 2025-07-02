@@ -19,15 +19,29 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:4000",
-      "http://127.0.0.1:4000",
-      "https://krealgram.vercel.app",
-      "https://krealgram.com",
-      "https://www.krealgram.com"
-    ],
+    origin: function(origin, callback) {
+      const allowedOrigins = [
+        "http://localhost:4000",
+        "http://127.0.0.1:4000",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://krealgram.vercel.app",
+        "https://krealgram.com",
+        "https://www.krealgram.com"
+      ];
+      
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"]
   }
 });
 
@@ -35,21 +49,39 @@ app.set('io', io); // Сделаем io доступным в контролле
 
 // Настройки CORS для Express
 const corsOptions = {
-  origin: [
-    'http://localhost:4000',
-    'http://127.0.0.1:4000',
-    'https://krealgram.vercel.app',
-    'https://krealgram.com',
-    'https://www.krealgram.com'
-  ],
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:4000',
+      'http://127.0.0.1:4000',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'https://krealgram.vercel.app',
+      'https://krealgram.com',
+      'https://www.krealgram.com'
+    ];
+    
+    // Разрешаем запросы без origin (например, от Postman или мобильных приложений)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   credentials: true,
-  maxAge: 86400 // 24 часа
+  maxAge: 86400, // 24 часа
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
+
+// Добавляем обработку OPTIONS запросов
+app.options('*', cors(corsOptions));
 
 // Важно: middleware для парсинга JSON должен идти после CORS
 app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных

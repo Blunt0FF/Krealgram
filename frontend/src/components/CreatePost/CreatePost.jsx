@@ -163,13 +163,18 @@ const CreatePost = () => {
       console.log('Sending request to server...');
       const response = await fetch(`${API_URL}/api/posts`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          // Не добавляем Content-Type для FormData, браузер сделает это автоматически
+          // с правильным boundary
         },
         body: formData
       });
 
+      console.log('Response received');
       console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
@@ -187,6 +192,7 @@ const CreatePost = () => {
           }
         } catch (parseError) {
           console.error('Error parsing server response:', parseError);
+          errorMessage = 'Failed to parse server response';
         }
         
         throw new Error(errorMessage);
