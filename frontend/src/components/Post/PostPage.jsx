@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import Post from './Post';
 import PostModal from '../Post/PostModal';
 import { API_URL } from '../../config';
-import './PostPage.css';
 
 const PostPage = () => {
   const { id } = useParams();
@@ -76,16 +75,12 @@ const PostPage = () => {
   }, [id]);
 
   if (loading || userLoading) {
-    return (
-      <div className="post-page-container">
-        <div className="loading-state">Loading...</div>
-      </div>
-    );
+    return null;
   }
   
   if (error) {
     return (
-      <div className="post-page-container">
+      <div className="feed-container">
         <div className="error-state">Error: {error}</div>
       </div>
     );
@@ -141,8 +136,8 @@ const PostPage = () => {
   };
 
   return (
-    <div className="post-page-container">
-      <div className="post-page-content">
+    <div className="feed-container">
+      <div className="feed">
         <Post 
           post={post} 
           currentUser={currentUser} 

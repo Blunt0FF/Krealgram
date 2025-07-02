@@ -3,6 +3,7 @@ import { getAvatarUrl } from '../../utils/imageUtils';
 import VideoStoriesModal from './VideoStoriesModal';
 import { API_URL } from '../../config';
 import './VideoStories.css';
+import axios from 'axios';
 
 const VideoStories = () => {
   const [videoUsers, setVideoUsers] = useState([]);
@@ -10,6 +11,7 @@ const VideoStories = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [viewedUsers, setViewedUsers] = useState(new Set());
+  const [videos, setVideos] = useState([]);
 
   useEffect(() => {
     fetchVideoUsers();
@@ -46,6 +48,17 @@ const VideoStories = () => {
       console.error('Error fetching video users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserVideos = async () => {
+    try {
+      const response = await axios.get('/api/posts/user-videos', {
+        params: { userId: selectedUser._id }
+      });
+      setVideos(response.data);
+    } catch (error) {
+      console.error('Error fetching user videos:', error);
     }
   };
 

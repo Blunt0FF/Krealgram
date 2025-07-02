@@ -268,21 +268,14 @@ exports.sendMessage = async (req, res) => {
 };
 
 // @desc    Удаление сообщения из диалога
-// @route   DELETE /api/conversations/:conversationId/delete-message
+// @route   DELETE /api/conversations/:conversationId/messages/:messageId
 // @access  Private
 exports.deleteMessage = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const { conversationId } = req.params;
-    const { messageId } = req.body; // Получаем messageId из тела запроса
+    const { conversationId, messageId } = req.params;
     const userId = req.user.id;
-
-    if (!messageId) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: 'Message ID is required in request body.' });
-    }
 
     // Находим диалог и проверяем права доступа
     const conversation = await Conversation.findOne({

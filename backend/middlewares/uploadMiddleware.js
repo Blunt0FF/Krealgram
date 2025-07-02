@@ -44,10 +44,11 @@ const postFileFilter = (req, file, cb) => {
       file.mimetype === 'image/webp' ||
       file.mimetype === 'video/mp4' ||
       file.mimetype === 'video/mov' ||
+      file.mimetype === 'video/quicktime' ||
       file.mimetype === 'video/webm') {
     cb(null, true); // Принимаем файл
   } else {
-    cb(new Error('Unsupported file type! Please upload images (jpeg, png, gif, webp) or videos (mp4, mov, webm).'), false); // Отклоняем файл
+    cb(new Error('Unsupported file type! Please upload images (jpeg, png, gif, webp) or videos (mp4, mov, webm, quicktime).'), false); // Отклоняем файл
   }
 };
 

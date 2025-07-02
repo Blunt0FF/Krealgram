@@ -19,9 +19,9 @@ router.get('/:conversationId/messages', authMiddleware, conversationController.g
 // @access  Private
 router.post('/:recipientId/messages', authMiddleware, uploadMiddleware.uploadMessageMedia, conversationController.sendMessage);
 
-// @route   DELETE /api/conversations/:conversationId/delete-message
+// @route   DELETE /api/conversations/:conversationId/messages/:messageId
 // @desc    Удаление сообщения из диалога
 // @access  Private
-router.delete('/:conversationId/delete-message', authMiddleware, conversationController.deleteMessage);
+router.delete('/:conversationId/messages/:messageId', authMiddleware, conversationController.deleteMessage);
 
 module.exports = router; 

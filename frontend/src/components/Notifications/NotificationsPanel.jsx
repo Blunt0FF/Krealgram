@@ -4,6 +4,7 @@ import './NotificationsPanel.css';
 import { getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
 import { API_URL } from '../../config';
+import axios from 'axios';
 
 const timeAgo = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -50,10 +51,8 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
     if (notification.read) return; // Уже прочитано
     
     try {
-      const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/notifications/${notificationId}/mark-read`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await axios.post('/api/notifications/mark-read', {
+        notificationId
       });
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -336,6 +335,28 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen, onClose]);
+
+  const deleteNotification = async (notificationId) => {
+    try {
+      const response = await axios.delete('/api/notifications/delete', {
+        data: { notificationId }
+      });
+      // ... existing code ...
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const response = await axios.post('/api/notifications/mark-read', {
+        notificationId
+      });
+      // ... existing code ...
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
 
   if (!isOpen) return null;
 

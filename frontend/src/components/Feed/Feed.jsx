@@ -186,7 +186,6 @@ const Feed = ({ user }) => {
             </div>
           )
         )}
-        {loading && <div className="feed-loading">Loading...</div>}
         {error && <div className="feed-error">{error}</div>}
       </div>
 

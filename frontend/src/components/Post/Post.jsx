@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import LikesModal from './LikesModal';
 import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
+import axios from 'axios';
+// import { showToast } from '../../utils/toastUtils';
 
 import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail, getStaticThumbnail, extractYouTubeId } from '../../utils/videoUtils';
@@ -106,10 +108,9 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
     setIsLoadingLike(true);
     const wasLiked = isLiked;
     const previousCount = likesCount;
-    
+    // Оптимистичное обновление
     setIsLiked(!wasLiked);
     setLikesCount(prev => wasLiked ? prev - 1 : prev + 1);
-    
     try {
       const response = await fetch(`${API_URL}/api/likes/${post._id}/toggle`, {
         method: 'POST',
@@ -118,9 +119,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
           'Content-Type': 'application/json'
         }
       });
-      
       const data = await response.json();
-      
       if (!response.ok || data.liked === undefined) {
         setIsLiked(wasLiked);
         setLikesCount(previousCount);
@@ -149,30 +148,28 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
     if (!commentText.trim() || !token) return;
 
     try {
-        const response = await fetch(`${API_URL}/api/comments`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: commentText, postId: post._id })
-        });
-        const data = await response.json();
-        if (response.ok && data.comment) {
-            const newComment = { ...data.comment, isNew: true };
-            // Просто добавляем новый комментарий в конец списка
-            setComments(prev => [...prev, newComment]);
+      const response = await axios.post(`/api/comments/add-to-post`, {
+        postId: post._id,
+        text: commentText
+      });
+      const data = await response.data;
+      if (response.ok && data.comment) {
+        const newComment = { ...data.comment, isNew: true };
+        setComments(prev => [...prev, newComment]);
 
-            if (onPostUpdate) {
-                // Обновляем счетчик и массив комментариев в родительском компоненте
-                onPostUpdate(post._id, { 
-                    commentsCount: (post.commentsCount || comments.length) + 1,
-                    comments: [...comments, newComment] 
-                });
-            }
-            setCommentText('');
-        } else {
-            throw new Error(data.message || 'Error posting comment');
+        if (onPostUpdate) {
+          onPostUpdate(post._id, { 
+            commentsCount: (post.commentsCount || comments.length) + 1,
+            comments: [...comments, newComment] 
+          });
         }
-    } catch (err) {
-        console.error('Error adding comment:', err);
+        setCommentText('');
+      } else {
+        throw new Error(data.message || 'Error posting comment');
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      // showToast('Ошибка при добавлении комментария', 'error');
     }
   };
   
@@ -261,6 +258,31 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
   const displayedComments = isShowingAllComments 
     ? [...comments].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     : [...comments].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).slice(-3);
+
+  const handleDelete = async () => {
+    try {
+      const response = await axios.delete('/api/posts/delete', {
+        data: { postId: post._id }
+      });
+      // ... existing code ...
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      // showToast('Ошибка при удалении поста', 'error');
+    }
+  };
+
+  const handleUpdate = async (caption) => {
+    try {
+      const response = await axios.put('/api/posts/update', {
+        postId: post._id,
+        caption
+      });
+      // ... existing code ...
+    } catch (error) {
+      console.error('Error updating post:', error);
+      // showToast('Ошибка при обновлении поста', 'error');
+    }
+  };
 
   return (
     <div className="post">

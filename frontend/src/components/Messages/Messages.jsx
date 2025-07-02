@@ -11,6 +11,7 @@ import './Messages.css';
 import '../Post/ShareModal.css';
 import { API_URL } from '../../config';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
+import axios from 'axios';
 
 const Messages = ({ currentUser }) => {
   const location = useLocation();
@@ -524,40 +525,28 @@ const Messages = ({ currentUser }) => {
     setTotalMessages(0);
   };
 
-  const deleteMessage = async (messageId) => {
-    if (!selectedConversation || !selectedConversation._id) return;
-    
+  const fetchMessages = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('No token found');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation._id}/delete-message`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ messageId })
+      const response = await axios.get('/api/conversations/get-messages', {
+        params: { conversationId: selectedConversation._id }
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete message');
-      }
-      
-      // Удаляем сообщение из локального состояния
-      setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageId));
-      
-      // Обновляем список диалогов
-      await fetchConversations();
-      
-      // Закрываем модальное окно
-      setShowDeleteConfirm(false);
-      setMessageToDelete(null);
+      // ... existing code ...
     } catch (error) {
-      console.error('Network error deleting message:', error);
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const deleteMessage = async (messageId) => {
+    try {
+      const response = await axios.delete('/api/conversations/delete-message', {
+        data: {
+          conversationId: selectedConversation._id,
+          messageId
+        }
+      });
+      // ... existing code ...
+    } catch (error) {
+      console.error('Error deleting message:', error);
     }
   };
 
@@ -657,7 +646,7 @@ const Messages = ({ currentUser }) => {
                           conv.lastMessage.sharedPost ? 
                             'You: Shared a post' :
                           conv.lastMessage.text ? 
-                            `You: ${conv.lastMessage.text.substring(0, 25)}${conv.lastMessage.text.length > 25 ? '...' : ''}` : 
+                            `You: ${conv.lastMessage.text.substring(0, 25)}${conv.lastMessage.text.length > 25 ? '...' : ''}` :
                           typeof conv.lastMessage === 'object' ? 
                             'You: Sent a message' :
                             conv.lastMessage
@@ -669,7 +658,7 @@ const Messages = ({ currentUser }) => {
                           conv.lastMessage.sharedPost ? 
                             'Shared a post' :
                           conv.lastMessage.text ? 
-                            `${conv.lastMessage.text.substring(0, 25)}${conv.lastMessage.text.length > 25 ? '...' : ''}` : 
+                            `${conv.lastMessage.text.substring(0, 25)}${conv.lastMessage.text.length > 25 ? '...' : ''}` :
                           typeof conv.lastMessage === 'object' ? 
                             'Sent a message' :
                             conv.lastMessage

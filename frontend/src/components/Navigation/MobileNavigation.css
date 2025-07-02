@@ -43,8 +43,6 @@
 
 .mobile-nav-item span {
   font-size: 11px;
-  color: #262626;
-  display: block;
   visibility: visible;
   opacity: 1;
   text-align: center;
@@ -133,7 +131,6 @@
   
   .mobile-nav-item span {
     font-size: 9px !important;
-    display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
   }
@@ -155,7 +152,6 @@
   
   .mobile-nav-item span {
     font-size: 8px !important;
-    display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
   }
@@ -182,7 +178,6 @@
   
   .mobile-nav-item span {
     font-size: 7px !important;
-    display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
   }

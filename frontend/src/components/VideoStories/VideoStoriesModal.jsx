@@ -460,16 +460,18 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
         </div>
 
         <div className="stories-header">
-          <img
-            src={getAvatarUrl(user.avatar)}
-            alt={user.username}
-            className="stories-avatar"
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = '/default-avatar.png';
-            }}
-          />
-          <span className="stories-username">{user.username}</span>
+          <a href={`/profile/${user.username}`} className="stories-avatar-link" tabIndex={-1} style={{display: 'flex', alignItems: 'center', textDecoration: 'none'}}>
+            <img
+              src={getAvatarUrl(user.avatar)}
+              alt={user.username}
+              className="stories-avatar"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/default-avatar.png';
+              }}
+            />
+            <span className="stories-username" style={{marginLeft: 8}}>{user.username}</span>
+          </a>
           <span className="stories-time">{formatStoryTime(currentVideo?.createdAt)}</span>
         </div>
 
