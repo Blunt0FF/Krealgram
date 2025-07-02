@@ -113,6 +113,28 @@ const CreatePost = () => {
         throw new Error('No authentication token found');
       }
 
+      console.log('Token exists:', !!token);
+      console.log('Token length:', token.length);
+      console.log('API URL:', API_URL);
+
+      // Проверяем валидность токена простым запросом
+      try {
+        const testResponse = await fetch(`${API_URL}/api/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        console.log('Token validation response:', testResponse.status);
+        if (!testResponse.ok) {
+          throw new Error('Invalid token - redirecting to login');
+        }
+      } catch (tokenError) {
+        console.error('Token validation failed:', tokenError);
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
+      }
+
       const formData = new FormData();
       
       if (parsedVideoData) {
@@ -132,15 +154,19 @@ const CreatePost = () => {
         formData.append('mediaType', mediaType);
       }
 
+      // Логируем FormData содержимое
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, typeof value === 'object' ? 'File object' : value);
+      }
+
       console.log('Sending request to server...');
       const response = await fetch(`${API_URL}/api/posts`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        body: formData,
-        // Увеличиваем таймаут для больших файлов
-        signal: AbortSignal.timeout(300000) // 5 минут
+        body: formData
       });
 
       console.log('Response status:', response.status);
