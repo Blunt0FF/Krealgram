@@ -22,10 +22,12 @@ cloudinary.config({
 const postStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
+    console.log('Cloudinary processing file:', file.originalname, file.mimetype, file.size);
+    
     // Базовые параметры
     const baseParams = {
       folder: 'krealgram/posts',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm'],
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm', 'avi', 'quicktime'],
       resource_type: 'auto', // Автоматически определяет тип (image/video)
     };
 
@@ -48,11 +50,12 @@ const postStorage = new CloudinaryStorage({
       };
     }
 
-    // Для видео создаем превью первого кадра и оптимизируем видео
-    if (file.mimetype.startsWith('video/')) {
+    // Для видео создаем превью первого кадра
+    if (file.mimetype.startsWith('video/') || file.mimetype === 'video/quicktime') {
       return {
         ...baseParams,
         resource_type: 'video',
+        format: 'mp4', // Конвертируем MOV в MP4 для лучшей совместимости
         chunk_size: 6000000,
         eager: [
           { 
@@ -118,6 +121,23 @@ const uploadPost = multer({
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB для видео
   },
+  fileFilter: (req, file, cb) => {
+    console.log('Multer fileFilter check:', file.originalname, file.mimetype);
+    
+    // Разрешенные MIME типы
+    const allowedMimeTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/mov', 'video/quicktime', 'video/webm', 'video/avi'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      console.log('✓ File type accepted:', file.mimetype);
+      cb(null, true);
+    } else {
+      console.log('✗ File type rejected:', file.mimetype);
+      cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
+    }
+  }
 });
 
 const uploadAvatar = multer({ 

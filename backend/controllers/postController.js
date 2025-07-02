@@ -202,6 +202,21 @@ exports.createPost = async (req, res) => {
       });
     }
     
+    // Специальная обработка ошибок Multer/Cloudinary
+    if (error.message && error.message.includes('Unsupported file type')) {
+      return res.status(400).json({ 
+        message: 'Unsupported file type. Please upload images (JPG, PNG, GIF, WEBP) or videos (MP4, MOV, WEBM).', 
+        error: error.message 
+      });
+    }
+    
+    if (error.name === 'MulterError') {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File too large. Maximum size is 100MB.' });
+      }
+      return res.status(400).json({ message: 'File upload error: ' + error.message });
+    }
+    
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Validation Error: ' + error.message });
     }
