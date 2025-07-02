@@ -20,22 +20,15 @@ exports.createPost = async (req, res) => {
     const authorId = req.user.id; // User ID from authMiddleware
 
     console.log('=== CREATE POST DEBUG ===');
+    console.log('Request headers:', req.headers);
     console.log('Request body:', req.body);
     console.log('Has file:', !!req.file);
     console.log('File details:', req.file ? {
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      secure_url: req.file.secure_url,
-      public_id: req.file.public_id,
-      path: req.file.path,
-      filename: req.file.filename
+      fieldname: req.file.fieldname
     } : 'No file');
-    console.log('Cloudinary config:', {
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      use_cloudinary: process.env.USE_CLOUDINARY,
-      api_key_exists: !!process.env.CLOUDINARY_API_KEY
-    });
     console.log('Author ID:', authorId);
 
     let imagePath = null;

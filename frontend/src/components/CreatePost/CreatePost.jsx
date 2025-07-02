@@ -31,6 +31,13 @@ const CreatePost = () => {
     try {
       console.log('File selected:', file.name, file.type, file.size);
       
+      // Проверяем размер файла (50MB лимит)
+      const maxSize = 50 * 1024 * 1024; // 50MB
+      if (file.size > maxSize) {
+        setError(`File too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB. Your file is ${Math.round(file.size / 1024 / 1024)}MB.`);
+        return;
+      }
+      
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       setMediaType(fileType);
       setOriginalFileName(file.name);
@@ -131,7 +138,9 @@ const CreatePost = () => {
         headers: {
           'Authorization': `Bearer ${token}`
         },
-        body: formData
+        body: formData,
+        // Увеличиваем таймаут для больших файлов
+        signal: AbortSignal.timeout(300000) // 5 минут
       });
 
       console.log('Response status:', response.status);
@@ -140,12 +149,18 @@ const CreatePost = () => {
         const contentType = response.headers.get('content-type');
         let errorMessage = `Server returned ${response.status}`;
         
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          errorMessage = data.message || errorMessage;
-        } else {
-          const text = await response.text();
-          errorMessage = text || errorMessage;
+        try {
+          if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            errorMessage = data.message || data.error || errorMessage;
+            console.error('Server error details:', data);
+          } else {
+            const text = await response.text();
+            errorMessage = text || errorMessage;
+            console.error('Server error text:', text);
+          }
+        } catch (parseError) {
+          console.error('Error parsing server response:', parseError);
         }
         
         throw new Error(errorMessage);

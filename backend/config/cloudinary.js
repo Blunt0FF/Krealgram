@@ -119,10 +119,16 @@ const messageStorage = new CloudinaryStorage({
 const uploadPost = multer({ 
   storage: postStorage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB для видео
+    fileSize: 50 * 1024 * 1024, // 50MB для видео (уменьшил с 100MB)
   },
   fileFilter: (req, file, cb) => {
-    console.log('Multer fileFilter check:', file.originalname, file.mimetype);
+    console.log('=== MULTER FILE FILTER ===');
+    console.log('File check:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      fieldname: file.fieldname
+    });
     
     // Разрешенные MIME типы
     const allowedMimeTypes = [
@@ -135,7 +141,7 @@ const uploadPost = multer({
       cb(null, true);
     } else {
       console.log('✗ File type rejected:', file.mimetype);
-      cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: ${allowedMimeTypes.join(', ')}`), false);
     }
   }
 });
