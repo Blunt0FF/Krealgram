@@ -220,15 +220,24 @@ const CreatePost = () => {
             border: '2px dashed #ddd',
             borderRadius: '12px',
             cursor: 'pointer',
-            marginBottom: '20px'
+            marginBottom: '20px',
+            position: 'relative'
           }}>
             <div style={{ marginBottom: '10px', fontSize: '18px' }}>📸 Choose Image/Video</div>
             <input 
               type="file" 
-              accept="image/*,video/*" 
+              accept=".jpg,.jpeg,.png,.gif,.mp4,.mov,.webm,image/*,video/*" 
               onChange={handleImageChange} 
               disabled={compressing}
-              style={{ display: 'block', width: '100%', cursor: 'pointer' }}
+              style={{ 
+                opacity: 0,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                cursor: 'pointer'
+              }}
             />
           </label>
         </div>

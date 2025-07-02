@@ -8,7 +8,7 @@
   padding: 20px;
 }
 
-@media (max-width: 768px) {
+/* @media (max-width: 768px) {
   .create-post-container {
     height: calc(100vh - 100px);
   }
@@ -18,7 +18,7 @@
       height: calc(100dvh - 100px);
     }
   }
-}
+} */
 
 .create-post-box {
   background: white;
