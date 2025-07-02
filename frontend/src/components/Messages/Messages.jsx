@@ -529,27 +529,33 @@ const Messages = ({ currentUser }) => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation._id}/messages/${messageId}`, {
+      if (!token) {
+        console.error('No token found');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation._id}/delete-message`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ messageId })
       });
 
-      if (response.ok) {
-        // Удаляем сообщение из локального состояния
-        setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageId));
-        
-        // Обновляем список диалогов
-        await fetchConversations();
-        
-        // Закрываем модальное окно
-        setShowDeleteConfirm(false);
-        setMessageToDelete(null);
-      } else {
-        const errorData = await response.json();
-        console.error('Error deleting message:', errorData.message);
+      if (!response.ok) {
+        throw new Error('Failed to delete message');
       }
+      
+      // Удаляем сообщение из локального состояния
+      setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageId));
+      
+      // Обновляем список диалогов
+      await fetchConversations();
+      
+      // Закрываем модальное окно
+      setShowDeleteConfirm(false);
+      setMessageToDelete(null);
     } catch (error) {
       console.error('Network error deleting message:', error);
     }

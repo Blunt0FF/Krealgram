@@ -373,11 +373,16 @@ exports.getFollowingList = async (req, res) => {
 };
 
 // @desc    Удалить подписчика (только владелец профиля)
-// @route   DELETE /api/users/:userId/followers/:followerId
+// @route   DELETE /api/users/:userId/remove-follower
 // @access  Private
 exports.removeFollower = async (req, res) => {
-  const { userId, followerId } = req.params;
+  const { userId } = req.params;
+  const { followerId } = req.body; // Получаем followerId из тела запроса
   const currentUserId = req.user.id;
+
+  if (!followerId) {
+    return res.status(400).json({ message: 'ID подписчика не указан в теле запроса.' });
+  }
 
   // Проверяем, что текущий пользователь является владельцем профиля
   if (currentUserId.toString() !== userId.toString()) {
@@ -403,24 +408,22 @@ exports.removeFollower = async (req, res) => {
       return res.status(404).json({ message: 'Подписчик не найден.' });
     }
 
-    // Проверяем, что пользователь действительно является подписчиком
-    const isFollower = profileOwner.followers.some(id => id.equals(followerId));
+    // Проверяем, является ли пользователь подписчиком
+    const isFollower = profileOwner.followers.includes(followerId);
     if (!isFollower) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({ message: 'Пользователь не является подписчиком.' });
+      return res.status(400).json({ message: 'Этот пользователь не является вашим подписчиком.' });
     }
 
-    // Удаляем подписчика из списка подписчиков владельца профиля
+    // Удаляем связи подписки
     profileOwner.followers.pull(followerId);
-    
-    // Удаляем владельца профиля из списка подписок подписчика
     followerUser.following.pull(userId);
 
     await profileOwner.save({ session });
     await followerUser.save({ session });
 
-    // Удаляем уведомление о подписке, если оно существует
+    // Удаляем уведомление о подписке
     await removeNotification(userId, {
       sender: followerId,
       type: 'follow'
@@ -429,19 +432,18 @@ exports.removeFollower = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    // Получаем обновленные счетчики
-    const updatedProfileOwner = await User.findById(userId).select('followers following').lean();
-
     res.status(200).json({
-      message: 'Подписчик успешно удален.',
-      followersCount: updatedProfileOwner.followers.length,
-      followingCount: updatedProfileOwner.following.length
+      message: 'Подписчик успешно удален',
+      followersCount: profileOwner.followers.length
     });
 
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
     console.error('Ошибка при удалении подписчика:', error);
+    if (error.kind === 'ObjectId') {
+      return res.status(400).json({ message: 'Некорректный ID пользователя.' });
+    }
     res.status(500).json({ message: 'На сервере произошла ошибка при удалении подписчика.', error: error.message });
   }
 }; 

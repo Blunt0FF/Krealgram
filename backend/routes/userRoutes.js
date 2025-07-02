@@ -52,9 +52,9 @@ router.get('/:userId/followers', userController.getFollowersList);
 // @access  Public
 router.get('/:userId/following', userController.getFollowingList);
 
-// @route   DELETE /api/users/:userId/followers/:followerId
+// @route   DELETE /api/users/:userId/remove-follower
 // @desc    Удалить подписчика (только владелец профиля)
 // @access  Private
-router.delete('/:userId/followers/:followerId', authMiddleware, userController.removeFollower);
+router.delete('/:userId/remove-follower', authMiddleware, userController.removeFollower);
 
 module.exports = router; 

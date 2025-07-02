@@ -270,6 +270,7 @@ const Profile = ({ user: currentUserProp }) => {
   const [modalTitle, setModalTitle] = useState('');
   const [modalUsers, setModalUsers] = useState([]);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [error, setError] = useState(null);
 
   const handlePostClick = (post) => {
     // Останавливаем все остальные видео на странице
@@ -495,51 +496,42 @@ const Profile = ({ user: currentUserProp }) => {
   const removeFollower = async (followerToRemove) => {
     try {
       const token = localStorage.getItem('token');
-      
-      if (!token || !profile?.user?._id) {
-        console.error('No token or profile ID available');
+      if (!token) {
+        setError('Требуется авторизация');
         return;
       }
-      
-      // For deleted users use special ID
-      const followerId = followerToRemove._id || (followerToRemove.isDeleted ? 'deleted' : null);
-      
-      if (!followerId) {
-        console.error('No valid follower ID found');
-        return;
-      }
-      
-      const response = await fetch(`${API_URL}/api/users/${profile.user._id}/followers/${followerId}`, {
+
+      const response = await fetch(`${API_URL}/api/users/${profile.user._id}/remove-follower`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ followerId: followerToRemove._id })
       });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        // For deleted users remove all with isDeleted: true
-        if (followerToRemove.isDeleted) {
-          setModalUsers(prevUsers => prevUsers.filter(user => !user.isDeleted));
-        } else {
-          // For regular users remove by ID
-          setModalUsers(prevUsers => prevUsers.filter(user => user._id !== followerToRemove._id));
-        }
-        
-        // Update counters from API response
-        setFollowInfo(prev => ({
-          ...prev,
-          followersCount: data.followersCount,
-          followingCount: data.followingCount
-        }));
-        
-        console.log('Follower removed successfully');
-      } else {
-        const errorData = await response.json();
-        console.error('Failed to remove follower:', errorData);
+
+      if (!response.ok) {
+        throw new Error('Ошибка при удалении подписчика');
       }
+
+      const data = await response.json();
+      
+      // For deleted users remove all with isDeleted: true
+      if (followerToRemove.isDeleted) {
+        setModalUsers(prevUsers => prevUsers.filter(user => !user.isDeleted));
+      } else {
+        // For regular users remove by ID
+        setModalUsers(prevUsers => prevUsers.filter(user => user._id !== followerToRemove._id));
+      }
+      
+      // Update counters from API response
+      setFollowInfo(prev => ({
+        ...prev,
+        followersCount: data.followersCount,
+        followingCount: data.followingCount
+      }));
+      
+      console.log('Follower removed successfully');
     } catch (error) {
       console.error('Error removing follower:', error);
     }
