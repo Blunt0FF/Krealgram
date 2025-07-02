@@ -42,18 +42,18 @@
 }
 
 .mobile-nav-item span {
-  font-size: 11px !important;
-  color: #262626 !important;
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  text-align: center !important;
-  line-height: 1.2 !important;
-  white-space: nowrap !important;
-  max-width: 100% !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  font-weight: 400 !important;
+  font-size: 11px;
+  color: white;
+  display: block;
+  visibility: visible;
+  opacity: 1 ;
+  text-align: center;
+  line-height: 1.2 ;
+  white-space: nowrap ;
+  max-width: 100% ;
+  overflow: visible ;
+  text-overflow: clip ;
+  font-weight: 400 ;
 }
 
 .mobile-nav-item.active {

@@ -26,42 +26,29 @@ const CreatePost = () => {
 
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
+    if (!file) return;
+
+    try {
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       setMediaType(fileType);
-      
-      // Создаем URL только для предпросмотра
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewUrl(objectUrl);
+      setPreviewUrl(URL.createObjectURL(file));
       setOriginalFileName(file.name);
       setError('');
-      
-      // Очищаем данные внешнего видео
       setParsedVideoData(null);
       setVideoUrl('');
       
-      // Применяем сжатие только для изображений
       if (fileType === 'image') {
         setCompressing(true);
-        setCompressedFile(null);
-        
-        try {
-          const compressedBlob = await compressPostImage(file);
-          setCompressedFile(new File([compressedBlob], file.name, { type: compressedBlob.type }));
-        } catch (err) {
-          console.error('Compression error:', err);
-          setError('Image compression error');
-        } finally {
-          setCompressing(false);
-        }
+        const compressedBlob = await compressPostImage(file);
+        setCompressedFile(new File([compressedBlob], file.name, { type: compressedBlob.type }));
       } else {
-        // Для видео используем оригинальный файл без сжатия
         setCompressedFile(file);
-        setCompressing(false);
       }
-
-      // Очищаем URL при размонтировании компонента
-      return () => URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('File processing error:', err);
+      setError('Error processing file');
+    } finally {
+      setCompressing(false);
     }
   };
 
@@ -108,47 +95,28 @@ const CreatePost = () => {
 
     try {
       const token = localStorage.getItem('token');
-      let requestData;
-      let headers = {
-        'Authorization': `Bearer ${token}`
-      };
-
+      const formData = new FormData();
+      
       if (parsedVideoData) {
-        headers['Content-Type'] = 'application/json';
-        
-        if (parsedVideoData.isDownloaded && parsedVideoData.videoData) {
-          requestData = JSON.stringify({
-            caption,
-            mediaType: 'video',
-            image: parsedVideoData.videoData.image,
-            videoUrl: parsedVideoData.videoData.videoUrl,
-            youtubeData: parsedVideoData.videoData.youtubeData
-          });
-        } else {
-          requestData = JSON.stringify({
-            caption,
-            videoUrl,
-            videoData: parsedVideoData,
-            mediaType: 'video'
-          });
-        }
+        const videoData = {
+          caption,
+          mediaType: 'video',
+          ...parsedVideoData
+        };
+        Object.entries(videoData).forEach(([key, value]) => {
+          formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
+        });
       } else {
-        // Для файлов используем FormData
-        requestData = new FormData();
-        
-        // Убедимся что файл существует и валиден
-        if (!(compressedFile instanceof File || compressedFile instanceof Blob)) {
-          throw new Error('Invalid file object');
-        }
-        
-        requestData.append('image', compressedFile, originalFileName);
-        requestData.append('caption', caption);
+        formData.append('image', compressedFile);
+        formData.append('caption', caption);
       }
 
       const response = await fetch(`${API_URL}/api/posts`, {
         method: 'POST',
-        headers,
-        body: requestData
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
       });
 
       if (!response.ok) {
@@ -156,8 +124,6 @@ const CreatePost = () => {
         throw new Error(data.message || 'Error creating post');
       }
 
-      const data = await response.json();
-      
       setCaption('');
       setPreviewUrl(null);
       setVideoUrl('');
@@ -167,7 +133,7 @@ const CreatePost = () => {
       
       navigate('/');
     } catch (error) {
-      console.error('❌ Error creating post:', error);
+      console.error('Error creating post:', error);
       setError(error.message || 'An error occurred while creating the post');
     } finally {
       setLoading(false);

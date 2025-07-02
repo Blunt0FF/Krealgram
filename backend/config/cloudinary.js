@@ -53,17 +53,14 @@ const postStorage = new CloudinaryStorage({
       return {
         ...baseParams,
         resource_type: 'video',
+        chunk_size: 6000000,
         eager: [
           { 
             format: 'jpg',
             transformation: [
-              { width: 400, height: 400, crop: 'fill', gravity: 'center', quality: 'auto' }
+              { width: 400, height: 400, crop: 'fill', gravity: 'center' }
             ]
           }
-        ],
-        eager_async: true,
-        transformation: [
-          { quality: 'auto', fetch_format: 'auto' }
         ]
       };
     }
