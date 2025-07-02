@@ -65,8 +65,7 @@
 }
 
 .mobile-nav-item.active span {
-  color: #0095f6 !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
 }
 
 .mobile-nav-avatar {

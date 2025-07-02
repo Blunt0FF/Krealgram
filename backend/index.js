@@ -46,26 +46,10 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   credentials: true,
-  maxAge: 86400, // 24 часа
-  optionsSuccessStatus: 200 // для поддержки legacy браузеров
+  maxAge: 86400 // 24 часа
 };
 
 app.use(cors(corsOptions));
-
-// Дополнительная обработка preflight OPTIONS запросов
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.status(200).send();
-});
-
-// Логирование всех запросов
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.url} - Origin: ${req.get('Origin')} - User-Agent: ${req.get('User-Agent')}`);
-  next();
-});
 
 // Важно: middleware для парсинга JSON должен идти после CORS
 app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных
