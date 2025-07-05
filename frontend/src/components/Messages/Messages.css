@@ -182,20 +182,20 @@
     color: #00d26a;
   }
 
-.messages-area {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  scroll-behavior: smooth;
-  min-height: 0;
-}
+  .messages-area {
+    flex: 1;
+    padding: 1px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+    scroll-behavior: smooth;
+    min-height: 0;
+  }
 
 .message {
   display: flex;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   position: relative;
   max-width: 70%;
 }
@@ -218,6 +218,8 @@
 .message-avatar {
   width: 28px;
   height: 28px;
+  min-width: 28px;
+  min-height: 28px;
   border-radius: 50%;
   object-fit: cover;
   margin-bottom: auto;
@@ -439,7 +441,7 @@
 }
 
 @media (max-width: 680px) {
-.messages-container {
+  .messages-container {
     height: calc(100vh - 60px);
     max-height: calc(100vh - 60px);
 
@@ -520,7 +522,6 @@
     border-bottom: 1px solid #dbdbdb;
     z-index: 15;
   }
-
      .messages-area {
      padding: 16px;
      gap: 8px;
@@ -533,7 +534,7 @@
    }
 
   .message {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
      .message-input-form {
