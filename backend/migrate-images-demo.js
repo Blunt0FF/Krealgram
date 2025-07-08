@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 require('dotenv').config();
 
 // Подключение к MongoDB
@@ -9,6 +10,7 @@ mongoose.connect(process.env.MONGO_URI);
 // Импорт моделей
 const Post = require('./models/postModel');
 const User = require('./models/userModel');
+const { uploadToImgur } = require('./middlewares/uploadMiddleware');
 
 const migrateToCloudinary = async () => {
   console.log('🚀 Starting real migration to Cloudinary...');
@@ -35,61 +37,65 @@ const migrateToCloudinary = async () => {
       api_secret: process.env.CLOUDINARY_API_SECRET,
     });
 
-    // 1. Migrate post images
-    console.log('📸 Migrating post images...');
-    const posts = await Post.find({ image: { $not: /^http/ } });
-    console.log(`Found ${posts.length} posts with local images`);
-    
+    // 1. Migrate post images to Imgur
+    console.log('📸 Migrating post images to Imgur...');
+    const posts = await Post.find({ image: { $not: /^https?:\/\/(i\.)?imgur\.com/ } }); // Только не-Imgur
     for (const post of posts) {
-      const localPath = path.join(__dirname, 'uploads', post.image);
-      
-      if (fs.existsSync(localPath)) {
-        try {
-          console.log(`Uploading ${post.image}...`);
-          const result = await cloudinary.uploader.upload(localPath, {
-            folder: 'krealgram/posts',
-            transformation: [
-              { width: 1080, height: 1080, crop: 'limit', quality: 'auto' }
-            ],
-          });
-          
-          // Update post with Cloudinary URL
-          await Post.findByIdAndUpdate(post._id, { image: result.secure_url });
-          console.log(`✅ Migrated: ${post.image} -> ${result.secure_url}`);
-        } catch (error) {
-          console.error(`❌ Failed to migrate ${post.image}:`, error.message);
-        }
+      let imageUrl = post.image;
+      let localPath = imageUrl;
+      if (!/^http/.test(imageUrl)) {
+        localPath = path.join(__dirname, 'uploads', imageUrl);
       } else {
-        console.log(`⚠️  File not found: ${localPath}`);
+        // Скачать файл по ссылке
+        const res = await axios.get(imageUrl, { responseType: 'stream' });
+        localPath = path.join(__dirname, 'temp', `post_${post._id}_${Date.now()}`);
+        await new Promise((resolve, reject) => {
+          const stream = require('fs').createWriteStream(localPath);
+          res.data.pipe(stream);
+          stream.on('finish', resolve);
+          stream.on('error', reject);
+        });
+      }
+      try {
+        const imgurUrl = await uploadToImgur(localPath);
+        await Post.findByIdAndUpdate(post._id, { image: imgurUrl });
+        console.log(`✅ Migrated: ${imageUrl} -> ${imgurUrl}`);
+      } catch (e) {
+        console.error(`❌ Failed to migrate ${imageUrl}:`, e.message);
+      }
+      if (localPath && !/^http/.test(imageUrl)) {
+        require('fs').unlink(localPath, () => {});
       }
     }
 
-    // 2. Migrate user avatars
-    console.log('\n👤 Migrating user avatars...');
-    const users = await User.find({ avatar: { $exists: true, $not: /^http/ } });
-    console.log(`Found ${users.length} users with local avatars`);
-    
+    // 2. Migrate user avatars to Imgur
+    console.log('👤 Migrating user avatars to Imgur...');
+    const users = await User.find({ avatar: { $exists: true, $not: /^https?:\/\/(i\.)?imgur\.com/ } });
     for (const user of users) {
-      const localPath = path.join(__dirname, 'uploads', user.avatar);
-      
-      if (fs.existsSync(localPath)) {
-        try {
-          console.log(`Uploading avatar ${user.avatar}...`);
-          const result = await cloudinary.uploader.upload(localPath, {
-            folder: 'krealgram/avatars',
-            transformation: [
-              { width: 400, height: 400, crop: 'fill', gravity: 'face', quality: 'auto' }
-            ],
-          });
-          
-          // Update user with Cloudinary URL
-          await User.findByIdAndUpdate(user._id, { avatar: result.secure_url });
-          console.log(`✅ Migrated avatar: ${user.avatar} -> ${result.secure_url}`);
-        } catch (error) {
-          console.error(`❌ Failed to migrate avatar ${user.avatar}:`, error.message);
-        }
+      let avatarUrl = user.avatar;
+      let localPath = avatarUrl;
+      if (!/^http/.test(avatarUrl)) {
+        localPath = path.join(__dirname, 'uploads', avatarUrl);
       } else {
-        console.log(`⚠️  Avatar file not found: ${localPath}`);
+        // Скачать файл по ссылке
+        const res = await axios.get(avatarUrl, { responseType: 'stream' });
+        localPath = path.join(__dirname, 'temp', `avatar_${user._id}_${Date.now()}`);
+        await new Promise((resolve, reject) => {
+          const stream = require('fs').createWriteStream(localPath);
+          res.data.pipe(stream);
+          stream.on('finish', resolve);
+          stream.on('error', reject);
+        });
+      }
+      try {
+        const imgurUrl = await uploadToImgur(localPath);
+        await User.findByIdAndUpdate(user._id, { avatar: imgurUrl });
+        console.log(`✅ Migrated avatar: ${avatarUrl} -> ${imgurUrl}`);
+      } catch (e) {
+        console.error(`❌ Failed to migrate avatar ${avatarUrl}:`, e.message);
+      }
+      if (localPath && !/^http/.test(avatarUrl)) {
+        require('fs').unlink(localPath, () => {});
       }
     }
 

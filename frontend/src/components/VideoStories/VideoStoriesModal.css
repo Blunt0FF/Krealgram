@@ -421,27 +421,26 @@
   background: #0095f6;
   border: none;
   color: white;
-  width: 24px; /* УМЕНЬШИЛ РАЗМЕР КНОПКИ */
-  height: 24px; /* УМЕНЬШИЛ РАЗМЕР КНОПКИ */
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 11px; /* УМЕНЬШИЛ РАЗМЕР ШРИФТА */
-  font-weight: 600;
+  padding: 0 16px;
+  height: 20px;
+  border-radius: 6px;
+  text-shadow: none;
 }
 
 .stories-comment-submit:hover:not(:disabled) {
   background: #1877f2;
-  transform: scale(1.05);
+  opacity: 1;
 }
 
 .stories-comment-submit:disabled {
-  background: #0095f6;
-  opacity: 0.6;
+  background: #c4c4c4;
+  color: #fff;
   cursor: not-allowed;
+  opacity: 0.6;
   transform: none;
 }
 

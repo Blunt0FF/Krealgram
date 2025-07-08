@@ -148,11 +148,15 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
     if (!commentText.trim() || !token) return;
 
     try {
-      const response = await axios.post(`/api/comments/add-to-post`, {
-        postId: post._id,
-        text: commentText
+      const response = await fetch(`${API_URL}/api/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: commentText, postId: post._id }),
       });
-      const data = await response.data;
+      const data = await response.json();
       if (response.ok && data.comment) {
         const newComment = { ...data.comment, isNew: true };
         setComments(prev => [...prev, newComment]);

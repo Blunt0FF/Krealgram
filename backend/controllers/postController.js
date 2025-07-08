@@ -98,13 +98,13 @@ exports.createPost = async (req, res) => {
       // Обычная загрузка файла
       console.log('Processing uploaded file:', req.file);
       
-      // Для Cloudinary используем secure_url
+      // Для Imgur или Cloudinary используем secure_url
       if (req.file.secure_url) {
         imagePath = req.file.secure_url;
-        console.log('Cloudinary file uploaded:', imagePath);
+        console.log('Image uploaded (Imgur/Cloudinary):', imagePath);
         
-        // Для видео создаем превью
-        if (req.file.mimetype.startsWith('video/')) {
+        // Для видео создаем превью (Cloudinary)
+        if (req.file.mimetype && req.file.mimetype.startsWith('video/')) {
           if (req.file.eager && req.file.eager[0]) {
             console.log('Video thumbnail created:', req.file.eager[0].secure_url);
           } else {
@@ -117,7 +117,7 @@ exports.createPost = async (req, res) => {
         console.log('Local file uploaded:', imagePath);
       }
       
-      mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      mediaType = req.file.mimetype && req.file.mimetype.startsWith('video/') ? 'video' : 'image';
       
       // Сохраняем MIME-type для правильного отображения GIF
       if (req.file.mimetype) {
