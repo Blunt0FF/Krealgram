@@ -109,14 +109,8 @@ exports.updateUserProfile = async (req, res) => {
 
     // Если загружен новый файл аватара
     if (req.file) {
-      // Для Imgur или Cloudinary используем secure_url
-      if (req.file.secure_url) {
-        fieldsToUpdate.avatar = req.file.secure_url;
-        console.log('Avatar uploaded (Imgur/Cloudinary):', fieldsToUpdate.avatar);
-      } else {
-        fieldsToUpdate.avatar = req.file.path || req.file.filename;
-        console.log('Local avatar uploaded:', fieldsToUpdate.avatar);
-      }
+      // Сохраняем только имя файла, а не полный URL
+      fieldsToUpdate.avatar = req.file.filename;
     } 
     // Если нужно удалить аватар
     else if (removeAvatar === 'true') {

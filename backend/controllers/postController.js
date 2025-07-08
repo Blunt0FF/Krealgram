@@ -20,15 +20,22 @@ exports.createPost = async (req, res) => {
     const authorId = req.user.id; // User ID from authMiddleware
 
     console.log('=== CREATE POST DEBUG ===');
-    console.log('Request headers:', req.headers);
     console.log('Request body:', req.body);
     console.log('Has file:', !!req.file);
     console.log('File details:', req.file ? {
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      fieldname: req.file.fieldname
+      secure_url: req.file.secure_url,
+      public_id: req.file.public_id,
+      path: req.file.path,
+      filename: req.file.filename
     } : 'No file');
+    console.log('Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      use_cloudinary: process.env.USE_CLOUDINARY,
+      api_key_exists: !!process.env.CLOUDINARY_API_KEY
+    });
     console.log('Author ID:', authorId);
 
     let imagePath = null;
@@ -98,13 +105,13 @@ exports.createPost = async (req, res) => {
       // Обычная загрузка файла
       console.log('Processing uploaded file:', req.file);
       
-      // Для Imgur или Cloudinary используем secure_url
+      // Для Cloudinary используем secure_url
       if (req.file.secure_url) {
         imagePath = req.file.secure_url;
-        console.log('Image uploaded (Imgur/Cloudinary):', imagePath);
+        console.log('Cloudinary file uploaded:', imagePath);
         
-        // Для видео создаем превью (Cloudinary)
-        if (req.file.mimetype && req.file.mimetype.startsWith('video/')) {
+        // Для видео создаем превью
+        if (req.file.mimetype.startsWith('video/')) {
           if (req.file.eager && req.file.eager[0]) {
             console.log('Video thumbnail created:', req.file.eager[0].secure_url);
           } else {
@@ -117,7 +124,7 @@ exports.createPost = async (req, res) => {
         console.log('Local file uploaded:', imagePath);
       }
       
-      mediaType = req.file.mimetype && req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
       
       // Сохраняем MIME-type для правильного отображения GIF
       if (req.file.mimetype) {
@@ -193,21 +200,6 @@ exports.createPost = async (req, res) => {
       fs.unlink(path.join(__dirname, '..', 'uploads', req.file.filename), (err) => {
         if (err) console.error("Error deleting file on failed post creation:", err);
       });
-    }
-    
-    // Специальная обработка ошибок Multer/Cloudinary
-    if (error.message && error.message.includes('Unsupported file type')) {
-      return res.status(400).json({ 
-        message: 'Unsupported file type. Please upload images (JPG, PNG, GIF, WEBP) or videos (MP4, MOV, WEBM).', 
-        error: error.message 
-      });
-    }
-    
-    if (error.name === 'MulterError') {
-      if (error.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'File too large. Maximum size is 100MB.' });
-      }
-      return res.status(400).json({ message: 'File upload error: ' + error.message });
     }
     
     if (error.name === 'ValidationError') {

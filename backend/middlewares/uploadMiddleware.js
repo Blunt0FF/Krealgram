@@ -1,6 +1,5 @@
 const multer = require('multer');
 const path = require('path');
-const axios = require('axios');
 
 // Check if Cloudinary should be used
 const useCloudinary = process.env.USE_CLOUDINARY === 'true';
@@ -62,64 +61,11 @@ const messageMediaFilter = (req, file, cb) => {
   }
 };
 
-// Вспомогательная функция для загрузки на Imgur
-async function uploadToImgur(filePath) {
-  const fs = require('fs');
-  const FormData = require('form-data');
-  const form = new FormData();
-  form.append('image', fs.createReadStream(filePath));
-  const clientId = process.env.IMGUR_CLIENT_ID;
-  if (!clientId) throw new Error('IMGUR_CLIENT_ID not set');
-  const res = await axios.post('https://api.imgur.com/3/image', form, {
-    headers: {
-      ...form.getHeaders(),
-      Authorization: `Client-ID ${clientId}`
-    }
-  });
-  return res.data.data.link;
-}
-
-// Для изображений: diskStorage + Imgur
-const imageStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-  }
-});
-
-// Переопределяем uploadPost для поддержки Imgur
+// Инициализация multer для постов
 const uploadPost = multer({
-  storage: {
-    _handleFile: async function (req, file, cb) {
-      // Если изображение — грузим на Imgur
-      if (file.mimetype.startsWith('image/')) {
-        const disk = multer({ storage: imageStorage }).single(file.fieldname);
-        disk(req, {}, async (err) => {
-          if (err) return cb(err);
-          try {
-            const imgurUrl = await uploadToImgur(req.file.path);
-            // Удаляем локальный файл после загрузки
-            require('fs').unlink(req.file.path, () => {});
-            req.file.secure_url = imgurUrl;
-            req.file.mimetype = file.mimetype;
-            cb(null, req.file);
-          } catch (e) {
-            cb(e);
-          }
-        });
-      } else {
-        // Видео — Cloudinary (старый storage)
-        postStorage._handleFile(req, file, cb);
-      }
-    },
-    _removeFile: function (req, file, cb) {
-      cb(null);
-    }
-  },
+  storage: postStorage,
   limits: {
-    fileSize: 50 * 1024 * 1024
+    fileSize: 1024 * 1024 * 50 // Лимит размера файла: 50MB для видео
   },
   fileFilter: postFileFilter
 });
