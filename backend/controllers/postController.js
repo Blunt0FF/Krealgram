@@ -46,8 +46,17 @@ exports.createPost = async (req, res) => {
     if (image && (image.includes('cloudinary.com') || image.includes('res.cloudinary'))) {
       console.log('Processing downloaded video from Cloudinary:', image);
       
-      // Это скачанное видео - используем Cloudinary URL как основное изображение
-      imagePath = image;
+      // Это скачанное видео - используем GIF превью как изображение, если есть
+      if (incomingYoutubeData && incomingYoutubeData.gifPreview) {
+        imagePath = incomingYoutubeData.gifPreview; // Используем GIF превью
+        console.log('Using GIF preview as main image:', imagePath);
+      } else if (incomingYoutubeData && incomingYoutubeData.thumbnailUrl) {
+        imagePath = incomingYoutubeData.thumbnailUrl; // Используем JPG превью
+        console.log('Using JPG preview as main image:', imagePath);
+      } else {
+        imagePath = image; // Fallback к самому видео
+      }
+      
       mediaType = 'video';
       
       // Используем переданные youtubeData для скачанного видео
@@ -173,7 +182,9 @@ exports.createPost = async (req, res) => {
       youtubeUrl: videoUrl || null, // Для обратной совместимости
       youtubeData: youtubeData,
       // Добавляем thumbnailUrl если есть превью из Cloudinary
-      thumbnailUrl: (req.file && req.file.eager && req.file.eager[0]) ? req.file.eager[0].secure_url : null
+      thumbnailUrl: (req.file && req.file.eager && req.file.eager[0]) ? req.file.eager[0].secure_url : (incomingYoutubeData ? incomingYoutubeData.thumbnailUrl : null),
+      // Добавляем gifPreview если есть
+      gifPreview: incomingYoutubeData ? incomingYoutubeData.gifPreview : null
     });
 
     const savedPost = await newPost.save();
@@ -1093,9 +1104,25 @@ exports.downloadExternalVideo = async (req, res) => {
     // Загружаем в Cloudinary
     const cloudinaryResult = await cloudinary.uploader.upload(tempFilePath, {
       resource_type: 'video',
-      folder: 'posts',
+      folder: 'krealgram/posts',
+      format: 'mp4', // Конвертируем в MP4 для лучшей совместимости
       eager: [
-        { width: 300, height: 400, crop: 'pad', format: 'jpg' }
+        { 
+          format: 'jpg',
+          transformation: [
+            { width: 400, height: 400, crop: 'fill', gravity: 'center' }
+          ]
+        },
+        { 
+          format: 'gif',
+          transformation: [
+            { width: 300, height: 300, crop: 'fill', gravity: 'center', 
+              flags: 'animated', 
+              duration: '3.0', 
+              delay: '100',
+              loop: 0 }
+          ]
+        }
       ]
     });
 
@@ -1103,13 +1130,18 @@ exports.downloadExternalVideo = async (req, res) => {
 
     console.log(`✅ Video downloaded and uploaded to Cloudinary successfully`);
 
+    console.log('Cloudinary eager results:', cloudinaryResult.eager);
+    const jpgThumbnail = cloudinaryResult.eager?.find(e => e.format === 'jpg')?.secure_url;
+    const gifPreview = cloudinaryResult.eager?.find(e => e.format === 'gif')?.secure_url;
+
     // Возвращаем данные видео для дальнейшего использования (НЕ создаем пост автоматически)
     res.json({
       success: true,
       message: 'Video downloaded and uploaded successfully',
       isExternalLink: false, // Это загруженное видео
       videoUrl: cloudinaryResult.secure_url,
-      thumbnailUrl: cloudinaryResult.eager[0]?.secure_url,
+      thumbnailUrl: jpgThumbnail || cloudinaryResult.eager[0]?.secure_url,
+      gifPreview: gifPreview, // Добавляем GIF превью
       originalUrl: url,
       platform: platform,
       title: '', // Убираем стандартную подпись
@@ -1126,7 +1158,8 @@ exports.downloadExternalVideo = async (req, res) => {
           title: '',
           isExternalLink: false,
           cloudinaryUrl: cloudinaryResult.secure_url,
-          thumbnailUrl: cloudinaryResult.eager[0]?.secure_url
+          thumbnailUrl: jpgThumbnail || cloudinaryResult.eager[0]?.secure_url,
+          gifPreview: gifPreview
         }
       }
     });
