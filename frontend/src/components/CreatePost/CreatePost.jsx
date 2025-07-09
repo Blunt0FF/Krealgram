@@ -29,36 +29,24 @@ const CreatePost = () => {
     if (!file) return;
 
     try {
-      console.log('File selected:', file.name, file.type, file.size);
-      
-      // Проверяем размер файла (50MB лимит)
-      const maxSize = 50 * 1024 * 1024; // 50MB
-      if (file.size > maxSize) {
-        setError(`File too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB. Your file is ${Math.round(file.size / 1024 / 1024)}MB.`);
-        return;
-      }
-      
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       setMediaType(fileType);
+      setPreviewUrl(URL.createObjectURL(file));
       setOriginalFileName(file.name);
       setError('');
       setParsedVideoData(null);
       setVideoUrl('');
       
-      // Для предпросмотра создаем URL только для изображений
       if (fileType === 'image') {
-        setPreviewUrl(URL.createObjectURL(file));
         setCompressing(true);
         const compressedBlob = await compressPostImage(file);
         setCompressedFile(new File([compressedBlob], file.name, { type: compressedBlob.type }));
       } else {
-        // Для видео не создаем предпросмотр, используем placeholder
-        setPreviewUrl('/video-placeholder.svg');
         setCompressedFile(file);
       }
     } catch (err) {
       console.error('File processing error:', err);
-      setError('Error processing file: ' + err.message);
+      setError('Error processing file');
     } finally {
       setCompressing(false);
     }
@@ -106,39 +94,10 @@ const CreatePost = () => {
     setError('');
 
     try {
-      console.log('Starting upload process...');
       const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      console.log('Token exists:', !!token);
-      console.log('Token length:', token.length);
-      console.log('API URL:', API_URL);
-
-      // Проверяем валидность токена простым запросом
-      try {
-        const testResponse = await fetch(`${API_URL}/api/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        console.log('Token validation response:', testResponse.status);
-        if (!testResponse.ok) {
-          throw new Error('Invalid token - redirecting to login');
-        }
-      } catch (tokenError) {
-        console.error('Token validation failed:', tokenError);
-        localStorage.removeItem('token');
-        window.location.href = '/login';
-        return;
-      }
-
       const formData = new FormData();
       
       if (parsedVideoData) {
-        console.log('Uploading external video data');
         const videoData = {
           caption,
           mediaType: 'video',
@@ -148,58 +107,22 @@ const CreatePost = () => {
           formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
         });
       } else {
-        console.log('Uploading file:', originalFileName, compressedFile.type, compressedFile.size);
-        formData.append('image', compressedFile, originalFileName);
+        formData.append('image', compressedFile);
         formData.append('caption', caption);
-        formData.append('mediaType', mediaType);
       }
 
-      // Логируем FormData содержимое
-      console.log('FormData entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, typeof value === 'object' ? 'File object' : value);
-      }
-
-      console.log('Sending request to server...');
       const response = await fetch(`${API_URL}/api/posts`, {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          // Не добавляем Content-Type для FormData, браузер сделает это автоматически
-          // с правильным boundary
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
 
-      console.log('Response received');
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-      
       if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        let errorMessage = `Server returned ${response.status}`;
-        
-        try {
-          if (contentType && contentType.includes('application/json')) {
-            const data = await response.json();
-            errorMessage = data.message || data.error || errorMessage;
-            console.error('Server error details:', data);
-          } else {
-            const text = await response.text();
-            errorMessage = text || errorMessage;
-            console.error('Server error text:', text);
-          }
-        } catch (parseError) {
-          console.error('Error parsing server response:', parseError);
-          errorMessage = 'Failed to parse server response';
-        }
-        
-        throw new Error(errorMessage);
+        const data = await response.json();
+        throw new Error(data.message || 'Error creating post');
       }
-
-      const result = await response.json();
-      console.log('Post created successfully:', result);
 
       setCaption('');
       setPreviewUrl(null);
