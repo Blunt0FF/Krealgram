@@ -16,7 +16,7 @@ console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downlo
 // @access  Private
 exports.createPost = async (req, res) => {
   try {
-    const { caption, videoUrl, videoData } = req.body;
+    const { caption, videoUrl, videoData, image, youtubeData: incomingYoutubeData } = req.body;
     const authorId = req.user.id; // User ID from authMiddleware
 
     console.log('=== CREATE POST DEBUG ===');
@@ -42,8 +42,22 @@ exports.createPost = async (req, res) => {
     let mediaType = 'image';
     let youtubeData = null;
 
+    // НОВАЯ ЛОГИКА: Проверяем сначала данные скачанного видео (TikTok/Instagram/VK)
+    if (image && (image.includes('cloudinary.com') || image.includes('res.cloudinary'))) {
+      console.log('Processing downloaded video from Cloudinary:', image);
+      
+      // Это скачанное видео - используем Cloudinary URL как основное изображение
+      imagePath = image;
+      mediaType = 'video';
+      
+      // Используем переданные youtubeData для скачанного видео
+      if (incomingYoutubeData) {
+        youtubeData = incomingYoutubeData;
+        console.log('Using provided youtubeData for downloaded video:', youtubeData);
+      }
+    }
     // Проверяем, есть ли URL видео (для iframe/внешних ссылок)
-    if (videoUrl) {
+    else if (videoUrl) {
       console.log('Processing video URL:', videoUrl);
       console.log('Video data:', videoData);
       
@@ -159,7 +173,9 @@ exports.createPost = async (req, res) => {
       youtubeUrl: videoUrl || null, // Для обратной совместимости
       youtubeData: youtubeData,
       // Добавляем thumbnailUrl если есть превью из Cloudinary
-      thumbnailUrl: (req.file && req.file.eager && req.file.eager[0]) ? req.file.eager[0].secure_url : null
+      thumbnailUrl: (req.file && req.file.eager && req.file.eager[0]) ? req.file.eager[0].secure_url : (incomingYoutubeData ? incomingYoutubeData.thumbnailUrl : null),
+      // Добавляем gifPreview если есть
+      gifPreview: incomingYoutubeData ? incomingYoutubeData.gifPreview : null
     });
 
     const savedPost = await newPost.save();
