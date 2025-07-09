@@ -4,7 +4,7 @@ import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 import LikesModal from './LikesModal';
 
-import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { getImageUrl, getAvatarUrl, getVideoUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';
@@ -651,7 +651,7 @@ const PostModal = ({
 
               return (
                 <video 
-                  src={getImageUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`), { mimeType: postData.mimeType })}
+                  src={getVideoUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`), { mimeType: postData.mimeType })}
                   className="post-modal-video"
                   controls={true}
                   muted={false}

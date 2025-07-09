@@ -6,7 +6,7 @@ import EditPostModal from './EditPostModal';
 import axios from 'axios';
 // import { showToast } from '../../utils/toastUtils';
 
-import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { getImageUrl, getAvatarUrl, getVideoUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail, getStaticThumbnail, extractYouTubeId } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import VideoPreview from './VideoPreview';
@@ -456,7 +456,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
              // На десктопе (≥901px) обычное видео БЕЗ poster как в 5a528d1
              return (
                <video 
-                 src={getImageUrl(post.imageUrl || post.image, { mimeType: post.mimeType })}
+                 src={getVideoUrl(post.imageUrl || post.image, { mimeType: post.mimeType })}
                  className="post-video"
                  controls={true}
                  muted={false}

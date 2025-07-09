@@ -98,14 +98,22 @@ const CreatePost = () => {
       const formData = new FormData();
       
       if (parsedVideoData) {
-        const videoData = {
-          caption,
-          mediaType: 'video',
-          ...parsedVideoData
-        };
-        Object.entries(videoData).forEach(([key, value]) => {
-          formData.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
-        });
+        // Для скачанного видео передаем image и incomingYoutubeData
+        if (parsedVideoData.isDownloaded && parsedVideoData.videoUrl) {
+          formData.append('image', parsedVideoData.videoUrl); // Cloudinary URL как image
+          formData.append('incomingYoutubeData', JSON.stringify({
+            platform: parsedVideoData.platform,
+            originalUrl: parsedVideoData.originalUrl,
+            note: parsedVideoData.note,
+            thumbnailUrl: parsedVideoData.thumbnailUrl,
+            isDownloaded: true
+          }));
+        } else {
+          // Для внешних ссылок (YouTube iframe) передаем videoUrl и videoData
+          formData.append('videoUrl', parsedVideoData.originalUrl);
+          formData.append('videoData', JSON.stringify(parsedVideoData.videoData || parsedVideoData));
+        }
+        formData.append('caption', caption);
       } else {
         formData.append('image', compressedFile);
         formData.append('caption', caption);

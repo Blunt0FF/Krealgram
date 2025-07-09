@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
+import { getVideoUrl } from '../../utils/imageUtils';
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
   const [imageError, setImageError] = useState(false);
@@ -110,7 +111,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={post.imageUrl || post.image}
+          src={getVideoUrl(post.imageUrl || post.image)}
           style={{
             width: '100%',
             height: 'auto',
