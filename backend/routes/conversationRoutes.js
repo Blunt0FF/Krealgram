@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const conversationController = require('../controllers/conversationController');
 const authMiddleware = require('../middlewares/authMiddleware');
-const uploadMiddleware = require('../middlewares/uploadMiddleware');
+const { upload, uploadToGoogleDrive } = require('../middlewares/uploadMiddleware');
 
 // @route   GET /api/conversations
 // @desc    Получение списка диалогов текущего пользователя
@@ -17,7 +17,7 @@ router.get('/:conversationId/messages', authMiddleware, conversationController.g
 // @route   POST /api/conversations/:recipientId/messages 
 // @desc    Отправка сообщения пользователю (создает диалог, если его нет)
 // @access  Private
-router.post('/:recipientId/messages', authMiddleware, uploadMiddleware.uploadMessageMedia, conversationController.sendMessage);
+router.post('/:recipientId/messages', authMiddleware, upload.single('media'), uploadToGoogleDrive, conversationController.sendMessage);
 
 // @route   DELETE /api/conversations/:conversationId/messages/:messageId
 // @desc    Удаление сообщения из диалога

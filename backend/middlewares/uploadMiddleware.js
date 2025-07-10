@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const GoogleDriveManager = require('../config/googleDriveOAuth');
+const imageCompressor = require('../utils/imageCompressor');
 
 // Инициализируем Google Drive
 const googleDrive = new GoogleDriveManager();
@@ -33,17 +34,44 @@ const uploadToGoogleDrive = async (req, res, next) => {
 
     console.log('[UPLOAD] Загружаем файл на Google Drive...');
     
+    let fileBuffer = req.file.buffer;
+    let filename = req.file.originalname;
+    let mimetype = req.file.mimetype;
+    
+    // Сжимаем изображения (не видео)
+    if (req.file.mimetype.startsWith('image/')) {
+      console.log('[UPLOAD] Сжимаем изображение перед загрузкой...');
+      
+      try {
+        const optimized = await imageCompressor.optimizeForWeb(req.file.buffer, req.file.originalname);
+        
+        // Используем сжатое изображение
+        fileBuffer = optimized.original.buffer;
+        filename = optimized.original.info.filename;
+        mimetype = `image/${optimized.original.info.outputFormat}`;
+        
+        console.log(`[UPLOAD] ✅ Изображение сжато на ${optimized.original.info.compressionRatio}%`);
+        
+        // Сохраняем информацию о сжатии
+        req.compressionInfo = optimized.original.info;
+        
+      } catch (compressionError) {
+        console.error('[UPLOAD] ❌ Ошибка сжатия изображения, используем оригинал:', compressionError.message);
+        // Продолжаем с оригинальным файлом
+      }
+    }
+    
     // Генерируем уникальное имя файла
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
-    const ext = path.extname(req.file.originalname);
-    const filename = `${timestamp}_${randomString}${ext}`;
+    const ext = path.extname(filename);
+    const finalFilename = `${timestamp}_${randomString}${ext}`;
 
     // Загружаем файл на Google Drive
     const result = await googleDrive.uploadFile(
-      req.file.buffer,
-      filename,
-      req.file.mimetype
+      fileBuffer,
+      finalFilename,
+      mimetype
     );
 
     // Сохраняем результат в req для дальнейшего использования
@@ -52,8 +80,9 @@ const uploadToGoogleDrive = async (req, res, next) => {
       public_id: result.fileId,
       resource_type: req.file.mimetype.startsWith('video/') ? 'video' : 'image',
       format: ext.substring(1),
-      bytes: req.file.size,
-      url: result.secure_url
+      bytes: fileBuffer.length,
+      url: result.secure_url,
+      compressed: req.compressionInfo || null
     };
 
     console.log('[UPLOAD] ✅ Файл загружен на Google Drive:', result.secure_url);

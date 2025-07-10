@@ -3,7 +3,7 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { optionalAuth } = require('../middlewares/authMiddleware');
-const { uploadPost } = require('../middlewares/uploadMiddleware');
+const { upload, uploadToGoogleDrive } = require('../middlewares/uploadMiddleware');
 
 // Маршрут для получения своего профиля (альтернатива GET /api/users/profile/:identifier, когда не знаешь ID/username)
 // @route   GET /api/users/me
@@ -25,7 +25,7 @@ router.get('/profile/:identifier', optionalAuth, userController.getUserProfile);
 // @route   PUT /api/users/profile
 // @desc    Обновление профиля текущего пользователя (bio и аватар)
 // @access  Private
-router.put('/profile', authMiddleware, uploadPost, userController.updateUserProfile);
+router.put('/profile', authMiddleware, upload.single('avatar'), uploadToGoogleDrive, userController.updateUserProfile);
 
 // @route   PUT /api/users/profile/avatar
 // @desc    Обновление аватара текущего пользователя (с обработкой base64 и сжатием)
