@@ -48,6 +48,13 @@ class GoogleDriveOAuth {
     }
 
     try {
+      const { Readable } = require('stream');
+      
+      // Конвертируем buffer в stream
+      const stream = new Readable();
+      stream.push(buffer);
+      stream.push(null);
+      
       const response = await this.drive.files.create({
         requestBody: {
           name: filename,
@@ -55,7 +62,7 @@ class GoogleDriveOAuth {
         },
         media: {
           mimeType: mimetype,
-          body: buffer
+          body: stream
         }
       });
 

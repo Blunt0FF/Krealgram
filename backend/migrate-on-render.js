@@ -18,6 +18,14 @@ const migrateCloudinaryToDriveOnRender = async () => {
   console.log('🚀 Начинаем миграцию с Cloudinary на Google Drive на Render...');
   
   try {
+    // Подключаемся к MongoDB (используем существующее подключение или создаем новое)
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
+      console.log('✅ Подключились к MongoDB');
+    } else {
+      console.log('✅ Используем существующее подключение к MongoDB');
+    }
+    
     // Инициализируем Google Drive
     const googleDrive = new GoogleDriveManager();
     await googleDrive.initialize();
@@ -33,8 +41,11 @@ const migrateCloudinaryToDriveOnRender = async () => {
     console.log('📸 Мигрируем изображения постов...');
     const posts = await Post.find({
       $or: [
+        { image: { $regex: 'res.cloudinary.com' } },
         { image: { $regex: 'cloudinary.com' } },
+        { thumbnailUrl: { $regex: 'res.cloudinary.com' } },
         { thumbnailUrl: { $regex: 'cloudinary.com' } },
+        { gifPreview: { $regex: 'res.cloudinary.com' } },
         { gifPreview: { $regex: 'cloudinary.com' } }
       ]
     });
@@ -46,7 +57,7 @@ const migrateCloudinaryToDriveOnRender = async () => {
       let updated = false;
       
       // Мигрируем основное изображение
-      if (post.image && post.image.includes('cloudinary.com')) {
+      if (post.image && (post.image.includes('cloudinary.com') || post.image.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем изображение поста ${post._id}...`);
           const newUrl = await downloadAndUploadToDrive(post.image, googleDrive, tempDir, `post_${post._id}_image`);
@@ -59,7 +70,7 @@ const migrateCloudinaryToDriveOnRender = async () => {
       }
       
       // Мигрируем превью (thumbnailUrl)
-      if (post.thumbnailUrl && post.thumbnailUrl.includes('cloudinary.com')) {
+      if (post.thumbnailUrl && (post.thumbnailUrl.includes('cloudinary.com') || post.thumbnailUrl.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем превью поста ${post._id}...`);
           const newUrl = await downloadAndUploadToDrive(post.thumbnailUrl, googleDrive, tempDir, `post_${post._id}_thumbnail`);
@@ -72,7 +83,7 @@ const migrateCloudinaryToDriveOnRender = async () => {
       }
       
       // Мигрируем GIF превью
-      if (post.gifPreview && post.gifPreview.includes('cloudinary.com')) {
+      if (post.gifPreview && (post.gifPreview.includes('cloudinary.com') || post.gifPreview.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем GIF превью поста ${post._id}...`);
           const newUrl = await downloadAndUploadToDrive(post.gifPreview, googleDrive, tempDir, `post_${post._id}_gif`);
@@ -94,14 +105,17 @@ const migrateCloudinaryToDriveOnRender = async () => {
     // 2. Мигрируем аватары пользователей
     console.log('👤 Мигрируем аватары пользователей...');
     const users = await User.find({
-      avatar: { $regex: 'cloudinary.com' }
+      $or: [
+        { avatar: { $regex: 'res.cloudinary.com' } },
+        { avatar: { $regex: 'cloudinary.com' } }
+      ]
     });
     
     console.log(`Найдено ${users.length} пользователей для миграции`);
     
     let usersUpdated = 0;
     for (const user of users) {
-      if (user.avatar && user.avatar.includes('cloudinary.com')) {
+      if (user.avatar && (user.avatar.includes('cloudinary.com') || user.avatar.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем аватар пользователя ${user.username}...`);
           const newUrl = await downloadAndUploadToDrive(user.avatar, googleDrive, tempDir, `avatar_${user._id}`);
@@ -118,7 +132,10 @@ const migrateCloudinaryToDriveOnRender = async () => {
     // 3. Мигрируем медиа в сообщениях
     console.log('💬 Мигрируем медиа в сообщениях...');
     const conversations = await Conversation.find({
-      'messages.media.url': { $regex: 'cloudinary.com' }
+      $or: [
+        { 'messages.media.url': { $regex: 'res.cloudinary.com' } },
+        { 'messages.media.url': { $regex: 'cloudinary.com' } }
+      ]
     });
     
     console.log(`Найдено ${conversations.length} бесед с медиа для миграции`);
@@ -128,7 +145,7 @@ const migrateCloudinaryToDriveOnRender = async () => {
       let updated = false;
       
       for (const message of conversation.messages) {
-        if (message.media && message.media.url && message.media.url.includes('cloudinary.com')) {
+        if (message.media && message.media.url && (message.media.url.includes('cloudinary.com') || message.media.url.includes('res.cloudinary.com'))) {
           try {
             console.log(`Мигрируем медиа сообщения...`);
             const newUrl = await downloadAndUploadToDrive(message.media.url, googleDrive, tempDir, `message_${message._id}`);
