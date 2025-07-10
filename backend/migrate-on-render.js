@@ -1,28 +1,34 @@
 // Этот файл нужно запустить на самом Render сервере
 // Добавь endpoint в routes для запуска миграции
 
-const express = require('express');
 const mongoose = require('mongoose');
 const axios = require('axios');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
 
 // Импорт моделей
 const Post = require('./models/postModel');
 const User = require('./models/userModel');
 const Conversation = require('./models/conversationModel');
-const GoogleDriveOAuth = require('./config/googleDriveOAuth');
 
-async function migrateCloudinaryToDriveOnRender() {
+// Импорт Google Drive
+const GoogleDriveManager = require('./config/googleDriveOAuth');
+
+const migrateCloudinaryToDriveOnRender = async () => {
   console.log('🚀 Начинаем миграцию с Cloudinary на Google Drive на Render...');
   
   try {
-    // Подключаемся к MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
-    console.log('✅ Подключились к MongoDB');
+    // Подключаемся к MongoDB (используем существующее подключение или создаем новое)
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI);
+      console.log('✅ Подключились к MongoDB');
+    } else {
+      console.log('✅ Используем существующее подключение к MongoDB');
+    }
     
-    // Google Drive уже должен быть настроен в переменных окружения Render
-    await GoogleDriveOAuth.initialize();
+    // Инициализируем Google Drive
+    const googleDrive = new GoogleDriveManager();
+    await googleDrive.initialize();
     console.log('✅ Google Drive инициализирован');
     
     // Создаем временную папку для скачивания
@@ -35,8 +41,11 @@ async function migrateCloudinaryToDriveOnRender() {
     console.log('📸 Мигрируем изображения постов...');
     const posts = await Post.find({
       $or: [
+        { image: { $regex: 'res.cloudinary.com' } },
         { image: { $regex: 'cloudinary.com' } },
+        { thumbnailUrl: { $regex: 'res.cloudinary.com' } },
         { thumbnailUrl: { $regex: 'cloudinary.com' } },
+        { gifPreview: { $regex: 'res.cloudinary.com' } },
         { gifPreview: { $regex: 'cloudinary.com' } }
       ]
     });
@@ -48,10 +57,10 @@ async function migrateCloudinaryToDriveOnRender() {
       let updated = false;
       
       // Мигрируем основное изображение
-      if (post.image && post.image.includes('cloudinary.com')) {
+      if (post.image && (post.image.includes('cloudinary.com') || post.image.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем изображение поста ${post._id}...`);
-          const newUrl = await downloadAndUploadToDrive(post.image, GoogleDriveOAuth, tempDir, `post_${post._id}_image`);
+          const newUrl = await downloadAndUploadToDrive(post.image, googleDrive, tempDir, `post_${post._id}_image`);
           post.image = newUrl;
           updated = true;
           console.log(`✅ Обновлено изображение поста: ${newUrl}`);
@@ -61,10 +70,10 @@ async function migrateCloudinaryToDriveOnRender() {
       }
       
       // Мигрируем превью (thumbnailUrl)
-      if (post.thumbnailUrl && post.thumbnailUrl.includes('cloudinary.com')) {
+      if (post.thumbnailUrl && (post.thumbnailUrl.includes('cloudinary.com') || post.thumbnailUrl.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем превью поста ${post._id}...`);
-          const newUrl = await downloadAndUploadToDrive(post.thumbnailUrl, GoogleDriveOAuth, tempDir, `post_${post._id}_thumbnail`);
+          const newUrl = await downloadAndUploadToDrive(post.thumbnailUrl, googleDrive, tempDir, `post_${post._id}_thumbnail`);
           post.thumbnailUrl = newUrl;
           updated = true;
           console.log(`✅ Обновлено превью поста: ${newUrl}`);
@@ -74,10 +83,10 @@ async function migrateCloudinaryToDriveOnRender() {
       }
       
       // Мигрируем GIF превью
-      if (post.gifPreview && post.gifPreview.includes('cloudinary.com')) {
+      if (post.gifPreview && (post.gifPreview.includes('cloudinary.com') || post.gifPreview.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем GIF превью поста ${post._id}...`);
-          const newUrl = await downloadAndUploadToDrive(post.gifPreview, GoogleDriveOAuth, tempDir, `post_${post._id}_gif`);
+          const newUrl = await downloadAndUploadToDrive(post.gifPreview, googleDrive, tempDir, `post_${post._id}_gif`);
           post.gifPreview = newUrl;
           updated = true;
           console.log(`✅ Обновлено GIF превью поста: ${newUrl}`);
@@ -96,17 +105,20 @@ async function migrateCloudinaryToDriveOnRender() {
     // 2. Мигрируем аватары пользователей
     console.log('👤 Мигрируем аватары пользователей...');
     const users = await User.find({
-      avatar: { $regex: 'cloudinary.com' }
+      $or: [
+        { avatar: { $regex: 'res.cloudinary.com' } },
+        { avatar: { $regex: 'cloudinary.com' } }
+      ]
     });
     
     console.log(`Найдено ${users.length} пользователей для миграции`);
     
     let usersUpdated = 0;
     for (const user of users) {
-      if (user.avatar && user.avatar.includes('cloudinary.com')) {
+      if (user.avatar && (user.avatar.includes('cloudinary.com') || user.avatar.includes('res.cloudinary.com'))) {
         try {
           console.log(`Мигрируем аватар пользователя ${user.username}...`);
-          const newUrl = await downloadAndUploadToDrive(user.avatar, GoogleDriveOAuth, tempDir, `avatar_${user._id}`);
+          const newUrl = await downloadAndUploadToDrive(user.avatar, googleDrive, tempDir, `avatar_${user._id}`);
           user.avatar = newUrl;
           await user.save();
           usersUpdated++;
@@ -114,6 +126,41 @@ async function migrateCloudinaryToDriveOnRender() {
         } catch (error) {
           console.error(`❌ Ошибка миграции аватара пользователя ${user.username}:`, error.message);
         }
+      }
+    }
+    
+    // 3. Мигрируем медиа в сообщениях
+    console.log('💬 Мигрируем медиа в сообщениях...');
+    const conversations = await Conversation.find({
+      $or: [
+        { 'messages.media.url': { $regex: 'res.cloudinary.com' } },
+        { 'messages.media.url': { $regex: 'cloudinary.com' } }
+      ]
+    });
+    
+    console.log(`Найдено ${conversations.length} бесед с медиа для миграции`);
+    
+    let conversationsUpdated = 0;
+    for (const conversation of conversations) {
+      let updated = false;
+      
+      for (const message of conversation.messages) {
+        if (message.media && message.media.url && (message.media.url.includes('cloudinary.com') || message.media.url.includes('res.cloudinary.com'))) {
+          try {
+            console.log(`Мигрируем медиа сообщения...`);
+            const newUrl = await downloadAndUploadToDrive(message.media.url, googleDrive, tempDir, `message_${message._id}`);
+            message.media.url = newUrl;
+            updated = true;
+            console.log(`✅ Обновлено медиа сообщения: ${newUrl}`);
+          } catch (error) {
+            console.error(`❌ Ошибка миграции медиа сообщения:`, error.message);
+          }
+        }
+      }
+      
+      if (updated) {
+        await conversation.save();
+        conversationsUpdated++;
       }
     }
     
@@ -125,25 +172,32 @@ async function migrateCloudinaryToDriveOnRender() {
     
     const result = {
       success: true,
-      postsUpdated,
-      usersUpdated,
-      message: 'Миграция завершена успешно!'
+      message: 'Миграция завершена успешно!',
+      stats: {
+        postsUpdated,
+        usersUpdated,
+        conversationsUpdated,
+        totalFiles: postsUpdated + usersUpdated + conversationsUpdated
+      }
     };
     
     console.log(`\n🎉 Миграция завершена!`);
     console.log(`📊 Статистика:`);
     console.log(`   - Постов обновлено: ${postsUpdated}`);
     console.log(`   - Пользователей обновлено: ${usersUpdated}`);
+    console.log(`   - Бесед обновлено: ${conversationsUpdated}`);
+    console.log(`\n💡 Все файлы теперь хранятся в Google Drive`);
     
     return result;
     
   } catch (error) {
     console.error('💥 Ошибка миграции:', error);
-    return { success: false, error: error.message };
-  } finally {
-    mongoose.connection.close();
+    return {
+      success: false,
+      error: error.message
+    };
   }
-}
+};
 
 // Функция для скачивания файла с Cloudinary и загрузки на Google Drive
 async function downloadAndUploadToDrive(cloudinaryUrl, googleDrive, tempDir, filename) {
@@ -174,26 +228,40 @@ async function downloadAndUploadToDrive(cloudinaryUrl, googleDrive, tempDir, fil
     const ext = path.extname(cloudinaryUrl.split('?')[0]).toLowerCase();
     let mimeType = 'application/octet-stream';
     
-    if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-    else if (ext === '.png') mimeType = 'image/png';
-    else if (ext === '.gif') mimeType = 'image/gif';
-    else if (ext === '.webp') mimeType = 'image/webp';
-    else if (ext === '.mp4') mimeType = 'video/mp4';
-    else if (ext === '.mov') mimeType = 'video/quicktime';
-    else if (ext === '.webm') mimeType = 'video/webm';
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        mimeType = 'image/jpeg';
+        break;
+      case '.png':
+        mimeType = 'image/png';
+        break;
+      case '.gif':
+        mimeType = 'image/gif';
+        break;
+      case '.webp':
+        mimeType = 'image/webp';
+        break;
+      case '.mp4':
+        mimeType = 'video/mp4';
+        break;
+      case '.mov':
+        mimeType = 'video/quicktime';
+        break;
+      case '.avi':
+        mimeType = 'video/x-msvideo';
+        break;
+      default:
+        mimeType = 'application/octet-stream';
+    }
     
     // Загружаем на Google Drive
-    console.log(`☁️ Загружаем на Google Drive: ${filename}`);
-    const driveFile = await googleDrive.uploadFile(
-      fileBuffer,
-      `${filename}${ext}`,
-      mimeType
-    );
+    const result = await googleDrive.uploadFile(fileBuffer, `${filename}${ext}`, mimeType);
     
     // Удаляем временный файл
     fs.unlinkSync(tempFilePath);
     
-    return driveFile.secure_url;
+    return result.secure_url;
     
   } catch (error) {
     // Удаляем временный файл в случае ошибки
@@ -204,4 +272,6 @@ async function downloadAndUploadToDrive(cloudinaryUrl, googleDrive, tempDir, fil
   }
 }
 
-module.exports = { migrateCloudinaryToDriveOnRender }; 
+module.exports = {
+  migrateCloudinaryToDriveOnRender
+}; 
