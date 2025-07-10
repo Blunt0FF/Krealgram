@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const postController = require('../controllers/postController');
 const authMiddleware = require('../middlewares/authMiddleware');
-const { uploadPost } = require('../middlewares/uploadMiddleware'); // Наш multer middleware
+const { upload, uploadToGoogleDrive } = require('../middlewares/uploadMiddleware'); // Google Drive middleware
 
 // Создаем гибкий middleware для опциональной загрузки файлов
 const optionalUpload = (req, res, next) => {
@@ -11,22 +11,22 @@ const optionalUpload = (req, res, next) => {
   
   // Если это multipart/form-data
   if (contentType.includes('multipart/form-data')) {
-    // Используем multer middleware
-    uploadPost(req, res, (err) => {
+    // Используем multer middleware для Google Drive
+    upload.single('image')(req, res, async (err) => {
       if (err) {
         console.error('Multer upload error:', err);
         
         // Обработка ошибок Multer
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({ 
-            message: 'File too large. Maximum size is 100MB.',
+            message: 'File too large. Maximum size is 50MB.',
             error: err.message 
           });
         }
         
-        if (err.message && err.message.includes('Unsupported file type')) {
+        if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
           return res.status(400).json({ 
-            message: 'Unsupported file type. Please upload images (JPG, PNG, GIF, WEBP) or videos (MP4, MOV, WEBM).', 
+            message: 'Unsupported file type. Please upload images or videos only.', 
             error: err.message 
           });
         }
@@ -41,7 +41,21 @@ const optionalUpload = (req, res, next) => {
           error: err.message 
         });
       }
-      next();
+      
+      // Если файл есть, загружаем на Google Drive
+      if (req.file) {
+        try {
+          await uploadToGoogleDrive(req, res, next);
+        } catch (uploadError) {
+          console.error('Google Drive upload error:', uploadError);
+          return res.status(500).json({ 
+            message: 'Failed to upload file to Google Drive',
+            error: uploadError.message 
+          });
+        }
+      } else {
+        next();
+      }
     });
   } else {
     // Для обычных JSON запросов просто переходим дальше

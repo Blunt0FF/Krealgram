@@ -101,33 +101,17 @@ exports.createPost = async (req, res) => {
           note: 'External video content'
         };
       }
-    } else if (req.file) {
-      // Обычная загрузка файла
-      console.log('Processing uploaded file:', req.file);
+    } else if (req.uploadResult) {
+      // Обычная загрузка файла через Google Drive
+      console.log('Processing uploaded file via Google Drive:', req.uploadResult);
       
-      // Для Cloudinary используем secure_url
-      if (req.file.secure_url) {
-        imagePath = req.file.secure_url;
-        console.log('Cloudinary file uploaded:', imagePath);
-        
-        // Для видео создаем превью
-        if (req.file.mimetype.startsWith('video/')) {
-          if (req.file.eager && req.file.eager[0]) {
-            console.log('Video thumbnail created:', req.file.eager[0].secure_url);
-          } else {
-            console.log('Warning: No video thumbnail created');
-          }
-        }
-      } else {
-        // Fallback для локальной загрузки
-        imagePath = req.file.path || req.file.filename;
-        console.log('Local file uploaded:', imagePath);
-      }
+      imagePath = req.uploadResult.secure_url;
+      console.log('Google Drive file uploaded:', imagePath);
       
-      mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      mediaType = req.uploadResult.resource_type;
       
       // Сохраняем MIME-type для правильного отображения GIF
-      if (req.file.mimetype) {
+      if (req.file && req.file.mimetype) {
         console.log('File MIME type:', req.file.mimetype);
       }
     }
