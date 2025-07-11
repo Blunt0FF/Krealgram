@@ -46,13 +46,7 @@ app.set('io', io); // Сделаем io доступным в контролле
 
 // Настройки CORS для Express
 const corsOptions = {
-  origin: [
-    'http://localhost:4000',
-    'http://127.0.0.1:4000',
-    'https://krealgram.vercel.app',
-    'https://krealgram.com',
-    'https://www.krealgram.com'
-  ],
+  origin: '*', // Временно разрешаем все источники для теста
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
