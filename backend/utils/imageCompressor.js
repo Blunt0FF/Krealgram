@@ -45,7 +45,7 @@ class ImageCompressor {
       let outputFormat = ext;
       
       // Создаем sharp объект
-      let sharpInstance = sharp(imageBuffer);
+      let sharpInstance = sharp(imageBuffer).rotate().withMetadata({}); // Авто-ориентация + удаление EXIF
       
       // Агрессивное сжатие для каждого формата
       switch (ext) {
@@ -53,7 +53,7 @@ class ImageCompressor {
         case '.jpeg':
           compressedBuffer = await sharpInstance
             .jpeg({
-              quality: 85,
+              quality: 70,
               progressive: true,
               mozjpeg: true
             })
@@ -72,7 +72,7 @@ class ImageCompressor {
         case '.webp':
           compressedBuffer = await sharpInstance
             .webp({
-              quality: 85,
+              quality: 70,
               lossless: false
             })
             .toBuffer();
@@ -87,7 +87,7 @@ class ImageCompressor {
           // Для неизвестных форматов сохраняем как JPEG с оптимальным качеством
           compressedBuffer = await sharpInstance
             .jpeg({
-              quality: 85,
+              quality: 70,
               progressive: true,
               mozjpeg: true
             })

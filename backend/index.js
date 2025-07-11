@@ -46,7 +46,13 @@ app.set('io', io); // Сделаем io доступным в контролле
 
 // Настройки CORS для Express
 const corsOptions = {
-  origin: '*', // Временно разрешаем все источники для теста
+  origin: [
+    "http://localhost:4000",
+    "http://127.0.0.1:4000",
+    "https://krealgram.vercel.app",
+    "https://krealgram.com",
+    "https://www.krealgram.com"
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
@@ -101,6 +107,57 @@ app.use('/api/conversations', conversationRoutes); // Подключаем ма�
 app.use('/api/notifications', notificationRoutes); // Подключаем маршруты для уведомлений
 app.use('/api/admin', adminRoutes); // Подключаем админские маршруты
 
+// Прокси-эндпоинт для Google Drive
+app.get('/api/proxy-drive/:id', async (req, res) => {
+  const fileId = req.params.id;
+  const { google } = require('googleapis');
+  const drive = require('./config/googleDrive');
+
+  try {
+    console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
+    if (!drive.isInitialized) {
+      console.error('[PROXY-DRIVE] Google Drive не инициализирован');
+      return res.status(500).send('Google Drive not initialized');
+    }
+
+    // Получаем метаданные файла
+    const meta = await drive.drive.files.get({
+      fileId,
+      fields: 'name, mimeType'
+    });
+    const mimeType = meta.data.mimeType || 'application/octet-stream';
+    const fileName = meta.data.name || 'file';
+    console.log(`[PROXY-DRIVE] mimeType: ${mimeType}, fileName: ${fileName}`);
+
+    // Получаем сам файл как stream
+    const fileRes = await drive.drive.files.get({
+      fileId,
+      alt: 'media'
+    }, { responseType: 'stream' });
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+    fileRes.data.on('end', () => {
+      console.log(`[PROXY-DRIVE] Файл ${fileId} успешно отправлен на фронт`);
+    });
+    fileRes.data.on('error', (err) => {
+      console.error('[PROXY-DRIVE] Ошибка при отправке файла:', err);
+      res.status(500).send('Error streaming file');
+    });
+    fileRes.data.pipe(res);
+  } catch (err) {
+    if (err.message && err.message.includes('File not found')) {
+      console.warn(`[PROXY-DRIVE] ⚠️ Файл не найден: ${fileId}`);
+      return res.status(404).send('File not found');
+    }
+    console.error('[PROXY-DRIVE] ❌ Ошибка:', err.message);
+    res.status(500).send('Proxy error: ' + err.message);
+  }
+});
+
 // Настройка Socket.IO
 io.on('connection', async (socket) => {
   // Присоединение к комнате по userId
@@ -150,7 +207,11 @@ startUserStatusUpdater();
 
 server.listen(PORT, () => {
   console.log(`[SERVER] ✅ Server running on port ${PORT}`);
-  console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin.join(', ')}`);
+  if (Array.isArray(corsOptions.origin)) {
+    console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin.join(', ')}`);
+  } else {
+    console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin}`);
+  }
   console.log(`[SERVER] 📡 Socket.IO ready`);
   console.log(`[SERVER] 🔗 Health check: http://localhost:${PORT}/api/health`);
 }); 

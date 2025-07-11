@@ -62,12 +62,26 @@ const MobileBottomNav = ({ user }) => {
 
 // Component for post thumbnail with async image loading
 const PostThumbnail = ({ post, onClick }) => {
-  const image = post.imageUrl || post.image;
-
   const getThumbnailSrc = React.useMemo(() => {
-    // Use special function for GIF preview in profile
-    const thumbnailSrc = getProfileGifThumbnail(post);
-    return thumbnailSrc;
+    // 1. Приоритет для нового `thumbnailUrl` из Google Drive
+    if (post.thumbnailUrl) {
+      return getImageUrl(post.thumbnailUrl);
+    }
+    
+    // 2. Логика для GIF превью из старой системы (Cloudinary)
+    const gifThumbnail = getProfileGifThumbnail(post);
+    if (gifThumbnail && !gifThumbnail.endsWith('video-placeholder.png')) {
+      return gifThumbnail;
+    }
+
+    // 3. Фолбэк на полное изображение
+    const image = post.image;
+    if (image) {
+      return getImageUrl(image, { isThumbnail: true });
+    }
+
+    // 4. Заглушка по умолчанию
+    return '/video-placeholder.png';
   }, [post]);
 
   // Determine if this is a video to show indicator
@@ -90,39 +104,19 @@ const PostThumbnail = ({ post, onClick }) => {
                               post.mediaType === 'video';
 
     return hasYouTubeUrl || hasCloudinaryVideo || post.youtubeData;
-  }, [post.mediaType, post.videoUrl, post.youtubeUrl, post.video, post.youtubeData, image]);
+  }, [post.mediaType, post.videoUrl, post.youtubeUrl, post.video, post.youtubeData, post.image]);
 
   return (
-    <div className="post-thumbnail" onClick={onClick}>
+    <div key={post._id} className="post-thumbnail" onClick={onClick}>
       <div className="thumbnail-container">
         <img 
           src={getThumbnailSrc} 
           alt={post.caption || 'Post'} 
           loading="lazy"
           onError={(e) => {
-            // If thumbnail failed to load, try alternative options
-            if (isVideo) {
-              // For YouTube videos try fallback thumbnail
-              if (e.target.src.includes('youtube.com') && e.target.src.includes('maxresdefault')) {
-                // Try hqdefault if maxresdefault is not available
-                const fallbackUrl = e.target.src.replace('maxresdefault', 'hqdefault');
-                e.target.src = fallbackUrl;
-                return;
-              }
-              
-              // For Cloudinary videos try different format
-              if (e.target.src.includes('cloudinary.com') && e.target.src.includes('f_gif')) {
-                const fallbackUrl = e.target.src.replace('f_gif', 'f_auto');
-                e.target.src = fallbackUrl;
-                return;
-              }
-              
-              // If everything fails, show placeholder
-              e.target.src = '/video-placeholder.svg';
-            } else {
-              // For images hide element
-              e.target.style.display = 'none';
-            }
+            // Если thumbnail не загрузился, показываем заглушку
+            e.target.onerror = null; // Предотвращаем бесконечный цикл ошибок
+            e.target.src = '/video-placeholder.png';
           }}
         />
         {isVideo && (

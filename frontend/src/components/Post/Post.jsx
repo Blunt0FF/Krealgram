@@ -233,7 +233,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
     setShowOptionsMenu(false);
   };
   const handleSharePost = () => setIsShareModalVisible(true);
-  const getImageSrc = () => getImageUrl(post.imageUrl || post.image);
+  const getImageSrc = () => getImageUrl(post.image);
   const openLikesModal = () => { if (likesCount > 0) setIsLikesModalVisible(true); };
   const handleDeleteComment = async (commentId) => {
       try {
@@ -439,7 +439,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
               </div>
             );
           } else if (post.mediaType === 'video' || 
-                     (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
+                     (post.image && (post.image.includes('.mp4') || post.image.includes('video/'))) ||
                      (post.image && (post.image.includes('.mp4') || post.image.includes('video/')))) {
              
              // На мобильных (≤900px) используем VideoPreview для превью (НО НЕ для YouTube!)
@@ -456,7 +456,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
              // На десктопе (≥901px) обычное видео БЕЗ poster как в 5a528d1
              return (
                <video 
-                 src={getVideoUrl(post.imageUrl || post.image, { mimeType: post.mimeType })}
+                 src={getVideoUrl(post.image, { mimeType: post.mimeType })}
                  className="post-video"
                  controls={true}
                  muted={false}
@@ -480,19 +480,26 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                  Your browser does not support the video tag.
                </video>
              );
-           } else {
-             return (
-               <img 
-                 src={getImageUrl(post.imageUrl || post.image, { mimeType: post.mimeType })}
-                 alt="Post" 
-                 className="post-image"
-                 style={{ cursor: 'pointer' }}
-                 onDoubleClick={handleLike}
-                 onClick={() => onImageClick(post)}
-                 onError={(e) => { e.target.style.display = 'none'; }}
-               />
-             );
-           }
+           } else if (post.image) {
+            return (
+              <img
+                src={getImageUrl(post.image)}
+                alt={post.caption || 'Post image'}
+                className="post-image"
+                onClick={() => onImageClick(post)}
+                onLoad={(e) => {
+                  const { naturalWidth, naturalHeight } = e.target;
+                  if (naturalWidth < 400 || naturalHeight < 300) {
+                    e.target.style.objectFit = 'contain';
+                  }
+                }}
+                onError={(e) => {
+                  e.target.src = '/video-placeholder.png'; // Fallback
+                }}
+              />
+            );
+          }
+          return null;
         })()}
       </div>
       

@@ -33,38 +33,41 @@ const uploadToGoogleDrive = async (req, res, next) => {
     let fileBuffer = req.file.buffer;
     let filename = req.file.originalname;
     let mimetype = req.file.mimetype;
+    let thumbnailUrl = null;
     
-    // Сжимаем изображения (не видео)
+    // Сжимаем изображения и создаем превью (не для видео)
     if (req.file.mimetype.startsWith('image/')) {
-      console.log('[UPLOAD] Обрабатываем изображение...');
+      console.log('[UPLOAD] Обрабатываем изображение и создаем превью...');
       
       try {
         const optimized = await imageCompressor.optimizeForWeb(req.file.buffer, req.file.originalname);
         
-        // Используем обработанное изображение
+        // Загружаем превью
+        if (optimized.thumbnail) {
+          console.log('[UPLOAD] Загружаем превью на Google Drive...');
+          const thumbnailResult = await googleDrive.uploadFile(
+            optimized.thumbnail.buffer,
+            optimized.thumbnail.filename,
+            'image/webp',
+            process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+          );
+          thumbnailUrl = thumbnailResult.secure_url;
+          console.log('[UPLOAD] ✅ Превью загружено:', thumbnailUrl);
+        }
+
+        // Используем обработанное основное изображение
         fileBuffer = optimized.original.buffer;
         filename = optimized.original.info.filename;
         mimetype = `image/${optimized.original.info.outputFormat}`;
         
-        const ratio = optimized.original.info.compressionRatio;
-        if (ratio > 0) {
-          console.log(`[UPLOAD] ✅ Изображение сжато, экономия ${ratio}%`);
-        } else if (ratio < 0) {
-          console.log(`[UPLOAD] ✅ Изображение оптимизировано (размер увеличен на ${Math.abs(ratio)}%)`);
-        } else {
-          console.log(`[UPLOAD] ✅ Изображение обработано без изменения размера`);
-        }
-        
-        // Сохраняем информацию о сжатии
         req.compressionInfo = optimized.original.info;
         
       } catch (compressionError) {
         console.error('[UPLOAD] ❌ Ошибка обработки изображения, используем оригинал:', compressionError.message);
-        // Продолжаем с оригинальным файлом
       }
     }
     
-    // Генерируем уникальное имя файла
+    // Генерируем уникальное имя файла для основного изображения
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
     const ext = path.extname(filename);
@@ -102,6 +105,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
       format: ext.substring(1),
       bytes: fileBuffer.length,
       url: result.secure_url,
+      thumbnailUrl: thumbnailUrl, // Добавляем URL превью
       compressed: req.compressionInfo || null
     };
 

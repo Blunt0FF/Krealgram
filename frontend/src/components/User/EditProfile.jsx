@@ -144,7 +144,7 @@ const EditProfile = ({ user, setUser }) => {
       });
       
       // Используем только поле 'image', которое ожидает сервер
-      formDataToSend.append('image', avatarFile);
+      formDataToSend.append('avatar', avatarFile);
 
       // Проверяем содержимое FormData
       console.log('FormData contents:');

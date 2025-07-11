@@ -189,7 +189,7 @@ const SearchPage = () => {
                   onClick={() => handleUserClick(user)}
                 >
                   <img 
-                    src={getAvatarUrl(user.avatar) || '/default-avatar.png'} 
+                    src={getSafeAvatarUrl(user)}
                     alt={user.username} 
                     className="search-result-avatar"
                     crossOrigin="anonymous"

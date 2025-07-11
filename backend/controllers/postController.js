@@ -156,8 +156,7 @@ exports.createPost = async (req, res) => {
       videoUrl: videoUrl || null,
       youtubeUrl: videoUrl || null, // Для обратной совместимости
       youtubeData: youtubeData,
-      // Добавляем thumbnailUrl если есть превью из Cloudinary
-      thumbnailUrl: (req.file && req.file.eager && req.file.eager[0]) ? req.file.eager[0].secure_url : null
+      thumbnailUrl: req.uploadResult ? req.uploadResult.thumbnailUrl : null
     });
 
     const savedPost = await newPost.save();

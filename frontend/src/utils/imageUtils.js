@@ -248,49 +248,31 @@ export const getFileSizeKB = (dataUrl) => {
 export const getImageUrl = (imagePath, options = {}) => {
   if (!imagePath) return null;
   
-  // Если это уже полный URL (начинается с http/https), возвращаем как есть
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    // Если это Cloudinary URL и нужно добавить флаги для GIF
-    if (imagePath.includes('res.cloudinary.com') && !imagePath.includes('fl_animated')) {
-      const isGif = options.isGif === true || options.mimeType === 'image/gif' || 
-                    imagePath.toLowerCase().includes('gif');
-      if (isGif) {
-        // Вставляем максимальные настройки для GIF после /upload/
-        return imagePath.replace('/upload/', '/upload/fl_animated,q_100,f_auto/');
-      } else {
-        // Обычный флаг для других изображений
-        return imagePath.replace('/upload/', '/upload/fl_animated/');
+  // 1. Если это уже полный URL (начинается с http), проверяем, нужно ли его проксировать
+  if (imagePath.startsWith('http')) {
+    // Если это ссылка на Google Drive, используем наш прокси-эндпоинт
+    if (imagePath.includes('drive.google.com')) {
+      try {
+        const url = new URL(imagePath);
+        const id = url.searchParams.get('id');
+        if (id) {
+          return `${API_URL}/api/proxy-drive/${id}`;
+        }
+      } catch (e) {
+        console.error("Invalid Google Drive URL", imagePath);
+        return imagePath; // Возвращаем как есть, если URL некорректный
       }
     }
+    // Для всех остальных http/https ссылок (включая Cloudinary) возвращаем как есть
     return imagePath;
   }
   
-  // Если это base64 данные, возвращаем как есть
-  if (imagePath.startsWith('data:')) {
-    return imagePath;
-  }
-  
-  // Если путь начинается с krealgram/, значит это путь к Cloudinary
+  // 2. Для старых путей Cloudinary (например, 'krealgram/posts/...')
   if (imagePath.startsWith('krealgram/')) {
-    let cloudinaryUrl = `https://res.cloudinary.com/dibcwdwsd/image/upload/`;
-    
-    // Проверяем если это GIF файл и нужно сохранить анимацию
-    const isGif = imagePath.toLowerCase().includes('gif') || 
-                  imagePath.toLowerCase().endsWith('.gif') ||
-                  options.isGif === true ||
-                  options.mimeType === 'image/gif';
-    
-    // Добавляем флаги для максимального качества GIF
-    if (isGif) {
-      cloudinaryUrl += `fl_animated,q_100,f_auto/`; // Максимальное качество + автоформат для лучшей производительности
-    } else {
-      cloudinaryUrl += `fl_animated/`; // Обычный флаг для других изображений
-    }
-    
-    return cloudinaryUrl + imagePath;
+    return `https://res.cloudinary.com/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dibcwdwsd'}/image/upload/${imagePath}`;
   }
-  
-  // Для остальных файлов используем локальный путь
+
+  // 3. Для старых локальных файлов (до Cloudinary и Google Drive)
   return `${API_URL}/uploads/${imagePath}`;
 };
 
