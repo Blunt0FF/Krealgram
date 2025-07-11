@@ -164,7 +164,7 @@ const CreatePost = () => {
   };
 
   return (
-    <div className="create-post-container" style={{ paddingBottom: '80px' }}>
+    <div className="create-post-container">
       <div className="create-post-box">
         <h2 style={{
           textAlign: 'center',

@@ -3,12 +3,27 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 110vh;
+  height: 100vh;
   background-color: #fff;
   padding: 20px;
 }
 
+@media(max-width: 680px) {
+  .create-post-container {
+    height: calc(100vh - 60px);
+    max-height: calc(100vh - 60px);
+    align-items: flex-start; /* Выравниваем по верху на мобильных */
+    padding-top: 20px;
+    overflow-y: auto; /* Добавляем скролл, если контент не влезает */
+  }
 
+  @supports (height: 1dvh) {
+    .create-post-container {
+      height: calc(100dvh - 60px);
+      max-height: calc(100dvh - 60px);
+    }
+  }
+}
 
 .create-post-box {
   background: white;
