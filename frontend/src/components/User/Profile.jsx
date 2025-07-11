@@ -63,48 +63,19 @@ const MobileBottomNav = ({ user }) => {
 // Component for post thumbnail with async image loading
 const PostThumbnail = ({ post, onClick }) => {
   const getThumbnailSrc = React.useMemo(() => {
-    // 1. Приоритет для нового `thumbnailUrl` из Google Drive
-    if (post.thumbnailUrl) {
-      return getImageUrl(post.thumbnailUrl);
+    // Приоритет для превью, затем для основного изображения
+    const imageUrl = post.thumbnailUrl || post.image;
+    if (imageUrl) {
+      return getImageUrl(imageUrl, { isThumbnail: true });
     }
-    
-    // 2. Логика для GIF превью из старой системы (Cloudinary)
-    const gifThumbnail = getProfileGifThumbnail(post);
-    if (gifThumbnail && !gifThumbnail.endsWith('video-placeholder.png')) {
-      return gifThumbnail;
-    }
-
-    // 3. Фолбэк на полное изображение
-    const image = post.image;
-    if (image) {
-      return getImageUrl(image, { isThumbnail: true });
-    }
-
-    // 4. Заглушка по умолчанию
+    // Заглушка по умолчанию
     return '/video-placeholder.png';
-  }, [post]);
+  }, [post.thumbnailUrl, post.image]);
 
   // Determine if this is a video to show indicator
   const isVideo = React.useMemo(() => {
-    // Check YouTube URL in all possible fields
-    const checkYouTubeUrl = (url) => {
-      if (!url) return false;
-      const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-      return youtubeRegex.test(url);
-    };
-
-    const hasYouTubeUrl = checkYouTubeUrl(post.videoUrl) || 
-                         checkYouTubeUrl(post.youtubeUrl) || 
-                         checkYouTubeUrl(post.video) ||
-                         checkYouTubeUrl(post.image) ||
-                         checkYouTubeUrl(post.imageUrl);
-
-    // Check uploaded videos (Cloudinary)
-    const hasCloudinaryVideo = (post.image && post.image.includes('cloudinary.com') && post.image.includes('/video/')) ||
-                              post.mediaType === 'video';
-
-    return hasYouTubeUrl || hasCloudinaryVideo || post.youtubeData;
-  }, [post.mediaType, post.videoUrl, post.youtubeUrl, post.video, post.youtubeData, post.image]);
+    return post.mediaType === 'video' || !!post.youtubeData;
+  }, [post.mediaType, post.youtubeData]);
 
   return (
     <div key={post._id} className="post-thumbnail" onClick={onClick}>

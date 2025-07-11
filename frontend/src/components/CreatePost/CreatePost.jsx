@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import heic2any from 'heic2any';
 import { compressPostImage } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import ExternalVideoUpload from '../ExternalVideoUpload/ExternalVideoUpload';
@@ -25,20 +26,41 @@ const CreatePost = () => {
   }, []);
 
   const handleImageChange = async (e) => {
-    const file = e.target.files[0];
+    let file = e.target.files[0];
     if (!file) return;
 
     try {
+      setCompressing(true); // Показываем индикатор загрузки
+      setError('');
+      setParsedVideoData(null);
+      setVideoUrl('');
+
+      // Конвертируем HEIC/HEIF в JPEG
+      if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+        console.log('HEIC/HEIF detected, converting to JPEG...');
+        try {
+          const convertedBlob = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.9, // Качество сжатия
+          });
+          const fileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+          file = new File([convertedBlob], fileName, { type: 'image/jpeg' });
+          console.log('✅ Conversion successful!');
+        } catch (conversionError) {
+          console.error('❌ HEIC conversion failed:', conversionError);
+          setError('Failed to convert HEIC image.');
+          setCompressing(false);
+          return;
+        }
+      }
+
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       setMediaType(fileType);
       setPreviewUrl(URL.createObjectURL(file));
       setOriginalFileName(file.name);
-      setError('');
-      setParsedVideoData(null);
-      setVideoUrl('');
       
       if (fileType === 'image') {
-        setCompressing(true);
         const originalFile = await compressPostImage(file);
         setCompressedFile(originalFile);
       } else {
@@ -142,9 +164,17 @@ const CreatePost = () => {
   };
 
   return (
-    <div className="create-post-container">
+    <div className="create-post-container" style={{ paddingBottom: '80px' }}>
       <div className="create-post-box">
-        <h2>Create new post</h2>
+        <h2 style={{
+          textAlign: 'center',
+          color: '#333',
+          fontWeight: '700',
+          fontSize: '24px',
+          marginBottom: '20px'
+        }}>
+          Create new post
+        </h2>
         
         {/* External resources button */}
         <div className="upload-mode-switcher">

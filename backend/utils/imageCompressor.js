@@ -220,18 +220,24 @@ const generateVideoThumbnail = async (videoBuffer) => {
   const tempVideoPath = path.join(tempInputDir, `video-${Date.now()}.mp4`);
   const tempThumbPath = path.join(tempOutputDir, `thumb-${Date.now()}.jpg`);
   
+  let ffmpegCommand; // Объявляем переменную для команды
+
   try {
     await fs.writeFile(tempVideoPath, videoBuffer);
     console.log('[THUMBNAIL_GEN] Temporary video file written.');
 
     await new Promise((resolve, reject) => {
-      ffmpeg(tempVideoPath)
+      ffmpegCommand = ffmpeg(tempVideoPath)
         .on('end', () => {
           console.log('[THUMBNAIL_GEN] FFmpeg processing finished.');
           resolve();
         })
         .on('error', (err) => {
           console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
+          // Убиваем процесс, если он еще существует, чтобы избежать зависания
+          if (ffmpegCommand) {
+            ffmpegCommand.kill('SIGKILL');
+          }
           reject(err);
         })
         .screenshots({
@@ -250,9 +256,14 @@ const generateVideoThumbnail = async (videoBuffer) => {
         filename: path.basename(tempThumbPath)
     };
   } finally {
-    // Clean up temporary files
-    await fs.unlink(tempVideoPath).catch(e => console.error(`Failed to delete temp video: ${e.message}`));
-    await fs.unlink(tempThumbPath).catch(e => console.error(`Failed to delete temp thumb: ${e.message}`));
+    // Гарантированная очистка временных файлов
+    console.log('[THUMBNAIL_GEN] Cleaning up temporary files...');
+    if (await fs.stat(tempVideoPath).catch(() => false)) {
+      await fs.unlink(tempVideoPath).catch(e => console.error(`Failed to delete temp video: ${e.message}`));
+    }
+    if (await fs.stat(tempThumbPath).catch(() => false)) {
+      await fs.unlink(tempThumbPath).catch(e => console.error(`Failed to delete temp thumb: ${e.message}`));
+    }
   }
 };
 
