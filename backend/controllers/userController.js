@@ -3,6 +3,7 @@ const Post = require('../models/postModel');
 const { addNotification, removeNotification } = require('./notificationController');
 const mongoose = require('mongoose');
 const sharp = require('sharp'); // Импортируем sharp
+const googleDrive = require('../config/googleDrive');
 
 // @desc    Получение профиля пользователя по ID или username
 // @route   GET /api/users/:identifier
@@ -148,37 +149,36 @@ exports.updateUserProfile = async (req, res) => {
 exports.updateUserAvatar = async (req, res) => {
   try {
     const userId = req.user.id;
-    let { avatar: base64AvatarInput } = req.body; // Ожидаем строку base64
+    let { avatar: base64AvatarInput } = req.body;
 
-    // Проверяем, что base64AvatarInput является строкой. Пустая строка разрешена для удаления.
     if (typeof base64AvatarInput !== 'string') {
       return res.status(400).json({ message: 'Поле avatar должно быть строкой.' });
     }
-    
-    let finalProcessedBase64Avatar; // Изменено имя переменной во избежание конфликтов
+
+    let avatarUrl = '';
 
     if (base64AvatarInput.trim() === '') {
       // Пользователь хочет удалить аватар
-      finalProcessedBase64Avatar = '';
+      avatarUrl = '';
     } else {
       let base64Data = base64AvatarInput;
       // Удаляем префикс data URI, если он есть
       if (base64Data.startsWith('data:image')) {
         const parts = base64Data.split(',');
         if (parts.length > 1) {
-            base64Data = parts[1];
+          base64Data = parts[1];
         } else {
-            // Некорректный data URI
-            return res.status(400).json({ message: 'Некорректный формат Data URI для аватара.' });
+          return res.status(400).json({ message: 'Некорректный формат Data URI для аватара.' });
         }
       }
 
-      if (!base64Data) { // Если после удаления префикса осталась пустая строка, но изначально не была пустой
+      if (!base64Data) {
         return res.status(400).json({ message: 'Некорректный формат base64 для аватара.' });
       }
 
       const imageBuffer = Buffer.from(base64Data, 'base64');
 
+      // Обрабатываем изображение
       const processedImageBuffer = await sharp(imageBuffer)
         .resize({ 
           width: 250, 
@@ -188,19 +188,29 @@ exports.updateUserAvatar = async (req, res) => {
         })
         .webp({ quality: 80 })
         .toBuffer();
-      
-      finalProcessedBase64Avatar = `data:image/webp;base64,${processedImageBuffer.toString('base64')}`;
 
-      // Уменьшим лимит, т.к. base64 раздувает размер.
-      // 700KB base64 это ~525KB картинка. Для аватара должно хватить.
-      if (finalProcessedBase64Avatar.length > 0.7 * 1024 * 1024) { 
-        return res.status(400).json({ message: 'Размер аватара после обработки слишком большой (макс ~0.5MB).' });
+      // Загружаем в Google Drive
+      const uploadResult = await googleDrive.uploadFile(
+        processedImageBuffer,
+        `avatar-${userId}-${Date.now()}.webp`,
+        'image/webp'
+      );
+
+      avatarUrl = uploadResult.directUrl;
+    }
+
+    // Получаем текущего пользователя чтобы удалить старый аватар
+    const currentUser = await User.findById(userId);
+    if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
+      const fileId = currentUser.avatar.split('id=')[1];
+      if (fileId) {
+        await googleDrive.deleteFile(fileId);
       }
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { $set: { avatar: finalProcessedBase64Avatar } }, // Используем правильную переменную
+      { $set: { avatar: avatarUrl } },
       { new: true, runValidators: true }
     ).select('-password');
 
@@ -209,15 +219,14 @@ exports.updateUserAvatar = async (req, res) => {
     }
 
     res.status(200).json({
-      message: finalProcessedBase64Avatar === '' ? 'Аватар успешно удален' : 'Аватар успешно обновлен и сжат',
+      message: avatarUrl === '' ? 'Аватар успешно удален' : 'Аватар успешно обновлен',
       user: updatedUser
     });
 
   } catch (error) {
     console.error('Ошибка обновления аватара:', error);
-    // Добавим более специфичную проверку для ошибок sharp
     if (error.message.includes('Input buffer contains unsupported image format') || error.message.includes('Input buffer is invalid')) {
-        return res.status(400).json({ message: 'Неподдерживаемый или поврежденный формат изображения для аватара.' });
+      return res.status(400).json({ message: 'Неподдерживаемый или поврежденный формат изображения для аватара.' });
     }
     if (error.name === 'ValidationError') {
       return res.status(400).json({ message: 'Ошибка валидации: ' + error.message });

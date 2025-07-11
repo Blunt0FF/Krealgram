@@ -27,7 +27,13 @@ const userSchema = new mongoose.Schema({
   },
   avatar: {
     type: String,
-    default: ''
+    default: '/default-avatar.png',
+    validate: {
+      validator: function(v) {
+        return v === '' || v === '/default-avatar.png' || v.startsWith('http');
+      },
+      message: 'Avatar must be a valid URL or empty string'
+    }
   },
   bio: {
     type: String,
