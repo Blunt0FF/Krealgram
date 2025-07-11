@@ -3,22 +3,12 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 90vh;
+  height: 100vh;
   background-color: #fff;
   padding: 20px;
 }
 
-/* @media (max-width: 768px) {
-  .create-post-container {
-    height: calc(100vh - 100px);
-  }
 
-  @supports (height: 100dvh) {
-    .create-post-container {
-      height: calc(100dvh - 100px);
-    }
-  }
-} */
 
 .create-post-box {
   background: white;

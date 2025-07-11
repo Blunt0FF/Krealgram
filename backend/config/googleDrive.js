@@ -12,9 +12,14 @@ class GoogleDriveManager {
     try {
       console.log('[GOOGLE_DRIVE] 🔄 Starting initialization...');
       
-      // Проверяем наличие OAuth2 credentials
-      if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN) {
+      // Проверяем наличие OAuth2 credentials (проверяем оба варианта названий)
+      const refreshToken = process.env.GOOGLE_REFRESH_TOKEN || process.env.GOOGLE_DRIVE_REFRESH_TOKEN || process.env.GOOGLE_DRIVE_ACCESS_TOKEN;
+      
+      if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && refreshToken) {
         console.log('[GOOGLE_DRIVE] Using OAuth2 credentials...');
+        console.log('[GOOGLE_DRIVE] Client ID found:', !!process.env.GOOGLE_CLIENT_ID);
+        console.log('[GOOGLE_DRIVE] Client Secret found:', !!process.env.GOOGLE_CLIENT_SECRET);
+        console.log('[GOOGLE_DRIVE] Refresh Token found:', !!refreshToken);
         
         // Создаем OAuth2 клиент
         const oauth2Client = new google.auth.OAuth2(
@@ -25,7 +30,7 @@ class GoogleDriveManager {
 
         // Устанавливаем refresh token
         oauth2Client.setCredentials({
-          refresh_token: process.env.GOOGLE_REFRESH_TOKEN
+          refresh_token: refreshToken
         });
 
         this.auth = oauth2Client;
@@ -64,8 +69,15 @@ class GoogleDriveManager {
         
       } else {
         console.log('[GOOGLE_DRIVE] ❌ No Google Drive credentials found');
-        console.log('[GOOGLE_DRIVE] Expected: GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + GOOGLE_REFRESH_TOKEN');
-        console.log('[GOOGLE_DRIVE] Or: GOOGLE_DRIVE_CREDENTIALS (Service Account JSON)');
+        console.log('[GOOGLE_DRIVE] Expected OAuth2: GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET + (GOOGLE_REFRESH_TOKEN or GOOGLE_DRIVE_REFRESH_TOKEN or GOOGLE_DRIVE_ACCESS_TOKEN)');
+        console.log('[GOOGLE_DRIVE] Or Service Account: GOOGLE_DRIVE_CREDENTIALS');
+        console.log('[GOOGLE_DRIVE] Available env vars:');
+        console.log('[GOOGLE_DRIVE] - GOOGLE_CLIENT_ID:', !!process.env.GOOGLE_CLIENT_ID);
+        console.log('[GOOGLE_DRIVE] - GOOGLE_CLIENT_SECRET:', !!process.env.GOOGLE_CLIENT_SECRET);
+        console.log('[GOOGLE_DRIVE] - GOOGLE_REFRESH_TOKEN:', !!process.env.GOOGLE_REFRESH_TOKEN);
+        console.log('[GOOGLE_DRIVE] - GOOGLE_DRIVE_REFRESH_TOKEN:', !!process.env.GOOGLE_DRIVE_REFRESH_TOKEN);
+        console.log('[GOOGLE_DRIVE] - GOOGLE_DRIVE_ACCESS_TOKEN:', !!process.env.GOOGLE_DRIVE_ACCESS_TOKEN);
+        console.log('[GOOGLE_DRIVE] - GOOGLE_DRIVE_CREDENTIALS:', !!process.env.GOOGLE_DRIVE_CREDENTIALS);
         return false;
       }
 
