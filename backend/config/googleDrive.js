@@ -1,4 +1,5 @@
 const { google } = require('googleapis');
+const { Readable } = require('stream');
 
 class GoogleDriveManager {
   constructor() {
@@ -109,6 +110,9 @@ class GoogleDriveManager {
     }
 
     try {
+      // Конвертируем Buffer в stream для Google Drive API
+      const stream = Readable.from(buffer);
+      
       const response = await this.drive.files.create({
         requestBody: {
           name: filename,
@@ -116,7 +120,7 @@ class GoogleDriveManager {
         },
         media: {
           mimeType: mimetype,
-          body: buffer
+          body: stream
         }
       });
 
