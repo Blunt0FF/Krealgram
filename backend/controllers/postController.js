@@ -7,6 +7,7 @@ const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 const axios = require('axios');
 const os = require('os');
 const VideoDownloader = require('../services/videoDownloader');
+const googleDrive = require('../config/googleDrive');
 
 console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
 
@@ -120,6 +121,11 @@ exports.createPost = async (req, res) => {
       if (req.file && req.file.mimetype) {
         console.log('File MIME type:', req.file.mimetype);
       }
+    }
+
+    // Дополнительно проверяем, если есть uploadResult, используем его thumbnailUrl
+    if (req.uploadResult && req.uploadResult.thumbnailUrl) {
+      thumbnailUrl = req.uploadResult.thumbnailUrl;
     }
 
     // Проверяем что у нас есть хотя бы что-то для отображения
@@ -432,41 +438,34 @@ exports.deletePost = async (req, res) => {
       return res.status(403).json({ message: 'Access denied. You are not the author of this post.' });
     }
 
-    // 1. Delete the image from the uploads/ folder (only for local files)
-    if (post.image && 
-        typeof post.image === 'string' && 
-        !post.image.startsWith('http') && 
-        !post.image.startsWith('/')) {
-      const imageFilePath = path.join(__dirname, '..', 'uploads', post.image);
-      fs.unlink(imageFilePath, (err) => {
-        if (err) {
-          // Log the error, but do not interrupt the process of deleting the post from the DB,
-          // as it might just be a missing file or an access issue.
-          console.error(`Error deleting image file ${post.image}:`, err);
+    // 1. Delete media from Google Drive
+    const fileUrls = [post.image, post.thumbnailUrl].filter(Boolean);
+    for (const url of fileUrls) {
+      if (url && url.includes('drive.google.com')) {
+        const fileId = url.split('/d/')[1].split('/')[0];
+        if (fileId) {
+          try {
+            console.log(`[DELETE_POST] Deleting file from Google Drive: ${fileId}`);
+            await googleDrive.deleteFile(fileId);
+            console.log(`[DELETE_POST] ✅ Successfully deleted file: ${fileId}`);
+          } catch (error) {
+            console.error(`[DELETE_POST] ❌ Could not delete file ${fileId}. It might already be deleted or there was a permission issue.`, error.message);
+            // Не прерываем процесс, даже если файл не удалось удалить
+          }
         }
-      });
-    } else {
-      console.log('Skipping file deletion - external URL or no image:', post.image);
+      }
     }
 
-    // 2. Delete the post from the DB (this should also trigger Mongoose pre/post remove hooks if defined for cascading delete)
-    await post.deleteOne(); // Use deleteOne() on the document or Post.findByIdAndDelete(postId)
+    // 2. Delete the post from the DB
+    await post.deleteOne();
 
-    // 3. Delete related data (if cascading delete is not configured via Mongoose middleware)
-    //    - Delete comments on the post
-    //    - Delete likes on the post
-    //    - Delete notifications related to the post
-    //    - Delete the post from the user's posts array
-    // For this, we'll need the Comment, Like, Notification, and User models
+    // 3. Delete related data
     const Comment = require('../models/commentModel');
     const Like = require('../models/likeModel');
     const Notification = require('../models/notificationModel');
-    // User model is already imported at the top if createPost uses it
 
     await Comment.deleteMany({ post: postId });
     await Like.deleteMany({ post: postId });
-    
-    // Correctly delete notifications related to the post from all documents
     await Notification.updateMany(
       { 'notifications.post': postId },
       { $pull: { notifications: { post: postId } } }
