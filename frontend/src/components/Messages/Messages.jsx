@@ -525,14 +525,60 @@ const Messages = ({ currentUser }) => {
     setTotalMessages(0);
   };
 
-  const fetchMessages = async () => {
+  useEffect(() => {
+    const socket = io(API_URL, {
+      query: { userId: currentUser?._id },
+      transports: ['websocket']
+    });
+
+    socket.on('newMessage', (newMessage) => {
+      console.log('Получено новое сообщение:', newMessage);
+      if (selectedConversation && newMessage.conversationId === selectedConversation._id) {
+        setMessages(prevMessages => [...prevMessages, newMessage]);
+      }
+      // Обновляем список диалогов, чтобы показать новое сообщение
+      fetchConversations();
+    });
+
+    // Обработчик удаления сообщения
+    socket.on('messageDeleted', ({ conversationId, messageId }) => {
+      if (selectedConversation && conversationId === selectedConversation._id) {
+        console.log(`Получено событие на удаление сообщения ${messageId}`);
+        setMessages(prevMessages => prevMessages.filter(m => m._id !== messageId));
+      }
+      fetchConversations(); // Обновляем последнее сообщение в списке диалогов
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [selectedConversation, currentUser]);
+
+
+  const fetchMessages = async (conversationId) => {
     try {
-      const response = await axios.get('/api/conversations/get-messages', {
-        params: { conversationId: selectedConversation._id }
+      const token = localStorage.getItem('token');
+      if (!token) return [];
+      const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages?limit=20&offset=0`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      // ... existing code ...
+      if (response.ok) {
+        const data = await response.json();
+        const messages = data.messages || [];
+        setMessages(messages);
+        setTotalMessages(data.totalCount || 0);
+        return messages;
+      } else {
+        console.error('Error fetching messages:', await response.text());
+        setMessages([]);
+        setTotalMessages(0);
+        return [];
+      }
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('Network error fetching messages:', error);
+      setMessages([]);
+      setTotalMessages(0);
+      return [];
     }
   };
 
@@ -563,6 +609,10 @@ const Messages = ({ currentUser }) => {
 
     } catch (error) {
       console.error('Ошибка удаления сообщения:', error.message);
+    } finally {
+      // Гарантированно закрываем модальное окно
+      setShowDeleteConfirm(false);
+      setMessageToDelete(null);
     }
   };
 

@@ -69,6 +69,11 @@ const corsOptions = {
   maxAge: 86400 // 24 часа
 };
 
+// Сначала обрабатываем OPTIONS-запросы для всех маршрутов.
+// Это критически важно для "непростых" запросов (POST, PUT, DELETE с кастомными заголовками),
+// которые требуют preflight-запроса от браузера.
+app.options('*', cors(corsOptions));
+
 app.use(cors(corsOptions));
 
 // Важно: middleware для парсинга JSON должен идти после CORS
@@ -88,8 +93,8 @@ app.get('/', (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
+  res.status(200).json({
+    status: 'OK',
     message: 'Server is running',
     timestamp: new Date().toISOString()
   });
@@ -173,7 +178,7 @@ io.on('connection', async (socket) => {
   const userId = socket.handshake.query.userId;
   if (userId) {
     socket.join(userId);
-    
+
     // Устанавливаем пользователя как онлайн
     try {
       const User = require('./models/userModel');

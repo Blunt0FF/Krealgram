@@ -1,173 +1,92 @@
 const sharp = require('sharp');
-const path = require('path');
+const path = path.resolve(process.cwd(), 'backend/utils/imageCompressor.js');
 const fs = require('fs').promises;
 const ffmpeg = require('fluent-ffmpeg');
 
-class ImageCompressor {
-  constructor() {
-    this.defaultOptions = {
-      jpeg: {
-        quality: 100,
-        progressive: true
-      },
-      png: {
-        compressionLevel: 9,
-        quality: 100
-      },
-      webp: {
-        quality: 100,
-        effort: 6,
-        lossless: true
-      },
-      gif: {
-        quality: 100
-      }
-    };
-  }
+// Убедимся, что временные директории существуют
+const TEMP_DIR = path.resolve(process.cwd(), 'backend/temp');
+const TEMP_INPUT_DIR = path.join(TEMP_DIR, 'input');
+const TEMP_OUTPUT_DIR = path.join(TEMP_DIR, 'output');
 
+const ensureTempDirs = async () => {
+  await fs.mkdir(TEMP_INPUT_DIR, { recursive: true });
+  await fs.mkdir(TEMP_OUTPUT_DIR, { recursive: true });
+};
+
+// Вызовем функцию при инициализации модуля
+ensureTempDirs();
+
+
+class ImageCompressor {
   /**
-   * Сжимает изображение без потери качества
-   * @param {Buffer} imageBuffer - буфер изображения
+   * Сжимает изображение из файла без потери качества
+   * @param {string} inputPath - путь к исходному файлу
    * @param {string} originalName - оригинальное имя файла
-   * @param {Object} options - опции сжатия
    * @returns {Promise<{buffer: Buffer, info: Object}>}
    */
-  async compressImage(imageBuffer, originalName, options = {}) {
+  async compressImage(inputPath, originalName) {
+    const tempOutputPath = path.join(TEMP_OUTPUT_DIR, `compressed-${Date.now()}-${originalName}`);
+    
     try {
       const ext = path.extname(originalName).toLowerCase();
       const filename = path.basename(originalName, ext);
       
       console.log(`[IMAGE_COMPRESSOR] Обрабатываем изображение: ${originalName}`);
       
-      // Получаем информацию об изображении
-      const metadata = await sharp(imageBuffer).metadata();
-      console.log(`[IMAGE_COMPRESSOR] Исходный размер: ${metadata.width}x${metadata.height}, формат: ${metadata.format}`);
-      
-      let compressedBuffer;
-      let outputFormat = ext;
-      
-      // Создаем sharp объект
-      let sharpInstance = sharp(imageBuffer).rotate().withMetadata({}); // Авто-ориентация + удаление EXIF
-      
-      // Агрессивное сжатие для каждого формата
-      switch (ext) {
-        case '.jpg':
-        case '.jpeg':
-          compressedBuffer = await sharpInstance
-            .jpeg({
-              quality: 70,
-              progressive: true,
-              mozjpeg: true
-            })
-            .toBuffer();
+      const pipeline = sharp(inputPath, { failOnError: false }).rotate(); // failOnError: false для обработки некорректных изображений
+
+      let outputFormat = ext.substring(1);
+
+      switch (outputFormat) {
+        case 'jpg':
+        case 'jpeg':
+          pipeline.jpeg({ quality: 80, progressive: true, mozjpeg: true });
           break;
-          
-        case '.png':
-          compressedBuffer = await sharpInstance
-            .png({
-              compressionLevel: 9,
-              force: true
-            })
-            .toBuffer();
+        case 'png':
+          pipeline.png({ compressionLevel: 9, quality: 85, effort: 8 });
           break;
-          
-        case '.webp':
-          compressedBuffer = await sharpInstance
-            .webp({
-              quality: 70,
-              lossless: false
-            })
-            .toBuffer();
+        case 'webp':
+          pipeline.webp({ quality: 80, effort: 6 });
           break;
-          
-        case '.gif':
-          // Для GIF сохраняем как есть
-          compressedBuffer = imageBuffer;
-          break;
-          
         default:
-          // Для неизвестных форматов сохраняем как JPEG с оптимальным качеством
-          compressedBuffer = await sharpInstance
-            .jpeg({
-              quality: 70,
-              progressive: true,
-              mozjpeg: true
-            })
-            .toBuffer();
-          outputFormat = '.jpg';
+          pipeline.jpeg({ quality: 80, progressive: true, mozjpeg: true });
+          outputFormat = 'jpg';
           break;
       }
-      
-      // Если сжатый файл больше оригинала, используем оригинал
-      const originalSize = imageBuffer.length;
-      const compressedSize = compressedBuffer.length;
-      
-      if (compressedSize > originalSize) {
-        console.log(`[IMAGE_COMPRESSOR] ⚠️ Сжатие увеличило размер, используем оригинал`);
-        compressedBuffer = imageBuffer;
-      }
-      
-      // Получаем информацию о финальном изображении
-      const finalMetadata = await sharp(compressedBuffer).metadata();
-      const finalSize = compressedBuffer.length;
-      const compressionRatio = ((originalSize - finalSize) / originalSize * 100).toFixed(2);
-      
-      console.log(`[IMAGE_COMPRESSOR] ✅ Обработка завершена:`);
-      console.log(`  - Исходный размер: ${(originalSize / 1024).toFixed(2)} KB`);
-      console.log(`  - Финальный размер: ${(finalSize / 1024).toFixed(2)} KB`);
-      console.log(`  - Экономия: ${compressionRatio}%`);
-      console.log(`  - Разрешение: ${finalMetadata.width}x${finalMetadata.height}`);
-      console.log(`  - Формат: ${metadata.format} → ${finalMetadata.format}`);
-      
+
+      const info = await pipeline.toFile(tempOutputPath);
+      const outputBuffer = await fs.readFile(tempOutputPath);
+
+      console.log(`[IMAGE_COMPRESSOR] ✅ Обработка завершена. Info:`, info);
+
       return {
-        buffer: compressedBuffer,
+        buffer: outputBuffer,
         info: {
-          originalSize,
-          compressedSize: finalSize,
-          compressionRatio: parseFloat(compressionRatio),
-          originalFormat: metadata.format,
-          outputFormat: finalMetadata.format,
-          originalDimensions: `${metadata.width}x${metadata.height}`,
-          compressedDimensions: `${finalMetadata.width}x${finalMetadata.height}`,
-          filename: `${filename}${outputFormat}`
+          ...info,
+          filename: `${filename}.${outputFormat}`
         }
       };
-      
-    } catch (error) {
-      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка обработки изображения:`, error);
-      throw error;
+    } finally {
+      // Очистка временного файла
+      await fs.unlink(tempOutputPath).catch(err => console.error(`Failed to clean up temp file: ${tempOutputPath}`, err));
     }
   }
 
   /**
-   * Создает превью изображения
-   * @param {Buffer} imageBuffer - буфер изображения
-   * @param {Object} options - опции превью
+   * Создает превью для изображения из файла
+   * @param {string} inputPath - путь к исходному файлу
    * @returns {Promise<Buffer>}
    */
-  async createThumbnail(imageBuffer, options = {}) {
-    const {
-      width = 300,
-      height = 300,
-      quality = 80,
-      format = 'webp'
-    } = options;
-
+  async createThumbnail(inputPath) {
     try {
-      console.log(`[IMAGE_COMPRESSOR] Создаем превью ${width}x${height}`);
+      console.log(`[IMAGE_COMPRESSOR] Создаем превью 300x300`);
       
-      const thumbnailBuffer = await sharp(imageBuffer)
-        .resize(width, height, {
-          fit: 'cover',
-          position: 'center'
-        })
-        .toFormat(format, { quality })
+      return await sharp(inputPath, { failOnError: false })
+        .rotate()
+        .resize(300, 300, { fit: 'cover', position: 'center' })
+        .webp({ quality: 75 })
         .toBuffer();
         
-      console.log(`[IMAGE_COMPRESSOR] ✅ Превью создано: ${(thumbnailBuffer.length / 1024).toFixed(2)} KB`);
-      
-      return thumbnailBuffer;
-      
     } catch (error) {
       console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка создания превью:`, error);
       throw error;
@@ -175,32 +94,23 @@ class ImageCompressor {
   }
 
   /**
-   * Оптимизирует изображение для веба
-   * @param {Buffer} imageBuffer - буфер изображения
+   * Оптимизирует изображение для веба, работая с файловыми путями
+   * @param {string} inputPath - путь к исходному файлу
    * @param {string} originalName - оригинальное имя файла
    * @returns {Promise<Object>}
    */
-  async optimizeForWeb(imageBuffer, originalName) {
+  async optimizeForWeb(inputPath, originalName) {
     try {
-      // Сжимаем основное изображение
-      const compressed = await this.compressImage(imageBuffer, originalName);
-      
-      // Создаем превью
-      const thumbnail = await this.createThumbnail(imageBuffer, {
-        width: 300,
-        height: 300,
-        quality: 75,
-        format: 'webp'
-      });
+      const compressed = await this.compressImage(inputPath, originalName);
+      const thumbnailBuffer = await this.createThumbnail(inputPath);
       
       return {
         original: compressed,
         thumbnail: {
-          buffer: thumbnail,
+          buffer: thumbnailBuffer,
           filename: `thumb_${compressed.info.filename.replace(/\.[^/.]+$/, '.webp')}`
         }
       };
-      
     } catch (error) {
       console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка оптимизации для веба:`, error);
       throw error;
@@ -208,69 +118,44 @@ class ImageCompressor {
   }
 }
 
-const generateVideoThumbnail = async (videoBuffer) => {
-  console.log('[THUMBNAIL_GEN] Starting video thumbnail generation...');
+const generateVideoThumbnail = async (inputPath) => {
+  console.log('[THUMBNAIL_GEN] Starting video thumbnail generation from path...');
   
-  const tempInputDir = path.join(__dirname, '..', 'temp', 'input');
-  const tempOutputDir = path.join(__dirname, '..', 'temp', 'output');
+  const tempThumbPath = path.join(TEMP_OUTPUT_DIR, `thumb-${Date.now()}.jpg`);
   
-  await fs.mkdir(tempInputDir, { recursive: true });
-  await fs.mkdir(tempOutputDir, { recursive: true });
-
-  const tempVideoPath = path.join(tempInputDir, `video-${Date.now()}.mp4`);
-  const tempThumbPath = path.join(tempOutputDir, `thumb-${Date.now()}.jpg`);
-  
-  let ffmpegCommand; // Объявляем переменную для команды
-
-  try {
-    await fs.writeFile(tempVideoPath, videoBuffer);
-    console.log('[THUMBNAIL_GEN] Temporary video file written.');
-
-    await new Promise((resolve, reject) => {
-      ffmpegCommand = ffmpeg(tempVideoPath)
-        .on('end', () => {
-          console.log('[THUMBNAIL_GEN] FFmpeg processing finished.');
-          resolve();
-        })
-        .on('error', (err) => {
-          console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
-          // Убиваем процесс, если он еще существует, чтобы избежать зависания
-          if (ffmpegCommand) {
-            ffmpegCommand.kill('SIGKILL');
-          }
-          reject(err);
-        })
-        .screenshots({
-          timestamps: ['1%'],
-          filename: path.basename(tempThumbPath),
-          folder: path.dirname(tempThumbPath),
-          size: '320x?' 
-        });
-    });
-
-    const thumbnailBuffer = await fs.readFile(tempThumbPath);
-    console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
-    
-    return {
-        buffer: thumbnailBuffer,
-        filename: path.basename(tempThumbPath)
-    };
-  } finally {
-    // Гарантированная очистка временных файлов
-    console.log('[THUMBNAIL_GEN] Cleaning up temporary files...');
-    if (await fs.stat(tempVideoPath).catch(() => false)) {
-      await fs.unlink(tempVideoPath).catch(e => console.error(`Failed to delete temp video: ${e.message}`));
-    }
-    if (await fs.stat(tempThumbPath).catch(() => false)) {
-      await fs.unlink(tempThumbPath).catch(e => console.error(`Failed to delete temp thumb: ${e.message}`));
-    }
-  }
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .on('end', async () => {
+        try {
+          console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
+          const thumbnailBuffer = await fs.readFile(tempThumbPath);
+          resolve({
+            buffer: thumbnailBuffer,
+            filename: path.basename(tempThumbPath)
+          });
+        } catch (readError) {
+          reject(readError);
+        } finally {
+          await fs.unlink(tempThumbPath).catch(err => console.error('Failed to cleanup thumb.', err));
+        }
+      })
+      .on('error', (err) => {
+        console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
+        reject(err);
+      })
+      .screenshots({
+        timestamps: ['1%'],
+        filename: path.basename(tempThumbPath),
+        folder: path.dirname(tempThumbPath),
+        size: '320x?' 
+      });
+  });
 };
-
 
 const imageCompressor = new ImageCompressor();
 
 module.exports = {
   optimizeForWeb: imageCompressor.optimizeForWeb.bind(imageCompressor),
-  generateVideoThumbnail
+  generateVideoThumbnail,
+  TEMP_INPUT_DIR, // Экспортируем для использования в middleware
 }; 

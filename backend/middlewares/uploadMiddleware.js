@@ -1,23 +1,20 @@
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs').promises;
 const googleDrive = require('../config/googleDrive');
-const { optimizeForWeb, generateVideoThumbnail } = require('../utils/imageCompressor');
+const { optimizeForWeb, generateVideoThumbnail, TEMP_INPUT_DIR } = require('../utils/imageCompressor');
 
-// Вспомогательная функция для загрузки буфера на Google Drive
-const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context = 'post', user = null) => {
+// Вспомогательная функция для загрузки ОБРАБОТАННОГО файла на Google Drive
+const uploadProcessedToGoogleDrive = async (fileBuffer, finalFilename, fileMimetype, context, folderId) => {
   try {
-    console.log(`[UPLOAD_BUFFER] Загружаем файл ${originalname} (${context}) на Google Drive...`);
+    console.log(`[UPLOAD_BUFFER] Загружаем файл ${finalFilename} (${context}) на Google Drive...`);
     
-    let fileBuffer = buffer;
-    let filename = originalname;
-    let fileMimetype = mimetype;
     let thumbnailUrl = null;
-    let compressionInfo = null;
 
     if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
       console.log(`[UPLOAD_BUFFER] Обрабатываем изображение для контекста: ${context}...`);
       try {
-        const optimized = await optimizeForWeb(buffer, originalname);
+        const optimized = await optimizeForWeb(fileBuffer, finalFilename);
         
         // Для аватарок превью не нужно, сам аватар и есть превью.
         // Для постов — создаем и загружаем.
@@ -33,16 +30,15 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context
         }
 
         fileBuffer = optimized.original.buffer;
-        filename = optimized.original.info.filename;
+        finalFilename = optimized.original.info.filename;
         fileMimetype = `image/${optimized.original.info.outputFormat}`;
-        compressionInfo = optimized.original.info;
       } catch (compressionError) {
         console.error('[UPLOAD_BUFFER] ❌ Ошибка обработки изображения, используем оригинал:', compressionError.message);
       }
     } else if (fileMimetype.startsWith('video/')) {
         console.log('[UPLOAD_BUFFER] Обрабатываем видео для создания превью...');
         try {
-            const thumbnail = await generateVideoThumbnail(buffer);
+            const thumbnail = await generateVideoThumbnail(fileBuffer);
             if (thumbnail) {
                 console.log('[UPLOAD_BUFFER] Загружаем превью видео на Google Drive...');
                 const thumbnailResult = await googleDrive.uploadFile(
@@ -58,18 +54,18 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context
         }
     }
 
-    const ext = path.extname(filename);
-    let finalFilename;
+    const ext = path.extname(finalFilename);
+    let driveFilename;
 
-    if (context === 'avatar' && user && user.username) {
+    if (context === 'avatar' && req.user && req.user.username) {
         // Очищаем имя пользователя для использования в имени файла
-        const safeUsername = user.username.replace(/[^a-zA-Z0-9]/g, '_');
-        finalFilename = `avatar_${safeUsername}${ext}`;
-        console.log(`[UPLOAD_BUFFER] Сгенерировано имя файла для аватара: ${finalFilename}`);
+        const safeUsername = req.user.username.replace(/[^a-zA-Z0-9]/g, '_');
+        driveFilename = `avatar_${safeUsername}${ext}`;
+        console.log(`[UPLOAD_BUFFER] Сгенерировано имя файла для аватара: ${driveFilename}`);
     } else {
         const timestamp = Date.now();
         const randomString = Math.random().toString(36).substring(2, 15);
-        finalFilename = `${timestamp}_${randomString}${ext}`;
+        driveFilename = `${timestamp}_${randomString}${ext}`;
     }
     
     let folderId;
@@ -94,7 +90,7 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context
     
     const result = await googleDrive.uploadFile(
       fileBuffer,
-      finalFilename,
+      driveFilename,
       fileMimetype,
       folderId
     );
@@ -106,8 +102,7 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context
       format: ext.substring(1),
       bytes: fileBuffer.length,
       url: result.secure_url,
-      thumbnailUrl: thumbnailUrl,
-      compressed: compressionInfo
+      thumbnailUrl: thumbnailUrl
     };
     
     console.log(`[UPLOAD_BUFFER] ✅ Файл загружен в папку ${context}:`, uploadResult.secure_url);
@@ -119,48 +114,127 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context
   }
 };
 
-
-// Настройка multer для временного хранения файлов в памяти
-const storage = multer.memoryStorage();
+// Настройка multer для сохранения файлов на диск во временную папку
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, TEMP_INPUT_DIR); // Сохраняем во временную папку для обработки
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB
+    fileSize: 100 * 1024 * 1024, // Увеличим лимит до 100MB для больших фото с iPhone
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+    // Расширяем список поддерживаемых типов для iPhone (HEIC, MOV)
+    const allowedMimeTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
+      'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'
+    ];
+    if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Поддерживаются только изображения и видео файлы!'), false);
+      cb(new Error('Unsupported file type!'), false);
     }
   }
 });
 
-// Middleware для загрузки файлов на Google Drive
+// Middleware для загрузки файлов на Google Drive, работающий с файлами
 const uploadToGoogleDrive = async (req, res, next) => {
+  if (!req.file) {
+    return next();
+  }
+
+  const tempFilePath = req.file.path;
+
   try {
-    if (!req.file) {
-      return next();
+    let context = 'post';
+    if (req.file.fieldname === 'avatar') context = 'avatar';
+    else if (req.file.fieldname === 'media') context = 'message';
+
+    let fileBuffer, finalFilename, fileMimetype, thumbnailUrl = null;
+    
+    // Определяем тип файла по mimetype
+    const isImage = req.file.mimetype.startsWith('image/');
+    const isVideo = req.file.mimetype.startsWith('video/');
+
+    if (isImage && !req.file.mimetype.includes('gif')) {
+      const optimized = await optimizeForWeb(tempFilePath, req.file.originalname);
+      if (context === 'post' && optimized.thumbnail) {
+        const thumbResult = await uploadProcessedToGoogleDrive(
+          optimized.thumbnail.buffer, optimized.thumbnail.filename, 'image/webp', 
+          'preview', process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+        );
+        thumbnailUrl = thumbResult.secure_url;
+      }
+      fileBuffer = optimized.original.buffer;
+      finalFilename = optimized.original.info.filename;
+      fileMimetype = `image/${optimized.original.info.format}`;
+    } else if (isVideo) {
+      const thumbnailData = await generateVideoThumbnail(tempFilePath);
+      if (thumbnailData) {
+        const thumbResult = await uploadProcessedToGoogleDrive(
+          thumbnailData.buffer, thumbnailData.filename, 'image/jpeg', 
+          'preview', process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+        );
+        thumbnailUrl = thumbResult.secure_url;
+      }
+      fileBuffer = await fs.readFile(tempFilePath);
+      finalFilename = req.file.filename;
+      fileMimetype = req.file.mimetype;
+    } else { // для GIF и других файлов
+      fileBuffer = await fs.readFile(tempFilePath);
+      finalFilename = req.file.filename;
+      fileMimetype = req.file.mimetype;
     }
 
-    let context = 'post'; // По умолчанию 'post'
-    if (req.file.fieldname === 'avatar') {
-        context = 'avatar';
-    } else if (req.file.fieldname === 'media') {
-        context = 'message';
-    }
+    const ext = path.extname(finalFilename);
+    let driveFilename;
 
-    req.uploadResult = await uploadBufferToGoogleDrive(req.file.buffer, req.file.originalname, req.file.mimetype, context, req.user);
+    if (context === 'avatar' && req.user && req.user.username) {
+        const safeUsername = req.user.username.replace(/[^a-zA-Z0-9]/g, '_');
+        driveFilename = `avatar_${safeUsername}${ext}`;
+    } else {
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        driveFilename = `${timestamp}_${randomString}${ext}`;
+    }
+    
+    let folderId;
+    switch (context) {
+        case 'avatar': folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID; break;
+        case 'message': folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID; break;
+        default: folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID; break;
+    }
+    
+    const result = await uploadProcessedToGoogleDrive(fileBuffer, driveFilename, fileMimetype, context, folderId);
+    
+    req.uploadResult = {
+      secure_url: result.secure_url,
+      public_id: result.fileId,
+      resource_type: fileMimetype.startsWith('video/') ? 'video' : 'image',
+      format: ext.substring(1),
+      bytes: fileBuffer.length,
+      url: result.secure_url,
+      thumbnailUrl: thumbnailUrl
+    };
+
     next();
   } catch (error) {
     console.error('[UPLOAD_MIDDLEWARE] ❌ Ошибка:', error);
     next(error);
+  } finally {
+    // Гарантированная очистка временного файла
+    await fs.unlink(tempFilePath).catch(err => console.error(`Failed to cleanup temp file: ${tempFilePath}`, err));
   }
 };
 
 module.exports = {
   upload,
   uploadToGoogleDrive,
-  uploadBufferToGoogleDrive
 }; 
