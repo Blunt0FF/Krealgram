@@ -8,14 +8,23 @@ const { Server } = require('socket.io');
 const connectDB = require('./config/db'); // Мы создадим этот файл далее
 const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
 const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
-const googleDrive = require('./config/googleDrive');
-googleDrive.initialize().catch(console.error);
 
 // Загружаем переменные окружения
 dotenv.config();
 
+console.log('[SERVER] 🚀 Starting Krealgram backend...');
+
 // Подключаемся к MongoDB
 connectDB();
+
+// Инициализируем Google Drive асинхронно, но не блокируем запуск сервера
+const googleDrive = require('./config/googleDrive');
+googleDrive.initialize().then(() => {
+  console.log('[SERVER] ✅ Google Drive initialization completed');
+}).catch((error) => {
+  console.error('[SERVER] ❌ Google Drive initialization failed:', error.message);
+  console.log('[SERVER] ⚠️ Server will continue without Google Drive');
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -145,4 +154,9 @@ resetAllUsersToOffline().then(() => {
 // Запускаем сервис обновления статуса пользователей
 startUserStatusUpdater();
 
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`)); 
+server.listen(PORT, () => {
+  console.log(`[SERVER] ✅ Server running on port ${PORT}`);
+  console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin.join(', ')}`);
+  console.log(`[SERVER] 📡 Socket.IO ready`);
+  console.log(`[SERVER] 🔗 Health check: http://localhost:${PORT}/api/health`);
+}); 
