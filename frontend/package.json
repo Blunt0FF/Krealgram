@@ -16,6 +16,7 @@
     "@mui/material": "^5.15.10",
     "axios": "^1.6.7",
     "emoji-picker-react": "^4.12.2",
+    "heic2any": "*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-player": "^2.16.0",
