@@ -246,51 +246,36 @@ export const getFileSizeKB = (dataUrl) => {
 }; 
 
 export const getImageUrl = (imagePath, options = {}) => {
-  if (!imagePath) return null;
-  
-  // 1. Если это уже полный URL (начинается с http), проверяем, нужно ли его проксировать
-  if (imagePath.startsWith('http')) {
-    // Если это ссылка на Google Drive, используем наш прокси-эндпоинт
-    if (imagePath.includes('drive.google.com')) {
-      try {
-        const url = new URL(imagePath);
-        const id = url.searchParams.get('id');
-        if (id) {
-          return `${API_URL}/api/proxy-drive/${id}`;
-        }
-      } catch (e) {
-        console.error("Invalid Google Drive URL", imagePath);
-        return imagePath; // Возвращаем как есть, если URL некорректный
-      }
-    }
-    // Для всех остальных http/https ссылок (включая Cloudinary) возвращаем как есть
+  if (!imagePath) return '/default-avatar.png';
+
+  // Если это уже полный URL (Google Drive, Cloudinary, data:image), возвращаем его
+  if (imagePath.startsWith('http') || imagePath.startsWith('data:')) {
     return imagePath;
   }
   
-  // 2. Для старых путей Cloudinary (например, 'krealgram/posts/...')
-  if (imagePath.startsWith('krealgram/')) {
-    return `https://res.cloudinary.com/${process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dibcwdwsd'}/image/upload/${imagePath}`;
+  // Если это путь к локальному ресурсу в public
+  if (imagePath.startsWith('/')) {
+    return imagePath;
   }
 
-  // 3. Для старых локальных файлов (до Cloudinary и Google Drive)
-  return `${API_URL}/uploads/${imagePath}`;
+  // Для всего остального строим URL с API_URL, принудительно используя https
+  const secureApiUrl = API_URL.replace(/^http:/, 'https');
+  return `${secureApiUrl}/uploads/${imagePath}`;
 };
 
+/**
+ * Получает URL для аватара
+ * @param {string} avatarPath - путь к аватару
+ * @returns {string} - полный URL аватара
+ */
 export const getAvatarUrl = (avatarPath) => {
   if (!avatarPath) {
-    return '/default-avatar.png';
+    return '/default-avatar.png'; // Заглушка по умолчанию
   }
-  
-  // Для Safari добавляем crossOrigin anonymous для Cloudinary URLs
-  const imageUrl = getImageUrl(avatarPath);
-  if (!imageUrl) {
-    return '/default-avatar.png';
-  }
-  
-  return imageUrl;
+  // Используем getImageUrl, так как логика та же
+  return getImageUrl(avatarPath);
 };
 
-// Специальная функция для видео URLs
 export const getVideoUrl = (videoPath, options = {}) => {
   if (!videoPath) return null;
   

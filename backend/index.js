@@ -45,19 +45,18 @@ const io = new Server(server, {
 app.set('io', io); // Сделаем io доступным в контроллерах
 
 // Настройки CORS для Express
+const whitelist = [
+  "http://localhost:4000",
+  "http://127.0.0.1:4000",
+  "https://krealgram.vercel.app",
+  "https://krealgram.com",
+  "https://www.krealgram.com"
+];
 const corsOptions = {
   origin: (origin, callback) => {
-    // В режиме разработки разрешаем все источники
-    if (process.env.NODE_ENV === 'development') {
-      return callback(null, true);
-    }
-    // В продакшене проверяем по белому списку
-    const whitelist = [
-      "https://krealgram.vercel.app",
-      "https://krealgram.com",
-      "https://www.krealgram.com"
-    ];
-    if (whitelist.includes(origin)) {
+    // Разрешаем запросы без origin (например, с мобильных приложений или curl)
+    // или если источник в белом списке.
+    if (!origin || whitelist.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

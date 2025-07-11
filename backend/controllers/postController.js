@@ -1036,7 +1036,7 @@ exports.downloadExternalVideo = async (req, res) => {
         mediaType: "video",
         image: result.videoUrl, // Используем videoUrl как основное изображение
         videoUrl: result.videoUrl,
-        thumbnailUrl: result.thumbnailUrl,
+        thumbnailUrl: result.thumbnailUrl, // <--- Убедимся, что это поле передается
         googleDriveFileId: result.fileId, // ID файла в Google Drive
         youtubeData: {
           platform: result.platform,
@@ -1045,7 +1045,7 @@ exports.downloadExternalVideo = async (req, res) => {
           title: result.videoInfo.title || '',
           isExternalLink: false,
           videoUrl: result.videoUrl, // Дублируем для совместимости
-          thumbnailUrl: result.thumbnailUrl
+          thumbnailUrl: result.thumbnailUrl // <--- И здесь тоже
         }
       };
 
@@ -1054,7 +1054,7 @@ exports.downloadExternalVideo = async (req, res) => {
         message: 'Video downloaded and uploaded successfully',
         isExternalLink: false, // Это загруженное видео
         videoUrl: result.videoUrl,
-        thumbnailUrl: result.thumbnailUrl,
+        thumbnailUrl: result.thumbnailUrl, // <--- И в корне ответа
         originalUrl: result.originalUrl,
         platform: result.platform,
         title: result.videoInfo.title || '',
