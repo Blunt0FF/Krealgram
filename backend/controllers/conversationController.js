@@ -1,7 +1,8 @@
 const Conversation = require('../models/conversationModel');
 const User = require('../models/userModel');
 const mongoose = require('mongoose');
-const { processYouTubeUrl, createMediaResponse, validateMediaFile, deleteFromGoogleDrive } = require('../utils/mediaHelper');
+const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
+const googleDrive = require('../config/googleDrive');
 
 // @desc    Получение списка диалогов пользователя
 // @route   GET /api/conversations
@@ -277,53 +278,49 @@ exports.deleteMessage = async (req, res) => {
   session.startTransaction();
 
   try {
-    const conversation = await Conversation.findOne({
-      _id: conversationId,
-      'messages._id': messageId,
-    }).session(session);
+    // Находим диалог и атомарно удаляем сообщение, если пользователь является его автором
+    const conversation = await Conversation.findOneAndUpdate(
+      { 
+        _id: conversationId, 
+        'messages._id': messageId,
+        'messages.sender': userId // Проверяем авторство прямо в запросе
+      },
+      { 
+        $pull: { messages: { _id: messageId } } 
+      },
+      { new: false, session } // new: false вернет документ *до* удаления, чтобы мы могли получить данные удаленного сообщения
+    );
 
+    // Если conversation === null, значит либо диалог/сообщение не найдены, либо пользователь не автор
     if (!conversation) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: 'Message or conversation not found.' });
+      // Проверяем, существует ли диалог, чтобы дать более точную ошибку
+      const convExists = await Conversation.findById(conversationId).select('_id').lean();
+      if (!convExists) {
+        return res.status(404).json({ message: 'Conversation not found.' });
+      }
+      return res.status(403).json({ message: 'Message not found or you are not authorized to delete it.' });
     }
 
-    const message = conversation.messages.id(messageId);
-
-    if (!message) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: 'Message not found within the conversation.' });
-    }
-
-    // Проверяем, является ли пользователь автором сообщения
-    if (message.sender.toString() !== userId) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(403).json({ message: 'You are not authorized to delete this message.' });
-    }
+    // Находим удаленное сообщение в "старом" документе, чтобы получить URL файла
+    const message = conversation.messages.find(m => m._id.toString() === messageId);
 
     // Если в сообщении есть медиафайл, загруженный на Google Drive, удаляем его
-    if (message.media && message.media.url && message.media.url.includes('drive.google.com')) {
+    if (message && message.media && message.media.url && message.media.url.includes('drive.google.com')) {
       const fileId = message.media.url.split('/d/')[1].split('/')[0];
       if (fileId) {
         try {
-          console.log(`Attempting to delete Google Drive file: ${fileId}`);
-          await deleteFromGoogleDrive(fileId);
-          console.log(`Successfully deleted Google Drive file: ${fileId}`);
+          console.log(`[DELETE_MSG] Attempting to delete Google Drive file: ${fileId}`);
+          await googleDrive.deleteFile(fileId);
+          console.log(`[DELETE_MSG] ✅ Successfully deleted Google Drive file: ${fileId}`);
         } catch (error) {
-          console.error(`Could not delete Google Drive file ${fileId}. It might already be deleted.`, error.message);
+          console.error(`[DELETE_MSG] ❌ Could not delete file ${fileId}. It might already be deleted.`, error.message);
           // Не прерываем операцию, если файл не удалось удалить
         }
       }
     }
     
-    // Удаляем сообщение из массива
-    await Conversation.updateOne(
-      { _id: conversationId },
-      { $pull: { messages: { _id: messageId } } }
-    ).session(session);
-
     await session.commitTransaction();
     session.endSession();
     
@@ -331,7 +328,8 @@ exports.deleteMessage = async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       conversation.participants.forEach(participantId => {
-        const participantSocketId = onlineUsers[participantId.toString()];
+        // Уведомление должно отправляться всем участникам, поэтому используем ID из документа
+        const participantSocketId = onlineUsers[participantId.toString()]; // Предполагая, что onlineUsers доступен
         if (participantSocketId) {
           io.to(participantSocketId).emit('message_deleted', { conversationId, messageId });
         }
