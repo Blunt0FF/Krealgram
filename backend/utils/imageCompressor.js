@@ -257,7 +257,9 @@ const generateVideoThumbnail = async (videoBuffer) => {
 };
 
 
+const imageCompressor = new ImageCompressor();
+
 module.exports = {
-  optimizeForWeb,
+  optimizeForWeb: imageCompressor.optimizeForWeb.bind(imageCompressor),
   generateVideoThumbnail
 }; 
