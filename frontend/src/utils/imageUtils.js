@@ -278,7 +278,23 @@ export const getAvatarUrl = (avatarPath) => {
 
 export const getVideoUrl = (videoPath, options = {}) => {
   if (!videoPath) return null;
-  
+
+  // Если это Google Drive URL, используем наш прокси
+  if (videoPath.includes('drive.google.com')) {
+    try {
+      const url = new URL(videoPath);
+      const fileId = url.searchParams.get('id');
+      if (fileId) {
+        // Принудительно используем https для API_URL
+        const secureApiUrl = API_URL.replace(/^http:/, 'https');
+        return `${secureApiUrl}/api/proxy-drive/${fileId}`;
+      }
+    } catch (e) {
+      console.error("Invalid Google Drive URL", videoPath);
+      return videoPath; // fallback to original path
+    }
+  }
+
   // Если это уже полный URL (начинается с http/https), возвращаем как есть
   if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
     return videoPath;
