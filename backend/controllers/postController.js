@@ -6,8 +6,7 @@ const Like = require('../models/likeModel'); // Import the Like model
 const { getMediaUrl, getVideoThumbnailUrl } = require('../utils/urlUtils');
 const axios = require('axios');
 const os = require('os');
-const cloudinary = require('cloudinary').v2;
-// const puppeteer = require('puppeteer'); // Отключаем puppeteer
+const VideoDownloader = require('../services/videoDownloader');
 
 console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
 
@@ -1012,125 +1011,61 @@ const downloadFile = async (url, filepath) => {
 // @route   POST /api/posts/external-video/download
 // @access  Private
 exports.downloadExternalVideo = async (req, res) => {
-  let tempFilePath = null;
-  
   try {
     const { url } = req.body;
-
     if (!url) {
-      return res.status(400).json({
-        success: false,
-        message: 'URL is required',
-      });
+      return res.status(400).json({ success: false, message: 'URL is required' });
     }
 
     console.log(`🎬 Downloading video from URL: ${url}`);
-
-    // Определяем платформу (для downloadExternalVideo только TikTok, Instagram, Twitter)
-    const detectPlatform = (url) => {
-      if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
-      if (url.includes("tiktok.com")) return "tiktok";
-      if (url.includes("instagram.com")) return "instagram";
-      if (url.includes("twitter.com") || url.includes("x.com")) return "twitter";
-      return "unknown";
-    };
-
-    const platform = detectPlatform(url);
-    console.log(`📱 Detected platform: ${platform}`);
-
-    // YouTube должен использовать iframe, а не загрузку
-    if (platform === "youtube") {
-      return res.status(400).json({
-        success: false,
-        message: 'YouTube videos should use iframe embedding, not download. Use /api/posts/external-video endpoint instead.',
-      });
-    }
-
-    if (platform === "unknown") {
-      return res.status(400).json({
-        success: false,
-        message: 'Unsupported platform for download. Supported: TikTok, Instagram, Twitter',
-      });
-    }
-
-    // Временная директория для скачивания
-    const tempDir = path.join(os.tmpdir(), 'krealgram-downloads');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    let videoUrl;
     
-    // Извлекаем прямую ссылку на видео в зависимости от платформы
-    videoUrl = await extractVideoFromPlatform(url, platform);
+    const downloader = new VideoDownloader();
+    const result = await downloader.downloadVideo(url);
 
-    // Скачиваем видео файл
-    const fileName = `video_${Date.now()}.mp4`;
-    tempFilePath = path.join(tempDir, fileName);
-    
-    console.log('⬇️ Downloading video file...');
-    await downloadFile(videoUrl, tempFilePath);
-    
-    console.log('☁️ Uploading to Cloudinary...');
-    
-    // Загружаем в Cloudinary
-    const cloudinaryResult = await cloudinary.uploader.upload(tempFilePath, {
-      resource_type: 'video',
-      folder: 'posts',
-      eager: [
-        { width: 300, height: 400, crop: 'pad', format: 'jpg' }
-      ]
-    });
-
-    console.log(`🚀 Video uploaded to Cloudinary: ${cloudinaryResult.secure_url}`);
-
-    console.log(`✅ Video downloaded and uploaded to Cloudinary successfully`);
-
-    // Возвращаем данные видео для дальнейшего использования (НЕ создаем пост автоматически)
-    res.json({
-      success: true,
-      message: 'Video downloaded and uploaded successfully',
-      isExternalLink: false, // Это загруженное видео
-      videoUrl: cloudinaryResult.secure_url,
-      thumbnailUrl: cloudinaryResult.eager[0]?.secure_url,
-      originalUrl: url,
-      platform: platform,
-      title: '', // Убираем стандартную подпись
-      note: `Downloaded ${platform} video`,
-      // Данные для создания поста (но пост НЕ создается автоматически)
-      videoData: {
+    if (result.success) {
+      console.log(`✅ Video downloaded and uploaded to Google Drive successfully`);
+      
+      // Формируем данные для создания поста на фронтенде
+      const videoData = {
         mediaType: "video",
-        image: cloudinaryResult.secure_url,
-        videoUrl: cloudinaryResult.secure_url,
+        image: result.videoUrl, // Используем videoUrl как основное изображение
+        videoUrl: result.videoUrl,
+        thumbnailUrl: result.thumbnailUrl,
+        googleDriveFileId: result.fileId, // ID файла в Google Drive
         youtubeData: {
-          platform: platform,
-          originalUrl: url,
-          note: `Downloaded ${platform} video`,
-          title: '',
+          platform: result.platform,
+          originalUrl: result.originalUrl,
+          note: `Downloaded ${result.platform} video`,
+          title: result.videoInfo.title || '',
           isExternalLink: false,
-          cloudinaryUrl: cloudinaryResult.secure_url,
-          thumbnailUrl: cloudinaryResult.eager[0]?.secure_url
+          videoUrl: result.videoUrl, // Дублируем для совместимости
+          thumbnailUrl: result.thumbnailUrl
         }
-      }
-    });
+      };
+
+      res.json({
+        success: true,
+        message: 'Video downloaded and uploaded successfully',
+        isExternalLink: false, // Это загруженное видео
+        videoUrl: result.videoUrl,
+        thumbnailUrl: result.thumbnailUrl,
+        originalUrl: result.originalUrl,
+        platform: result.platform,
+        title: result.videoInfo.title || '',
+        note: `Downloaded ${result.platform} video`,
+        videoData: videoData
+      });
+
+    } else {
+      throw new Error(result.message || 'Failed to download video');
+    }
 
   } catch (error) {
     console.error('❌ Error in downloadExternalVideo:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to download external video',
-      error: error.message,
+      message: error.message || 'Failed to download external video',
     });
-  } finally {
-    // Очищаем временный файл
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      try {
-        fs.unlinkSync(tempFilePath);
-        console.log('🗑️ Cleaned up temporary file');
-      } catch (cleanupError) {
-        console.error('⚠️ Failed to cleanup temporary file:', cleanupError);
-      }
-    }
   }
 };
 

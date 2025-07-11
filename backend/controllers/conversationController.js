@@ -1,7 +1,7 @@
 const Conversation = require('../models/conversationModel');
 const User = require('../models/userModel');
 const mongoose = require('mongoose');
-const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
+const { processYouTubeUrl, createMediaResponse, validateMediaFile, deleteFromGoogleDrive } = require('../utils/mediaHelper');
 
 // @desc    Получение списка диалогов пользователя
 // @route   GET /api/conversations
@@ -271,72 +271,84 @@ exports.sendMessage = async (req, res) => {
 // @route   DELETE /api/conversations/:conversationId/messages/:messageId
 // @access  Private
 exports.deleteMessage = async (req, res) => {
+  const { conversationId, messageId } = req.params;
+  const userId = req.user.id;
   const session = await mongoose.startSession();
   session.startTransaction();
-  try {
-    const { conversationId, messageId } = req.params;
-    const userId = req.user.id;
 
-    // Находим диалог и проверяем права доступа
+  try {
     const conversation = await Conversation.findOne({
       _id: conversationId,
-      participants: userId
+      'messages._id': messageId,
     }).session(session);
 
     if (!conversation) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: 'Conversation not found or you do not have access.' });
+      return res.status(404).json({ message: 'Message or conversation not found.' });
     }
 
-    // Находим сообщение в диалоге
-    const messageIndex = conversation.messages.findIndex(msg => msg._id.toString() === messageId);
-    
-    if (messageIndex === -1) {
+    const message = conversation.messages.id(messageId);
+
+    if (!message) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: 'Message not found in this conversation.' });
+      return res.status(404).json({ message: 'Message not found within the conversation.' });
     }
 
-    const message = conversation.messages[messageIndex];
-
-    // Проверяем, является ли текущий пользователь автором сообщения
+    // Проверяем, является ли пользователь автором сообщения
     if (message.sender.toString() !== userId) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(403).json({ message: 'You can only delete your own messages.' });
+      return res.status(403).json({ message: 'You are not authorized to delete this message.' });
     }
 
+    // Если в сообщении есть медиафайл, загруженный на Google Drive, удаляем его
+    if (message.media && message.media.url && message.media.url.includes('drive.google.com')) {
+      const fileId = message.media.url.split('/d/')[1].split('/')[0];
+      if (fileId) {
+        try {
+          console.log(`Attempting to delete Google Drive file: ${fileId}`);
+          await deleteFromGoogleDrive(fileId);
+          console.log(`Successfully deleted Google Drive file: ${fileId}`);
+        } catch (error) {
+          console.error(`Could not delete Google Drive file ${fileId}. It might already be deleted.`, error.message);
+          // Не прерываем операцию, если файл не удалось удалить
+        }
+      }
+    }
+    
     // Удаляем сообщение из массива
-    conversation.messages.splice(messageIndex, 1);
-
-    // Обновляем время последнего сообщения, если удаляли последнее сообщение
-    if (conversation.messages.length > 0) {
-      const lastMessage = conversation.messages[conversation.messages.length - 1];
-      conversation.lastMessageAt = lastMessage.createdAt;
-    } else {
-      // Если все сообщения удалены, оставляем время создания диалога
-      conversation.lastMessageAt = conversation.createdAt;
-    }
-
-    await conversation.save({ session });
+    await Conversation.updateOne(
+      { _id: conversationId },
+      { $pull: { messages: { _id: messageId } } }
+    ).session(session);
 
     await session.commitTransaction();
     session.endSession();
+    
+    // Отправляем уведомление через WebSocket
+    const io = req.app.get('io');
+    if (io) {
+      conversation.participants.forEach(participantId => {
+        const participantSocketId = onlineUsers[participantId.toString()];
+        if (participantSocketId) {
+          io.to(participantSocketId).emit('message_deleted', { conversationId, messageId });
+        }
+      });
+    }
 
-    res.status(200).json({
+    res.status(200).json({ 
+      success: true, 
       message: 'Message deleted successfully',
-      deletedMessageId: messageId,
-      conversationId: conversationId
+      conversationId,
+      messageId 
     });
 
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
     console.error('Error deleting message:', error);
-    if (error.kind === 'ObjectId') {
-        return res.status(400).json({ message: 'Invalid conversation or message ID.' });
-    }
     res.status(500).json({ message: 'Server error while deleting message.', error: error.message });
   }
 };

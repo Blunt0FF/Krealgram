@@ -1,21 +1,15 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const cloudinary = require('cloudinary').v2;
-const Tiktok = require('tiktokapi-src');
 const fetch = require('node-fetch');
+const { uploadToGoogleDrive } = require('../utils/mediaHelper');
+const Tiktok = require('tiktokapi-src');
+
 
 class VideoDownloader {
   constructor() {
     this.tempDir = path.join(__dirname, '../temp');
     this.ensureTempDir();
-
-    // Cloudinary configuration
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
   }
 
   async ensureTempDir() {
@@ -86,9 +80,8 @@ class VideoDownloader {
       const videoBuffer = await response.buffer();
       console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
       
-      // Загружаем в Cloudinary
-      console.log('📤 Uploading to Cloudinary...');
-      const cloudinaryResult = await this.uploadToCloudinary(videoBuffer, 'video', 'tiktok');
+      console.log('📤 Uploading to Google Drive...');
+      const driveResult = await uploadToGoogleDrive(videoBuffer, 'video.mp4', 'video/mp4');
 
       return {
         success: true,
@@ -99,11 +92,9 @@ class VideoDownloader {
           uploader: result.result.author?.nickname || 'TikTok User',
           viewCount: result.result.statistics?.playCount || null
         },
-        cloudinaryUrl: cloudinaryResult.secure_url,
-        publicId: cloudinaryResult.public_id,
-        duration: cloudinaryResult.duration,
-        width: cloudinaryResult.width,
-        height: cloudinaryResult.height,
+        videoUrl: driveResult.videoUrl, // Прямая ссылка на видео в GDrive
+        thumbnailUrl: driveResult.thumbnailUrl, // Ссылка на превью
+        fileId: driveResult.fileId, // ID файла в GDrive
         originalUrl: url
       };
 
@@ -193,39 +184,6 @@ class VideoDownloader {
       default:
         throw new Error(`Platform ${platform} not supported for download`);
     }
-  }
-
-  async uploadToCloudinary(buffer, resourceType = 'video', folder = 'external-videos') {
-    return new Promise((resolve, reject) => {
-      const uploadOptions = {
-        resource_type: resourceType,
-        folder: folder,
-        quality: 'auto',
-        fetch_format: 'auto'
-      };
-
-      if (resourceType === 'video') {
-        uploadOptions.transformation = [
-          { quality: '720p', if: 'w_gt_1280' },
-          { quality: 'auto', if: 'else' }
-        ];
-      }
-
-      const uploadStream = cloudinary.uploader.upload_stream(
-        uploadOptions,
-        (error, result) => {
-          if (error) {
-            console.error('❌ Cloudinary upload error:', error);
-            reject(error);
-          } else {
-            console.log('✅ Cloudinary upload successful:', result.public_id);
-            resolve(result);
-          }
-        }
-      );
-
-      uploadStream.end(buffer);
-    });
   }
 
   async getVideoInfo(url) {

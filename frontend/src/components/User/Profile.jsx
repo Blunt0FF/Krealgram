@@ -100,7 +100,7 @@ const PostThumbnail = ({ post, onClick }) => {
                          checkYouTubeUrl(post.imageUrl);
 
     // Check uploaded videos (Cloudinary)
-    const hasCloudinaryVideo = (image && image.includes('cloudinary.com') && image.includes('/video/')) ||
+    const hasCloudinaryVideo = (post.image && post.image.includes('cloudinary.com') && post.image.includes('/video/')) ||
                               post.mediaType === 'video';
 
     return hasYouTubeUrl || hasCloudinaryVideo || post.youtubeData;
