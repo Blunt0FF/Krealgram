@@ -35,7 +35,7 @@ class ImageCompressor {
       const ext = path.extname(originalName).toLowerCase();
       const filename = path.basename(originalName, ext);
       
-      console.log(`[IMAGE_COMPRESSOR] Сжимаем изображение: ${originalName}`);
+      console.log(`[IMAGE_COMPRESSOR] Обрабатываем изображение: ${originalName}`);
       
       // Получаем информацию об изображении
       const metadata = await sharp(imageBuffer).metadata();
@@ -47,14 +47,15 @@ class ImageCompressor {
       // Создаем sharp объект
       let sharpInstance = sharp(imageBuffer);
       
-      // Сжимаем в зависимости от формата, всегда используем максимальное качество
+      // Агрессивное сжатие для каждого формата
       switch (ext) {
         case '.jpg':
         case '.jpeg':
           compressedBuffer = await sharpInstance
             .jpeg({
-              quality: 100,
-              progressive: true
+              quality: 85,
+              progressive: true,
+              mozjpeg: true
             })
             .toBuffer();
           break;
@@ -63,7 +64,7 @@ class ImageCompressor {
           compressedBuffer = await sharpInstance
             .png({
               compressionLevel: 9,
-              quality: 100
+              force: true
             })
             .toBuffer();
           break;
@@ -71,9 +72,8 @@ class ImageCompressor {
         case '.webp':
           compressedBuffer = await sharpInstance
             .webp({
-              quality: 100,
-              effort: 6,
-              lossless: true
+              quality: 85,
+              lossless: false
             })
             .toBuffer();
           break;
@@ -84,47 +84,55 @@ class ImageCompressor {
           break;
           
         default:
-          // Для неизвестных форматов сохраняем как JPEG в максимальном качестве
+          // Для неизвестных форматов сохраняем как JPEG с оптимальным качеством
           compressedBuffer = await sharpInstance
             .jpeg({
-              quality: 100,
-              progressive: true
+              quality: 85,
+              progressive: true,
+              mozjpeg: true
             })
             .toBuffer();
           outputFormat = '.jpg';
           break;
       }
       
-      // Получаем информацию о сжатом изображении
-      const compressedMetadata = await sharp(compressedBuffer).metadata();
-      
+      // Если сжатый файл больше оригинала, используем оригинал
       const originalSize = imageBuffer.length;
       const compressedSize = compressedBuffer.length;
-      const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(2);
       
-      console.log(`[IMAGE_COMPRESSOR] ✅ Сжатие завершено:`);
+      if (compressedSize > originalSize) {
+        console.log(`[IMAGE_COMPRESSOR] ⚠️ Сжатие увеличило размер, используем оригинал`);
+        compressedBuffer = imageBuffer;
+      }
+      
+      // Получаем информацию о финальном изображении
+      const finalMetadata = await sharp(compressedBuffer).metadata();
+      const finalSize = compressedBuffer.length;
+      const compressionRatio = ((originalSize - finalSize) / originalSize * 100).toFixed(2);
+      
+      console.log(`[IMAGE_COMPRESSOR] ✅ Обработка завершена:`);
       console.log(`  - Исходный размер: ${(originalSize / 1024).toFixed(2)} KB`);
-      console.log(`  - Сжатый размер: ${(compressedSize / 1024).toFixed(2)} KB`);
-      console.log(`  - Сжатие: ${compressionRatio}%`);
-      console.log(`  - Новый размер: ${compressedMetadata.width}x${compressedMetadata.height}`);
-      console.log(`  - Формат: ${metadata.format} → ${compressedMetadata.format}`);
+      console.log(`  - Финальный размер: ${(finalSize / 1024).toFixed(2)} KB`);
+      console.log(`  - Экономия: ${compressionRatio}%`);
+      console.log(`  - Разрешение: ${finalMetadata.width}x${finalMetadata.height}`);
+      console.log(`  - Формат: ${metadata.format} → ${finalMetadata.format}`);
       
       return {
         buffer: compressedBuffer,
         info: {
           originalSize,
-          compressedSize,
+          compressedSize: finalSize,
           compressionRatio: parseFloat(compressionRatio),
           originalFormat: metadata.format,
-          outputFormat: compressedMetadata.format,
+          outputFormat: finalMetadata.format,
           originalDimensions: `${metadata.width}x${metadata.height}`,
-          compressedDimensions: `${compressedMetadata.width}x${compressedMetadata.height}`,
+          compressedDimensions: `${finalMetadata.width}x${finalMetadata.height}`,
           filename: `${filename}${outputFormat}`
         }
       };
       
     } catch (error) {
-      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка сжатия изображения:`, error);
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка обработки изображения:`, error);
       throw error;
     }
   }

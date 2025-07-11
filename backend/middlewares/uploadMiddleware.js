@@ -36,23 +36,30 @@ const uploadToGoogleDrive = async (req, res, next) => {
     
     // Сжимаем изображения (не видео)
     if (req.file.mimetype.startsWith('image/')) {
-      console.log('[UPLOAD] Сжимаем изображение перед загрузкой...');
+      console.log('[UPLOAD] Обрабатываем изображение...');
       
       try {
         const optimized = await imageCompressor.optimizeForWeb(req.file.buffer, req.file.originalname);
         
-        // Используем сжатое изображение
+        // Используем обработанное изображение
         fileBuffer = optimized.original.buffer;
         filename = optimized.original.info.filename;
         mimetype = `image/${optimized.original.info.outputFormat}`;
         
-        console.log(`[UPLOAD] ✅ Изображение сжато на ${optimized.original.info.compressionRatio}%`);
+        const ratio = optimized.original.info.compressionRatio;
+        if (ratio > 0) {
+          console.log(`[UPLOAD] ✅ Изображение сжато, экономия ${ratio}%`);
+        } else if (ratio < 0) {
+          console.log(`[UPLOAD] ✅ Изображение оптимизировано (размер увеличен на ${Math.abs(ratio)}%)`);
+        } else {
+          console.log(`[UPLOAD] ✅ Изображение обработано без изменения размера`);
+        }
         
         // Сохраняем информацию о сжатии
         req.compressionInfo = optimized.original.info;
         
       } catch (compressionError) {
-        console.error('[UPLOAD] ❌ Ошибка сжатия изображения, используем оригинал:', compressionError.message);
+        console.error('[UPLOAD] ❌ Ошибка обработки изображения, используем оригинал:', compressionError.message);
         // Продолжаем с оригинальным файлом
       }
     }
