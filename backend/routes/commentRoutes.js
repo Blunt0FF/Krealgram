@@ -23,6 +23,4 @@ router.delete('/:commentId', authMiddleware, commentController.deleteComment);
 // @access  Public (можно добавить authMiddleware, если нужно)
 router.get('/:postId', commentController.getCommentsForPost);
 
-module.exports = router;
-
 module.exports = router; 
