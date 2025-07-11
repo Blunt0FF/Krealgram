@@ -2,11 +2,30 @@ services:
   - type: web
     name: krealgram-backend
     env: node
-    plan: free
-    region: frankfurt
-    buildCommand: "cd backend && npm install"
-    startCommand: "cd backend && node index.js"
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
     envVars:
-      - fromGroup: Krealgram
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        value: https://krealgram.vercel.app
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        sync: false
+      - key: GOOGLE_DRIVE_ACCESS_TOKEN
+        sync: false
+      - key: GOOGLE_DRIVE_REFRESH_TOKEN
+        sync: false
+      - key: CHROME_BIN
+        sync: false
       - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: false
+        value: true
