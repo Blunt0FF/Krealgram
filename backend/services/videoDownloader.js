@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-const { uploadToGoogleDrive } = require('../utils/mediaHelper');
+const { uploadBufferToGoogleDrive } = require('../middlewares/uploadMiddleware');
 const Tiktok = require('tiktokapi-src');
 
 
@@ -81,7 +81,7 @@ class VideoDownloader {
       console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
       
       console.log('📤 Uploading to Google Drive...');
-      const driveResult = await uploadToGoogleDrive(videoBuffer, 'video.mp4', 'video/mp4');
+      const driveResult = await uploadBufferToGoogleDrive(videoBuffer, 'tiktok-video.mp4', 'video/mp4');
 
       return {
         success: true,
@@ -92,9 +92,9 @@ class VideoDownloader {
           uploader: result.result.author?.nickname || 'TikTok User',
           viewCount: result.result.statistics?.playCount || null
         },
-        videoUrl: driveResult.videoUrl, // Прямая ссылка на видео в GDrive
-        thumbnailUrl: driveResult.thumbnailUrl, // Ссылка на превью
-        fileId: driveResult.fileId, // ID файла в GDrive
+        videoUrl: driveResult.secure_url,
+        thumbnailUrl: driveResult.thumbnailUrl,
+        fileId: driveResult.public_id,
         originalUrl: url
       };
 
