@@ -3,6 +3,7 @@ const User = require('../models/userModel');
 const mongoose = require('mongoose');
 const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
 const googleDrive = require('../config/googleDrive');
+const { onlineUsers, io } = require('../index'); // ИСПРАВЛЕННЫЙ ПУТЬ
 
 // @desc    Получение списка диалогов пользователя
 // @route   GET /api/conversations
@@ -274,8 +275,7 @@ exports.sendMessage = async (req, res) => {
 exports.deleteMessage = async (req, res) => {
   const { conversationId, messageId } = req.params;
   const userId = req.user.id;
-  const { onlineUsers } = require('../../index'); // Импортируем onlineUsers
-
+  
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -328,15 +328,14 @@ exports.deleteMessage = async (req, res) => {
     session.endSession();
     
     // Отправляем уведомление через WebSocket
-    const io = req.app.get('io');
-    if (io) {
-      conversation.participants.forEach(participantId => {
-        // Уведомление должно отправляться всем участникам, поэтому используем ID из документа
-        const participantSocketId = onlineUsers[participantId.toString()]; // Предполагая, что onlineUsers доступен
-        if (participantSocketId) {
-          io.to(participantSocketId).emit('message_deleted', { conversationId, messageId });
-        }
-      });
+    const deletedMessage = conversation.messages.find(m => m._id.toString() === messageId);
+    if (deletedMessage) {
+      // Уведомляем получателя об удалении, если он онлайн
+      const recipient = conversation.participants.find(p => p.toString() !== userId);
+      if (recipient && onlineUsers.has(recipient.toString())) {
+        const recipientSocketId = onlineUsers.get(recipient.toString());
+        io.to(recipientSocketId).emit('messageDeleted', { conversationId, messageId });
+      }
     }
 
     res.status(200).json({ 

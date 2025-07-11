@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import { getMediaThumbnail } from '../../utils/videoUtils';
+import React, { useState, useEffect } from 'react';
+import { getImageUrl } from '../../utils/imageUtils'; // Импортируем getImageUrl
 import './EditPostModal.css';
 
 const EditPostModal = ({ isOpen, onClose, post, onSave }) => {
-  const [caption, setCaption] = useState(post?.caption || '');
+  const [caption, setCaption] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [previewSrc, setPreviewSrc] = useState('');
+
+  useEffect(() => {
+    if (post) {
+      setCaption(post.caption || '');
+      // Устанавливаем превью при открытии модального окна, используя getImageUrl
+      const thumbnailUrl = post.thumbnailUrl || post.image;
+      setPreviewSrc(getImageUrl(thumbnailUrl));
+    }
+  }, [post, isOpen]);
 
   const handleSave = async () => {
     if (isSaving) return;
@@ -28,10 +38,7 @@ const EditPostModal = ({ isOpen, onClose, post, onSave }) => {
   if (!isOpen) return null;
 
   // Проверяем является ли пост видео
-  const isVideo = post?.mediaType === 'video' || post?.videoUrl || post?.youtubeData;
-  
-  // Получаем превью изображение
-  const previewSrc = isVideo ? getMediaThumbnail(post) : (post?.imageUrl || post?.image);
+  const isVideo = post?.mediaType === 'video';
 
   return (
     <div className="edit-post-modal-overlay" onClick={handleCancel}>

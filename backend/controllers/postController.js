@@ -19,6 +19,16 @@ exports.createPost = async (req, res) => {
     const { caption, videoUrl, videoData, image, youtubeData: incomingYoutubeData } = req.body;
     const authorId = req.user.id; // User ID from authMiddleware
 
+    // Подробное логирование для отладки загрузки с iPhone
+    if (req.file) {
+      console.log('[IPHONE_DEBUG] Received file from client:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        buffer_exists: !!req.file.buffer
+      });
+    }
+
     console.log('=== CREATE POST DEBUG ===');
     console.log('Request body:', req.body);
     console.log('Has file:', !!req.file);
@@ -59,7 +69,7 @@ exports.createPost = async (req, res) => {
     }
     // Проверяем, есть ли URL видео (для iframe/внешних ссылок)
     else if (videoUrl) {
-      console.log('Processing video URL:', videoUrl);
+      console.log('[IPHONE_DEBUG] Processing video from URL:', videoUrl);
       console.log('Video data:', videoData);
       
       mediaType = 'video';
@@ -80,40 +90,18 @@ exports.createPost = async (req, res) => {
       if (parsedVideoData) {
         console.log('Parsed video data:', parsedVideoData);
         
-        // Извлекаем thumbnailUrl из videoData, если он еще не установлен
-        if (!thumbnailUrl && parsedVideoData.thumbnailUrl) {
+        // ВСЕГДА устанавливаем thumbnailUrl верхнего уровня, если он есть
+        if (parsedVideoData.thumbnailUrl) {
           thumbnailUrl = parsedVideoData.thumbnailUrl;
         }
 
-        if (parsedVideoData.platform === 'youtube') {
-          // Для YouTube сохраняем данные для встраивания
-          youtubeData = {
-            videoId: parsedVideoData.videoId,
-            embedUrl: parsedVideoData.embedUrl,
-            thumbnailUrl: parsedVideoData.thumbnailUrl,
-            title: '', // Можно добавить получение через YouTube API
-            duration: ''
-          };
-          // Для YouTube thumbnail является основным изображением
-          if (parsedVideoData.thumbnailUrl) {
-            imagePath = parsedVideoData.thumbnailUrl;
-          }
-        } else {
-          // Для других платформ (TikTok, VK, Instagram)
-          youtubeData = {
-            platform: parsedVideoData.platform,
-            videoId: parsedVideoData.videoId,
-            originalUrl: parsedVideoData.originalUrl,
-            embedUrl: parsedVideoData.embedUrl,
-            thumbnailUrl: parsedVideoData.thumbnailUrl,
-            note: parsedVideoData.note || 'External video content'
-          };
-        }
-      } else {
-        // Если нет videoData, создаем базовую структуру
         youtubeData = {
-          platform: 'unknown',
-          originalUrl: videoUrl,
+          platform: parsedVideoData.platform,
+          videoId: parsedVideoData.videoId,
+          originalUrl: parsedVideoData.originalUrl,
+          embedUrl: parsedVideoData.embedUrl,
+          // Сохраняем превью и здесь для обратной совместимости или специфичных нужд
+          thumbnailUrl: parsedVideoData.thumbnailUrl, 
           note: 'External video content'
         };
       }
@@ -161,33 +149,27 @@ exports.createPost = async (req, res) => {
       mediaType = 'image';
     }
 
-    console.log('Final post data:', {
-      imagePath,
-      mediaType,
-      youtubeData,
-      videoUrl,
-      caption
-    });
-
-    const newPost = new Post({
-      author: authorId,
-      image: imagePath,
+    // Финальные данные для создания поста
+    const finalPostData = {
+      author: userId,
+      caption: caption,
+      image: imagePath, // Путь к основному медиа (картинка или видео на GDrive)
       mediaType: mediaType,
-      mimeType: req.file ? req.file.mimetype : null,
-      caption: caption || '',
-      videoUrl: videoUrl || null,
-      youtubeUrl: videoUrl || null, // Для обратной совместимости
+      thumbnailUrl: thumbnailUrl, // Прямой URL на превью (для видео)
+      videoUrl: videoUrl, // URL для встраивания (если применимо, н-р, YouTube)
       youtubeData: youtubeData,
-      thumbnailUrl: thumbnailUrl // <--- Сохраняем превью
-    });
+    };
+    
+    console.log('Final post data being saved:', JSON.stringify(finalPostData, null, 2));
 
-    const savedPost = await newPost.save();
+    const newPost = new Post(finalPostData);
+    await newPost.save();
 
     // Add post to user's posts array
-    await User.findByIdAndUpdate(authorId, { $push: { posts: savedPost._id } });
+    await User.findByIdAndUpdate(authorId, { $push: { posts: newPost._id } });
 
     // Return the post with author data
-    const populatedPost = await Post.findById(savedPost._id).populate('author', 'username avatar');
+    const populatedPost = await Post.findById(newPost._id).populate('author', 'username avatar');
 
     res.status(201).json({
       message: 'Post created successfully',
@@ -443,7 +425,6 @@ exports.deletePost = async (req, res) => {
       return res.status(404).json({ message: 'Post not found.' });
     }
 
-    // Check if the current user is the author of the post
     if (post.author.toString() !== userId) {
       return res.status(403).json({ message: 'Access denied. You are not the author of this post.' });
     }
@@ -461,50 +442,21 @@ exports.deletePost = async (req, res) => {
             console.log(`[DELETE_POST] ✅ Successfully deleted file: ${fileId}`);
           }
         } catch (error) {
-          // Также обрабатываем старый формат ссылок /d/
-          if (urlString.includes('/d/')) {
-            const fileId = urlString.split('/d/')[1].split('/')[0];
-            if (fileId) {
-              try {
-                console.log(`[DELETE_POST] Deleting file from Google Drive (fallback): ${fileId}`);
-                await googleDrive.deleteFile(fileId);
-                console.log(`[DELETE_POST] ✅ Successfully deleted file (fallback): ${fileId}`);
-              } catch (e) {
-                console.error(`[DELETE_POST] ❌ Could not delete file ${fileId} (fallback).`, e.message);
-              }
-            }
-          } else {
-            console.error(`[DELETE_POST] ❌ Could not parse fileId from URL: ${urlString}.`, error.message);
-          }
+          console.error(`[DELETE_POST] Failed to delete file ${urlString} from Google Drive:`, error);
         }
       }
     }
 
-    // 2. Delete the post from the DB
-    await post.deleteOne();
+    // 2. Delete the post from the database
+    await Post.findByIdAndDelete(postId);
 
-    // 3. Delete related data
-    const Comment = require('../models/commentModel');
-    const Like = require('../models/likeModel');
-    const Notification = require('../models/notificationModel');
-
-    await Comment.deleteMany({ post: postId });
-    await Like.deleteMany({ post: postId });
-    await Notification.updateMany(
-      { 'notifications.post': postId },
-      { $pull: { notifications: { post: postId } } }
-    );
-
+    // 3. Remove the post from the user's posts array
     await User.findByIdAndUpdate(userId, { $pull: { posts: postId } });
 
-    res.status(200).json({ message: 'Post deleted successfully.' });
-
+    res.status(200).json({ message: 'Post and associated media deleted successfully.' });
   } catch (error) {
     console.error('Error deleting post:', error);
-    if (error.kind === 'ObjectId') {
-        return res.status(400).json({ message: 'Invalid Post ID.' });
-    }
-    res.status(500).json({ message: 'Server error while deleting post.', error: error.message });
+    res.status(500).json({ message: 'An error occurred while deleting the post.' });
   }
 };
 

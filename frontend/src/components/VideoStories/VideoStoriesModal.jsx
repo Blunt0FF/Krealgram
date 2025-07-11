@@ -318,8 +318,8 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       );
     }
     
-    // Для обычных видео используем videoUrl или image
-    videoSrc = currentVideo?.videoUrl || currentVideo?.image;
+    // Для обычных видео используем videoUrl или image, пропуская через getVideoUrl для проксирования
+    videoSrc = getVideoUrl(currentVideo?.videoUrl || currentVideo?.image);
     
     console.log('🎥 Video source determined:', { 
       videoSrc, 

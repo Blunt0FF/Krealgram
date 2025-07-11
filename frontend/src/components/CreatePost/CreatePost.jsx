@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import heic2any from 'heic2any';
-import { compressPostImage } from '../../utils/imageUtils';
+import { compressPostImage, getImageUrl } from '../../utils/imageUtils'; // Импортируем getImageUrl
 import { API_URL } from '../../config';
 import ExternalVideoUpload from '../ExternalVideoUpload/ExternalVideoUpload';
 import './CreatePost.css';
@@ -90,9 +90,9 @@ const CreatePost = () => {
     setVideoUrl(videoData.originalUrl || videoData.videoUrl);
     setMediaType('video');
     
-    // Set preview
+    // Set preview, using proxy for Google Drive thumbnails
     if (videoData.thumbnailUrl) {
-      setPreviewUrl(videoData.thumbnailUrl);
+      setPreviewUrl(getImageUrl(videoData.thumbnailUrl));
     } else if (videoData.platform === 'youtube' && videoData.videoId) {
       setPreviewUrl(`https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`);
     } else {
