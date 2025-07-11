@@ -151,7 +151,7 @@ exports.createPost = async (req, res) => {
 
     // Финальные данные для создания поста
     const finalPostData = {
-      author: userId,
+      author: authorId,
       caption: caption,
       image: imagePath, // Путь к основному медиа (картинка или видео на GDrive)
       mediaType: mediaType,
@@ -644,8 +644,7 @@ exports.getUserVideos = async (req, res) => {
     const { userId } = req.params;
 
     const userVideos = await Post.find({
-      author: userId,
-      $or: [
+      author: authorId,      $or: [
         { mediaType: 'video' },
         { youtubeData: { $exists: true, $ne: null } }
       ]

@@ -327,16 +327,10 @@ exports.deleteMessage = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
     
-    // Отправляем уведомление через WebSocket
-    const deletedMessage = conversation.messages.find(m => m._id.toString() === messageId);
-
-    if (deletedMessage) {
-      // Уведомляем ВСЕХ участников диалога, включая отправителя
+    // Отправляем уведомление через WebSocket всем участникам диалога
+    if (io) {
       conversation.participants.forEach(participantId => {
-        const participantSocketId = onlineUsers.get(participantId.toString());
-        if (participantSocketId) {
-          io.to(participantSocketId).emit('messageDeleted', { conversationId, messageId });
-        }
+        io.to(participantId.toString()).emit('messageDeleted', { conversationId, messageId });
       });
     }
 

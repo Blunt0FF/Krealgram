@@ -77,6 +77,61 @@ const Messages = ({ currentUser }) => {
     }
   }, [showNewMessageModal]);
 
+  useEffect(() => {
+    if (!currentUser?._id) return;
+
+    // Подключение к сокету
+    const socket = io(API_URL, {
+      query: { userId: currentUser._id },
+      transports: ['websocket'],
+    });
+
+    socket.on('connect', () => {
+      console.log('Socket connected for messages:', socket.id);
+    });
+
+    socket.on('newMessage', ({ conversationId, message }) => {
+      console.log('Received new message:', message, 'for conv:', conversationId);
+
+      // Обновляем список диалогов, перемещая текущий наверх
+      setConversations(prev => {
+          const currentConv = prev.find(c => c._id === conversationId);
+          if (currentConv) {
+              const otherConvs = prev.filter(c => c._id !== conversationId);
+              return [{ ...currentConv, lastMessage: message, lastMessageAt: message.createdAt }, ...otherConvs];
+          } 
+          // Если это новый диалог, запросим его с сервера
+          else {
+              fetchConversations();
+              return prev;
+          }
+      });
+
+      // Если открыт этот диалог, добавляем сообщение
+      if (selectedConversation?._id === conversationId) {
+        setMessages(prev => [...prev, message]);
+      }
+    });
+
+    // Обработчик удаления сообщения
+    socket.on('messageDeleted', ({ conversationId, messageId }) => {
+      console.log(`Received messageDeleted event for conv ${conversationId}, msg ${messageId}`);
+      if (selectedConversation?._id === conversationId) {
+        setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageId));
+      }
+      // Также можно обновить lastMessage в списке диалогов, если удалили последнее сообщение
+      fetchConversations();
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected from messages.');
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [currentUser, selectedConversation, fetchConversations]);
+
   // Обновляем время каждую минуту для корректного отображения последней активности
   useEffect(() => {
     const timer = setInterval(() => {
@@ -525,92 +580,22 @@ const Messages = ({ currentUser }) => {
     setTotalMessages(0);
   };
 
-  useEffect(() => {
-    const socket = io(API_URL, {
-      query: { userId: currentUser?._id },
-      transports: ['websocket']
-    });
-
-    socket.on('newMessage', (newMessage) => {
-      console.log('Получено новое сообщение:', newMessage);
-      if (selectedConversation && newMessage.conversationId === selectedConversation._id) {
-        setMessages(prevMessages => [...prevMessages, newMessage]);
-      }
-      // Обновляем список диалогов, чтобы показать новое сообщение
-      fetchConversations();
-    });
-
-    // Обработчик удаления сообщения
-    socket.on('messageDeleted', ({ conversationId, messageId }) => {
-      if (selectedConversation && conversationId === selectedConversation._id) {
-        console.log(`Получено событие на удаление сообщения ${messageId}`);
-        setMessages(prevMessages => prevMessages.filter(m => m._id !== messageId));
-      }
-      fetchConversations(); // Обновляем последнее сообщение в списке диалогов
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [selectedConversation, currentUser]);
-
-
-  const fetchMessages = async (conversationId) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) return [];
-      const response = await fetch(`${API_URL}/api/conversations/${conversationId}/messages?limit=20&offset=0`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const messages = data.messages || [];
-        setMessages(messages);
-        setTotalMessages(data.totalCount || 0);
-        return messages;
-      } else {
-        console.error('Error fetching messages:', await response.text());
-        setMessages([]);
-        setTotalMessages(0);
-        return [];
-      }
-    } catch (error) {
-      console.error('Network error fetching messages:', error);
-      setMessages([]);
-      setTotalMessages(0);
-      return [];
-    }
-  };
-
   const deleteMessage = async (messageId) => {
-    if (!selectedConversation || !messageId) {
-      console.error("Невозможно удалить сообщение: не выбран диалог или не указан ID сообщения.");
-      return;
-    }
-    
+    if (!selectedConversation || !messageId) return;
+
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation._id}/messages/${messageId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Не удалось удалить сообщение');
-      }
-
-      // Обновляем состояние, удаляя сообщение
-      setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageId));
-      
-      console.log('Сообщение успешно удалено');
-
+      await axios.delete(
+        `${API_URL}/api/conversations/${selectedConversation._id}/messages/${messageId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      // Front-end state will be updated via the 'messageDeleted' socket event.
     } catch (error) {
-      console.error('Ошибка удаления сообщения:', error.message);
+      console.error('Error deleting message:', error.response ? error.response.data : error.message);
+      alert('Не удалось удалить сообщение.');
     } finally {
-      // Гарантированно закрываем модальное окно
       setShowDeleteConfirm(false);
       setMessageToDelete(null);
     }
