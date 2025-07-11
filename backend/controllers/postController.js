@@ -40,6 +40,7 @@ exports.createPost = async (req, res) => {
     let imagePath = null;
     let mediaType = 'image';
     let youtubeData = null;
+    let thumbnailUrl = null;
 
     // НОВАЯ ЛОГИКА: Проверяем сначала данные скачанного видео (TikTok/Instagram/VK)
     if (image && (image.includes('cloudinary.com') || image.includes('res.cloudinary'))) {
@@ -68,6 +69,11 @@ exports.createPost = async (req, res) => {
         const parsedVideoData = typeof videoData === 'string' ? JSON.parse(videoData) : videoData;
         console.log('Parsed video data:', parsedVideoData);
         
+        // Извлекаем thumbnailUrl из videoData
+        if (parsedVideoData.thumbnailUrl) {
+          thumbnailUrl = parsedVideoData.thumbnailUrl;
+        }
+
         if (parsedVideoData.platform === 'youtube') {
           // Для YouTube сохраняем данные для встраивания
           youtubeData = {
@@ -105,6 +111,7 @@ exports.createPost = async (req, res) => {
       console.log('Processing uploaded file via Google Drive:', req.uploadResult);
       
       imagePath = req.uploadResult.secure_url;
+      thumbnailUrl = req.uploadResult.thumbnailUrl; // <--- Получаем превью
       console.log('Google Drive file uploaded:', imagePath);
       
       mediaType = req.uploadResult.resource_type;
@@ -155,7 +162,7 @@ exports.createPost = async (req, res) => {
       videoUrl: videoUrl || null,
       youtubeUrl: videoUrl || null, // Для обратной совместимости
       youtubeData: youtubeData,
-      thumbnailUrl: req.uploadResult ? req.uploadResult.thumbnailUrl : null
+      thumbnailUrl: thumbnailUrl // <--- Сохраняем превью
     });
 
     const savedPost = await newPost.save();

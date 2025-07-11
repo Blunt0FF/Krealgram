@@ -102,24 +102,46 @@ exports.updateUserProfile = async (req, res) => {
       fieldsToUpdate.bio = bio.trim();
     }
 
-    // Обработка аватара - проверяем файл (через multer) или параметр удаления
     const currentUser = await User.findById(userId);
     if (!currentUser) {
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
-    // Если загружен новый файл аватара
-    if (req.file) {
-      // Сохраняем только имя файла, а не полный URL
-      fieldsToUpdate.avatar = req.file.filename;
+    // Если загружен новый аватар
+    if (req.uploadResult && req.uploadResult.secure_url) {
+      // Удаляем старый аватар, если он был и хранился на Google Drive
+      if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
+          try {
+              const fileId = currentUser.avatar.split('id=')[1];
+              if (fileId) {
+                await googleDrive.deleteFile(fileId);
+                console.log(`[AVATAR] Старый аватар ${fileId} удален.`);
+              }
+          } catch(e) {
+              console.error(`[AVATAR] Не удалось удалить старый аватар: ${e.message}`);
+          }
+      }
+      fieldsToUpdate.avatar = req.uploadResult.secure_url;
     } 
     // Если нужно удалить аватар
     else if (removeAvatar === 'true') {
+      if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
+           try {
+              const fileId = currentUser.avatar.split('id=')[1];
+              if (fileId) {
+                await googleDrive.deleteFile(fileId);
+                console.log(`[AVATAR] Аватар ${fileId} удален по запросу.`);
+              }
+          } catch(e) {
+              console.error(`[AVATAR] Не удалось удалить аватар по запросу: ${e.message}`);
+          }
+      }
       fieldsToUpdate.avatar = null;
     }
 
     if (Object.keys(fieldsToUpdate).length === 0) {
-      return res.status(400).json({ message: 'Нет данных для обновления.' });
+      // Если не было ни bio, ни файла, но был запрос, возвращаем текущие данные
+      return res.status(200).json(currentUser);
     }
 
     const updatedUser = await User.findByIdAndUpdate(
