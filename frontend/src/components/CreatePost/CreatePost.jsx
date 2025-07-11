@@ -97,26 +97,19 @@ const CreatePost = () => {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       
+      // Добавляем подпись в любом случае
+      formData.append('caption', caption);
+
       if (parsedVideoData) {
-        // Для скачанного видео передаем image и incomingYoutubeData
-        if (parsedVideoData.isDownloaded && parsedVideoData.videoUrl) {
-          formData.append('image', parsedVideoData.videoUrl); // Cloudinary URL как image
-          formData.append('incomingYoutubeData', JSON.stringify({
-            platform: parsedVideoData.platform,
-            originalUrl: parsedVideoData.originalUrl,
-            note: parsedVideoData.note,
-            thumbnailUrl: parsedVideoData.thumbnailUrl,
-            isDownloaded: true
-          }));
-        } else {
-          // Для внешних ссылок (YouTube iframe) передаем videoUrl и videoData
-          formData.append('videoUrl', parsedVideoData.originalUrl);
-          formData.append('videoData', JSON.stringify(parsedVideoData.videoData || parsedVideoData));
-        }
-        formData.append('caption', caption);
-      } else {
-        formData.append('image', compressedFile);
-        formData.append('caption', caption);
+        // Если это внешнее видео (скачанное или ссылка)
+        // `videoData` содержит всю необходимую информацию, включая platform, thumbnailUrl и т.д.
+        // `videoUrl` содержит либо оригинальный URL (для iframe), либо URL на наш сервер (для скачанных)
+        formData.append('videoUrl', parsedVideoData.videoUrl || parsedVideoData.originalUrl);
+        formData.append('videoData', JSON.stringify(parsedVideoData.videoData || parsedVideoData));
+
+      } else if (compressedFile) {
+        // Если это загруженный файл
+        formData.append('image', compressedFile, originalFileName);
       }
 
       const response = await fetch(`${API_URL}/api/posts`, {

@@ -537,16 +537,32 @@ const Messages = ({ currentUser }) => {
   };
 
   const deleteMessage = async (messageId) => {
+    if (!selectedConversation || !messageId) {
+      console.error("Невозможно удалить сообщение: не выбран диалог или не указан ID сообщения.");
+      return;
+    }
+    
     try {
-      const response = await axios.delete('/api/conversations/delete-message', {
-        data: {
-          conversationId: selectedConversation._id,
-          messageId
-        }
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/conversations/${selectedConversation._id}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
-      // ... existing code ...
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Не удалось удалить сообщение');
+      }
+
+      // Обновляем состояние, удаляя сообщение
+      setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageId));
+      
+      console.log('Сообщение успешно удалено');
+
     } catch (error) {
-      console.error('Error deleting message:', error);
+      console.error('Ошибка удаления сообщения:', error.message);
     }
   };
 

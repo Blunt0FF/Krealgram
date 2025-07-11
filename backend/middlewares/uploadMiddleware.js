@@ -4,9 +4,9 @@ const googleDrive = require('../config/googleDrive');
 const imageCompressor = require('../utils/imageCompressor');
 
 // Вспомогательная функция для загрузки буфера на Google Drive
-const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype) => {
+const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context = 'post') => {
   try {
-    console.log(`[UPLOAD_BUFFER] Загружаем файл ${originalname} на Google Drive...`);
+    console.log(`[UPLOAD_BUFFER] Загружаем файл ${originalname} (${context}) на Google Drive...`);
     
     let fileBuffer = buffer;
     let filename = originalname;
@@ -14,12 +14,15 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype) => {
     let thumbnailUrl = null;
     let compressionInfo = null;
 
-    if (fileMimetype.startsWith('image/')) {
-      console.log('[UPLOAD_BUFFER] Обрабатываем изображение...');
+    if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
+      console.log(`[UPLOAD_BUFFER] Обрабатываем изображение для контекста: ${context}...`);
       try {
         const optimized = await imageCompressor.optimizeForWeb(buffer, originalname);
-        if (optimized.thumbnail) {
-          console.log('[UPLOAD_BUFFER] Загружаем превью на Google Drive...');
+        
+        // Для аватарок превью не нужно, сам аватар и есть превью.
+        // Для постов — создаем и загружаем.
+        if (context === 'post' && optimized.thumbnail) {
+          console.log('[UPLOAD_BUFFER] Загружаем превью поста на Google Drive...');
           const thumbnailResult = await googleDrive.uploadFile(
             optimized.thumbnail.buffer,
             optimized.thumbnail.filename,
@@ -28,6 +31,7 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype) => {
           );
           thumbnailUrl = thumbnailResult.secure_url;
         }
+
         fileBuffer = optimized.original.buffer;
         filename = optimized.original.info.filename;
         fileMimetype = `image/${optimized.original.info.outputFormat}`;
@@ -43,12 +47,23 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype) => {
     const finalFilename = `${timestamp}_${randomString}${ext}`;
     
     let folderId;
-    if (fileMimetype.startsWith('image/')) {
-        folderId = fileMimetype === 'image/gif' ? process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID : process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
-    } else if (fileMimetype.startsWith('video/')) {
-        folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
-    } else {
-        folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
+    switch (context) {
+        case 'avatar':
+            folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
+            break;
+        case 'message':
+            folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
+            break;
+        case 'post':
+        default:
+            if (fileMimetype === 'image/gif') {
+                folderId = process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID;
+            } else if (fileMimetype.startsWith('video/')) {
+                folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
+            } else {
+                folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
+            }
+            break;
     }
     
     const result = await googleDrive.uploadFile(
@@ -69,11 +84,11 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype) => {
       compressed: compressionInfo
     };
     
-    console.log('[UPLOAD_BUFFER] ✅ Файл загружен:', uploadResult.secure_url);
+    console.log(`[UPLOAD_BUFFER] ✅ Файл загружен в папку ${context}:`, uploadResult.secure_url);
     return uploadResult;
 
   } catch (error) {
-    console.error('[UPLOAD_BUFFER] ❌ Ошибка загрузки на Google Drive:', error);
+    console.error(`[UPLOAD_BUFFER] ❌ Ошибка загрузки (${context}) на Google Drive:`, error);
     throw error;
   }
 };
@@ -102,7 +117,15 @@ const uploadToGoogleDrive = async (req, res, next) => {
     if (!req.file) {
       return next();
     }
-    req.uploadResult = await uploadBufferToGoogleDrive(req.file.buffer, req.file.originalname, req.file.mimetype);
+
+    let context = 'post'; // По умолчанию 'post'
+    if (req.file.fieldname === 'avatar') {
+        context = 'avatar';
+    } else if (req.file.fieldname === 'media') {
+        context = 'message';
+    }
+
+    req.uploadResult = await uploadBufferToGoogleDrive(req.file.buffer, req.file.originalname, req.file.mimetype, context);
     next();
   } catch (error) {
     console.error('[UPLOAD_MIDDLEWARE] ❌ Ошибка:', error);

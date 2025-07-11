@@ -30,6 +30,8 @@ const userSchema = new mongoose.Schema({
     default: '/default-avatar.png',
     validate: {
       validator: function(v) {
+        // Добавляем проверку на null или undefined
+        if (v === null || v === undefined) return true; 
         return v === '' || v === '/default-avatar.png' || v.startsWith('http');
       },
       message: 'Avatar must be a valid URL or empty string'
