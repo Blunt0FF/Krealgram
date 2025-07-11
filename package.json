@@ -1,12 +1,23 @@
 {
   "name": "krealgram",
   "version": "1.0.0",
-  "description": "Instagram clone",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
     "build": "cd frontend && npm install && npm run build",
-    "start": "cd frontend && npm run preview",
-    "dev": "cd frontend && npm run dev"
+    "start": "cd backend && npm install && npm start",
+    "dev": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run dev\""
   },
-  "author": "",
-  "license": "ISC"
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "open": "^10.1.2",
+    "vite": "^7.0.4"
+  },
+  "dependencies": {
+    "cheerio": "^1.1.0",
+    "yt-dlp-wrap": "^2.3.12"
+  }
 }

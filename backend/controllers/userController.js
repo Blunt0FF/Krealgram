@@ -180,12 +180,6 @@ exports.updateUserAvatar = async (req, res) => {
 
       // Обрабатываем изображение
       const processedImageBuffer = await sharp(imageBuffer)
-        .resize({ 
-          width: 250, 
-          height: 250, 
-          fit: sharp.fit.cover,
-          withoutEnlargement: true 
-        })
         .webp({ quality: 80 })
         .toBuffer();
 
@@ -193,7 +187,8 @@ exports.updateUserAvatar = async (req, res) => {
       const uploadResult = await googleDrive.uploadFile(
         processedImageBuffer,
         `avatar-${userId}-${Date.now()}.webp`,
-        'image/webp'
+        'image/webp',
+        process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
       );
 
       avatarUrl = uploadResult.directUrl;

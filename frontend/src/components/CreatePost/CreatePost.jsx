@@ -39,8 +39,8 @@ const CreatePost = () => {
       
       if (fileType === 'image') {
         setCompressing(true);
-        const compressedBlob = await compressPostImage(file);
-        setCompressedFile(new File([compressedBlob], file.name, { type: compressedBlob.type }));
+        const originalFile = await compressPostImage(file);
+        setCompressedFile(originalFile);
       } else {
         setCompressedFile(file);
       }
@@ -224,7 +224,7 @@ const CreatePost = () => {
             borderRadius: '8px',
             margin: '12px 0'
           }}>
-            {mediaType === 'video' ? 'Processing video...' : 'Compressing image...'}
+            {mediaType === 'video' ? 'Processing video...' : 'Processing image...'}
           </div>
         )}
 

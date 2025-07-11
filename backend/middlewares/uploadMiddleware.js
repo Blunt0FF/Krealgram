@@ -1,11 +1,7 @@
 const multer = require('multer');
 const path = require('path');
-const GoogleDriveManager = require('../config/googleDriveOAuth');
+const googleDrive = require('../config/googleDrive');
 const imageCompressor = require('../utils/imageCompressor');
-
-// Инициализируем Google Drive
-const googleDrive = new GoogleDriveManager();
-googleDrive.initialize().catch(console.error);
 
 // Настройка multer для временного хранения файлов в памяти
 const storage = multer.memoryStorage();
@@ -67,11 +63,28 @@ const uploadToGoogleDrive = async (req, res, next) => {
     const ext = path.extname(filename);
     const finalFilename = `${timestamp}_${randomString}${ext}`;
 
+    let folderId = null;
+    if (req.file.mimetype.startsWith('image/')) {
+      if (req.file.mimetype === 'image/gif') {
+        if (req.isPreviewGif) {
+          folderId = process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID;
+        } else {
+          folderId = process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID;
+        }
+      } else {
+        folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
+      }
+    } else if (req.file.mimetype.startsWith('video/')) {
+      folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
+    } else if (req.file.mimetype.startsWith('application/')) {
+      folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
+    }
     // Загружаем файл на Google Drive
     const result = await googleDrive.uploadFile(
       fileBuffer,
       finalFilename,
-      mimetype
+      mimetype,
+      folderId
     );
 
     // Сохраняем результат в req для дальнейшего использования

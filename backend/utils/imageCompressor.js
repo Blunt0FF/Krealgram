@@ -5,22 +5,20 @@ class ImageCompressor {
   constructor() {
     this.defaultOptions = {
       jpeg: {
-        quality: 85,
-        progressive: true,
-        mozjpeg: true
+        quality: 100,
+        progressive: true
       },
       png: {
         compressionLevel: 9,
-        progressive: true,
-        quality: 85
+        quality: 100
       },
       webp: {
-        quality: 85,
-        effort: 6
+        quality: 100,
+        effort: 6,
+        lossless: true
       },
       gif: {
-        // GIF сжатие через sharp ограничено
-        quality: 85
+        quality: 100
       }
     };
   }
@@ -49,24 +47,14 @@ class ImageCompressor {
       // Создаем sharp объект
       let sharpInstance = sharp(imageBuffer);
       
-      // Если изображение очень большое, уменьшаем его
-      if (metadata.width > 2048 || metadata.height > 2048) {
-        console.log(`[IMAGE_COMPRESSOR] Уменьшаем размер изображения`);
-        sharpInstance = sharpInstance.resize(2048, 2048, {
-          fit: 'inside',
-          withoutEnlargement: true
-        });
-      }
-      
-      // Сжимаем в зависимости от формата
+      // Сжимаем в зависимости от формата, всегда используем максимальное качество
       switch (ext) {
         case '.jpg':
         case '.jpeg':
           compressedBuffer = await sharpInstance
             .jpeg({
-              quality: options.quality || this.defaultOptions.jpeg.quality,
-              progressive: this.defaultOptions.jpeg.progressive,
-              mozjpeg: this.defaultOptions.jpeg.mozjpeg
+              quality: 100,
+              progressive: true
             })
             .toBuffer();
           break;
@@ -74,9 +62,8 @@ class ImageCompressor {
         case '.png':
           compressedBuffer = await sharpInstance
             .png({
-              compressionLevel: this.defaultOptions.png.compressionLevel,
-              progressive: this.defaultOptions.png.progressive,
-              quality: options.quality || this.defaultOptions.png.quality
+              compressionLevel: 9,
+              quality: 100
             })
             .toBuffer();
           break;
@@ -84,29 +71,24 @@ class ImageCompressor {
         case '.webp':
           compressedBuffer = await sharpInstance
             .webp({
-              quality: options.quality || this.defaultOptions.webp.quality,
-              effort: this.defaultOptions.webp.effort
+              quality: 100,
+              effort: 6,
+              lossless: true
             })
             .toBuffer();
           break;
           
         case '.gif':
-          // Для GIF конвертируем в WebP для лучшего сжатия
-          compressedBuffer = await sharpInstance
-            .webp({
-              quality: options.quality || this.defaultOptions.gif.quality,
-              effort: 6
-            })
-            .toBuffer();
-          outputFormat = '.webp';
+          // Для GIF сохраняем как есть
+          compressedBuffer = imageBuffer;
           break;
           
         default:
-          // Для неизвестных форматов конвертируем в JPEG
+          // Для неизвестных форматов сохраняем как JPEG в максимальном качестве
           compressedBuffer = await sharpInstance
             .jpeg({
-              quality: options.quality || this.defaultOptions.jpeg.quality,
-              progressive: this.defaultOptions.jpeg.progressive
+              quality: 100,
+              progressive: true
             })
             .toBuffer();
           outputFormat = '.jpg';

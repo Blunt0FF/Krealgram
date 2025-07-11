@@ -8,6 +8,8 @@ const { Server } = require('socket.io');
 const connectDB = require('./config/db'); // Мы создадим этот файл далее
 const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
 const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
+const googleDrive = require('./config/googleDrive');
+googleDrive.initialize().catch(console.error);
 
 // Загружаем переменные окружения
 dotenv.config();
