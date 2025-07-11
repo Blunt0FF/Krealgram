@@ -123,14 +123,13 @@ const CreatePost = () => {
       formData.append('caption', caption);
 
       if (parsedVideoData) {
-        // Если это внешнее видео (скачанное или ссылка)
-        // `videoData` содержит всю необходимую информацию, включая platform, thumbnailUrl и т.д.
-        // `videoUrl` содержит либо оригинальный URL (для iframe), либо URL на наш сервер (для скачанных)
+        // Для внешних видео (скачанных или по ссылке) отправляем URL и метаданные
+        // videoUrl будет либо оригинальной ссылкой (YouTube), либо ссылкой на наш GDrive (TikTok/Insta)
         formData.append('videoUrl', parsedVideoData.videoUrl || parsedVideoData.originalUrl);
+        // videoData содержит всю остальную информацию (platform, thumbnailUrl, и т.д.)
         formData.append('videoData', JSON.stringify(parsedVideoData.videoData || parsedVideoData));
-
       } else if (compressedFile) {
-        // Если это загруженный файл
+        // Для локально загруженного файла отправляем сам файл
         formData.append('image', compressedFile, originalFileName);
       }
 

@@ -450,17 +450,31 @@ exports.deletePost = async (req, res) => {
 
     // 1. Delete media from Google Drive
     const fileUrls = [post.image, post.thumbnailUrl].filter(Boolean);
-    for (const url of fileUrls) {
-      if (url && url.includes('drive.google.com')) {
-        const fileId = url.split('/d/')[1].split('/')[0];
-        if (fileId) {
-          try {
+    for (const urlString of fileUrls) {
+      if (urlString && urlString.includes('drive.google.com')) {
+        try {
+          const url = new URL(urlString);
+          const fileId = url.searchParams.get('id');
+          if (fileId) {
             console.log(`[DELETE_POST] Deleting file from Google Drive: ${fileId}`);
             await googleDrive.deleteFile(fileId);
             console.log(`[DELETE_POST] ✅ Successfully deleted file: ${fileId}`);
-          } catch (error) {
-            console.error(`[DELETE_POST] ❌ Could not delete file ${fileId}. It might already be deleted or there was a permission issue.`, error.message);
-            // Не прерываем процесс, даже если файл не удалось удалить
+          }
+        } catch (error) {
+          // Также обрабатываем старый формат ссылок /d/
+          if (urlString.includes('/d/')) {
+            const fileId = urlString.split('/d/')[1].split('/')[0];
+            if (fileId) {
+              try {
+                console.log(`[DELETE_POST] Deleting file from Google Drive (fallback): ${fileId}`);
+                await googleDrive.deleteFile(fileId);
+                console.log(`[DELETE_POST] ✅ Successfully deleted file (fallback): ${fileId}`);
+              } catch (e) {
+                console.error(`[DELETE_POST] ❌ Could not delete file ${fileId} (fallback).`, e.message);
+              }
+            }
+          } else {
+            console.error(`[DELETE_POST] ❌ Could not parse fileId from URL: ${urlString}.`, error.message);
           }
         }
       }

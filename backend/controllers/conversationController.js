@@ -274,6 +274,8 @@ exports.sendMessage = async (req, res) => {
 exports.deleteMessage = async (req, res) => {
   const { conversationId, messageId } = req.params;
   const userId = req.user.id;
+  const { onlineUsers } = require('../../index'); // Импортируем onlineUsers
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -308,16 +310,17 @@ exports.deleteMessage = async (req, res) => {
 
     // Если в сообщении есть медиафайл, загруженный на Google Drive, удаляем его
     if (message && message.media && message.media.url && message.media.url.includes('drive.google.com')) {
-      const fileId = message.media.url.split('/d/')[1].split('/')[0];
-      if (fileId) {
-        try {
-          console.log(`[DELETE_MSG] Attempting to delete Google Drive file: ${fileId}`);
-          await googleDrive.deleteFile(fileId);
-          console.log(`[DELETE_MSG] ✅ Successfully deleted Google Drive file: ${fileId}`);
-        } catch (error) {
-          console.error(`[DELETE_MSG] ❌ Could not delete file ${fileId}. It might already be deleted.`, error.message);
-          // Не прерываем операцию, если файл не удалось удалить
+      try {
+        const url = new URL(message.media.url);
+        const fileId = url.searchParams.get('id');
+        if (fileId) {
+            console.log(`[DELETE_MSG] Attempting to delete Google Drive file: ${fileId}`);
+            await googleDrive.deleteFile(fileId);
+            console.log(`[DELETE_MSG] ✅ Successfully deleted Google Drive file: ${fileId}`);
         }
+      } catch(error) {
+          console.error(`[DELETE_MSG] ❌ Could not delete file from URL ${message.media.url}.`, error.message);
+          // Не прерываем операцию, если файл не удалось удалить
       }
     }
     
@@ -342,7 +345,6 @@ exports.deleteMessage = async (req, res) => {
       conversationId,
       messageId 
     });
-
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
