@@ -62,16 +62,26 @@ exports.createPost = async (req, res) => {
       console.log('Processing video URL:', videoUrl);
       console.log('Video data:', videoData);
       
-      // Для всех видео URL устанавливаем placeholder
-      imagePath = '/video-placeholder.svg';
       mediaType = 'video';
       
-      if (videoData) {
-        const parsedVideoData = typeof videoData === 'string' ? JSON.parse(videoData) : videoData;
+      const parsedVideoData = videoData ? (typeof videoData === 'string' ? JSON.parse(videoData) : videoData) : {};
+      
+      // Если видео уже на нашем Google Drive (скачано с TikTok/Insta)
+      if (videoUrl.includes('drive.google.com')) {
+        imagePath = videoUrl;
+        if (parsedVideoData.thumbnailUrl) {
+          thumbnailUrl = parsedVideoData.thumbnailUrl;
+        }
+      } else {
+        // Для внешних видео (YouTube и т.д.)
+        imagePath = '/video-placeholder.svg'; // Используем заглушку
+      }
+      
+      if (parsedVideoData) {
         console.log('Parsed video data:', parsedVideoData);
         
-        // Извлекаем thumbnailUrl из videoData
-        if (parsedVideoData.thumbnailUrl) {
+        // Извлекаем thumbnailUrl из videoData, если он еще не установлен
+        if (!thumbnailUrl && parsedVideoData.thumbnailUrl) {
           thumbnailUrl = parsedVideoData.thumbnailUrl;
         }
 
@@ -84,7 +94,7 @@ exports.createPost = async (req, res) => {
             title: '', // Можно добавить получение через YouTube API
             duration: ''
           };
-          // Используем thumbnail как изображение если есть
+          // Для YouTube thumbnail является основным изображением
           if (parsedVideoData.thumbnailUrl) {
             imagePath = parsedVideoData.thumbnailUrl;
           }

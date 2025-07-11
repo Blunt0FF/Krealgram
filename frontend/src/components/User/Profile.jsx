@@ -73,9 +73,7 @@ const PostThumbnail = ({ post, onClick }) => {
   }, [post.thumbnailUrl, post.image]);
 
   // Determine if this is a video to show indicator
-  const isVideo = React.useMemo(() => {
-    return post.mediaType === 'video' || !!post.youtubeData;
-  }, [post.mediaType, post.youtubeData]);
+  const isVideo = post.mediaType === 'video';
 
   return (
     <div key={post._id} className="post-thumbnail" onClick={onClick}>
