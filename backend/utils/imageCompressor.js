@@ -1,5 +1,7 @@
 const sharp = require('sharp');
 const path = require('path');
+const fs = require('fs').promises;
+const ffmpeg = require('fluent-ffmpeg');
 
 class ImageCompressor {
   constructor() {
@@ -206,4 +208,56 @@ class ImageCompressor {
   }
 }
 
-module.exports = new ImageCompressor(); 
+const generateVideoThumbnail = async (videoBuffer) => {
+  console.log('[THUMBNAIL_GEN] Starting video thumbnail generation...');
+  
+  const tempInputDir = path.join(__dirname, '..', 'temp', 'input');
+  const tempOutputDir = path.join(__dirname, '..', 'temp', 'output');
+  
+  await fs.mkdir(tempInputDir, { recursive: true });
+  await fs.mkdir(tempOutputDir, { recursive: true });
+
+  const tempVideoPath = path.join(tempInputDir, `video-${Date.now()}.mp4`);
+  const tempThumbPath = path.join(tempOutputDir, `thumb-${Date.now()}.jpg`);
+  
+  try {
+    await fs.writeFile(tempVideoPath, videoBuffer);
+    console.log('[THUMBNAIL_GEN] Temporary video file written.');
+
+    await new Promise((resolve, reject) => {
+      ffmpeg(tempVideoPath)
+        .on('end', () => {
+          console.log('[THUMBNAIL_GEN] FFmpeg processing finished.');
+          resolve();
+        })
+        .on('error', (err) => {
+          console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
+          reject(err);
+        })
+        .screenshots({
+          timestamps: ['1%'],
+          filename: path.basename(tempThumbPath),
+          folder: path.dirname(tempThumbPath),
+          size: '320x?' 
+        });
+    });
+
+    const thumbnailBuffer = await fs.readFile(tempThumbPath);
+    console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
+    
+    return {
+        buffer: thumbnailBuffer,
+        filename: path.basename(tempThumbPath)
+    };
+  } finally {
+    // Clean up temporary files
+    await fs.unlink(tempVideoPath).catch(e => console.error(`Failed to delete temp video: ${e.message}`));
+    await fs.unlink(tempThumbPath).catch(e => console.error(`Failed to delete temp thumb: ${e.message}`));
+  }
+};
+
+
+module.exports = {
+  optimizeForWeb,
+  generateVideoThumbnail
+}; 

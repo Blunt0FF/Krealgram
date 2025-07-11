@@ -1,10 +1,10 @@
 const multer = require('multer');
 const path = require('path');
 const googleDrive = require('../config/googleDrive');
-const imageCompressor = require('../utils/imageCompressor');
+const { optimizeForWeb, generateVideoThumbnail } = require('../utils/imageCompressor');
 
 // Вспомогательная функция для загрузки буфера на Google Drive
-const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context = 'post') => {
+const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context = 'post', user = null) => {
   try {
     console.log(`[UPLOAD_BUFFER] Загружаем файл ${originalname} (${context}) на Google Drive...`);
     
@@ -17,7 +17,7 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context
     if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
       console.log(`[UPLOAD_BUFFER] Обрабатываем изображение для контекста: ${context}...`);
       try {
-        const optimized = await imageCompressor.optimizeForWeb(buffer, originalname);
+        const optimized = await optimizeForWeb(buffer, originalname);
         
         // Для аватарок превью не нужно, сам аватар и есть превью.
         // Для постов — создаем и загружаем.
@@ -39,12 +39,38 @@ const uploadBufferToGoogleDrive = async (buffer, originalname, mimetype, context
       } catch (compressionError) {
         console.error('[UPLOAD_BUFFER] ❌ Ошибка обработки изображения, используем оригинал:', compressionError.message);
       }
+    } else if (fileMimetype.startsWith('video/')) {
+        console.log('[UPLOAD_BUFFER] Обрабатываем видео для создания превью...');
+        try {
+            const thumbnail = await generateVideoThumbnail(buffer);
+            if (thumbnail) {
+                console.log('[UPLOAD_BUFFER] Загружаем превью видео на Google Drive...');
+                const thumbnailResult = await googleDrive.uploadFile(
+                    thumbnail.buffer,
+                    thumbnail.filename,
+                    'image/jpeg',
+                    process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+                );
+                thumbnailUrl = thumbnailResult.secure_url;
+            }
+        } catch (thumbError) {
+            console.error('[UPLOAD_BUFFER] ❌ Не удалось создать превью для видео:', thumbError.message);
+        }
     }
 
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
     const ext = path.extname(filename);
-    const finalFilename = `${timestamp}_${randomString}${ext}`;
+    let finalFilename;
+
+    if (context === 'avatar' && user && user.username) {
+        // Очищаем имя пользователя для использования в имени файла
+        const safeUsername = user.username.replace(/[^a-zA-Z0-9]/g, '_');
+        finalFilename = `avatar_${safeUsername}${ext}`;
+        console.log(`[UPLOAD_BUFFER] Сгенерировано имя файла для аватара: ${finalFilename}`);
+    } else {
+        const timestamp = Date.now();
+        const randomString = Math.random().toString(36).substring(2, 15);
+        finalFilename = `${timestamp}_${randomString}${ext}`;
+    }
     
     let folderId;
     switch (context) {
@@ -125,7 +151,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
         context = 'message';
     }
 
-    req.uploadResult = await uploadBufferToGoogleDrive(req.file.buffer, req.file.originalname, req.file.mimetype, context);
+    req.uploadResult = await uploadBufferToGoogleDrive(req.file.buffer, req.file.originalname, req.file.mimetype, context, req.user);
     next();
   } catch (error) {
     console.error('[UPLOAD_MIDDLEWARE] ❌ Ошибка:', error);

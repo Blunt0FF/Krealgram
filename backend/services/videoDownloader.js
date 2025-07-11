@@ -2,8 +2,8 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
+const axios = require('axios'); // Используем axios для большей надежности
 const { uploadBufferToGoogleDrive } = require('../middlewares/uploadMiddleware');
-const Tiktok = require('tiktokapi-src');
 
 
 class VideoDownloader {
@@ -33,67 +33,65 @@ class VideoDownloader {
     return ['youtube', 'tiktok', 'instagram'];
   }
 
+  async extractTikTokVideoAPI(url) {
+    try {
+        console.log('🎵 Extracting TikTok video via new API...');
+        const apiUrl = 'https://www.tikwm.com/api/';
+        const response = await axios.get(apiUrl, { params: { url, hd: 1 } });
+
+        if (response.data && response.data.code === 0 && response.data.data) {
+            const videoData = response.data.data;
+            const videoUrl = videoData.hdplay || videoData.play;
+            if (videoUrl) {
+                console.log('✅ TikTok video URL extracted via API');
+                return {
+                    videoUrl: videoUrl,
+                    title: videoData.title || 'TikTok Video',
+                    uploader: videoData.author?.nickname || 'TikTok User',
+                    duration: videoData.duration || null,
+                    thumbnailUrl: videoData.cover
+                };
+            }
+        }
+        throw new Error('Could not extract TikTok video URL from API response.');
+    } catch (error) {
+        console.error('❌ TikTok extraction failed:', error.message);
+        throw error;
+    }
+  }
+
   async downloadTikTokVideo(url) {
     try {
       console.log('🎵 Downloading TikTok video:', url);
       
-      // Пробуем разные версии API
-      let result = null;
-      let videoUrl = null;
-      
-      for (const version of ['v2', 'v1', 'v3']) {
-        try {
-          console.log(`🔄 Trying TikTok API ${version}...`);
-          result = await Tiktok.Downloader(url, { version });
-          
-          if (result.status === 'success' && result.result) {
-            if (result.result.video) {
-              if (Array.isArray(result.result.video.downloadAddr)) {
-                videoUrl = result.result.video.downloadAddr[0]; // v1 API
-              } else if (typeof result.result.video === 'string') {
-                videoUrl = result.result.video; // v2 API
-              }
-              
-              if (videoUrl) {
-                console.log(`✅ Got video URL from ${version}:`, videoUrl);
-                break;
-              }
-            }
-          }
-        } catch (versionError) {
-          console.log(`❌ ${version} failed:`, versionError.message);
-        }
-      }
+      const { videoUrl, title, uploader, duration, thumbnailUrl } = await this.extractTikTokVideoAPI(url);
 
-      if (!videoUrl || !result) {
-        throw new Error('Failed to get video URL from all TikTok APIs');
-      }
+      console.log('📥 Downloading video buffer from:', videoUrl);
+      const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
+      
+      const videoBuffer = Buffer.from(response.data, 'binary');
 
-      // Скачиваем видео
-      console.log('📥 Downloading video buffer...');
-      const response = await fetch(videoUrl);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to download video: ${response.status}`);
+      if (videoBuffer.length === 0) {
+        throw new Error('Downloaded video file is empty (0 bytes).');
       }
       
-      const videoBuffer = await response.buffer();
       console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
       
       console.log('📤 Uploading to Google Drive...');
-      const driveResult = await uploadBufferToGoogleDrive(videoBuffer, 'tiktok-video.mp4', 'video/mp4');
+      // Указываем контекст 'post', чтобы создавалось превью, если это возможно
+      const driveResult = await uploadBufferToGoogleDrive(videoBuffer, 'tiktok-video.mp4', 'video/mp4', 'post');
 
       return {
         success: true,
         platform: 'tiktok',
         videoInfo: {
-          title: result.result.description || result.result.desc || 'TikTok Video',
-          duration: result.result.video?.duration || null,
-          uploader: result.result.author?.nickname || 'TikTok User',
-          viewCount: result.result.statistics?.playCount || null
+          title: title,
+          duration: duration,
+          uploader: uploader,
         },
         videoUrl: driveResult.secure_url,
-        thumbnailUrl: driveResult.thumbnailUrl,
+        // Если image compressor создаст превью для видео, оно будет здесь
+        thumbnailUrl: driveResult.thumbnailUrl || thumbnailUrl, 
         fileId: driveResult.public_id,
         originalUrl: url
       };
