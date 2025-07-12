@@ -117,9 +117,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/likes', likeRoutes);
-app.use('/api/conversations', conversationRoutes); // Подключаем маршруты для диалогов
-app.use('/api/notifications', notificationRoutes); // Подключаем маршруты для уведомлений
-app.use('/api/admin', adminRoutes); // Подключаем админские маршруты
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Прокси-эндпоинт для Google Drive
 app.get('/api/proxy-drive/:id', async (req, res) => {
