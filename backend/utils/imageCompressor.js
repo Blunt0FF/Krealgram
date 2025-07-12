@@ -1,5 +1,5 @@
 const sharp = require('sharp');
-const path = path.resolve(process.cwd(), 'backend/utils/imageCompressor.js');
+const path = require('path');
 const fs = require('fs').promises;
 const ffmpeg = require('fluent-ffmpeg');
 
@@ -152,10 +152,46 @@ const generateVideoThumbnail = async (inputPath) => {
   });
 };
 
+const generateGifThumbnail = async (inputPath) => {
+  console.log('[THUMBNAIL_GEN] Starting GIF thumbnail generation...');
+  
+  const tempThumbPath = path.join(TEMP_OUTPUT_DIR, `thumb-${Date.now()}.gif`);
+  
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .on('end', async () => {
+        try {
+          console.log('[THUMBNAIL_GEN] ✅ GIF Thumbnail created successfully.');
+          const thumbnailBuffer = await fs.readFile(tempThumbPath);
+          resolve({
+            buffer: thumbnailBuffer,
+            filename: path.basename(tempThumbPath)
+          });
+        } catch (readError) {
+          reject(readError);
+        } finally {
+          await fs.unlink(tempThumbPath).catch(err => console.error('Failed to cleanup gif thumb.', err));
+        }
+      })
+      .on('error', (err) => {
+        console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
+        reject(err);
+      })
+      .outputOptions([
+        '-vf', 'fps=1,scale=320:-1:flags=lanczos', // 1 кадр в секунду, масштабирование
+        '-loop', '0', // Бесконечный цикл
+        '-t', '3' // Длительность 3 секунды
+      ])
+      .toFormat('gif')
+      .save(tempThumbPath);
+  });
+};
+
 const imageCompressor = new ImageCompressor();
 
 module.exports = {
   optimizeForWeb: imageCompressor.optimizeForWeb.bind(imageCompressor),
   generateVideoThumbnail,
+  generateGifThumbnail,
   TEMP_INPUT_DIR, // Экспортируем для использования в middleware
 }; 

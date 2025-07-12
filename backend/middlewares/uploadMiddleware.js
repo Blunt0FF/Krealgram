@@ -2,7 +2,12 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const googleDrive = require('../config/googleDrive');
-const { optimizeForWeb, generateVideoThumbnail, TEMP_INPUT_DIR } = require('../utils/imageCompressor');
+const { 
+  optimizeForWeb, 
+  generateVideoThumbnail, 
+  generateGifThumbnail,  // Добавляем новую функцию
+  TEMP_INPUT_DIR 
+} = require('../utils/imageCompressor');
 
 // Вспомогательная функция для загрузки ОБРАБОТАННОГО файла на Google Drive
 const uploadProcessedToGoogleDrive = async (fileBuffer, finalFilename, fileMimetype, context, folderId) => {
@@ -184,6 +189,22 @@ const uploadToGoogleDrive = async (req, res, next) => {
         );
         thumbnailUrl = thumbResult.secure_url;
       }
+
+      // НОВЫЙ БЛОК: Создаем GIF-превью
+      try {
+        const gifThumbnailData = await generateGifThumbnail(tempFilePath);
+        if (gifThumbnailData) {
+          const gifThumbResult = await uploadProcessedToGoogleDrive(
+            gifThumbnailData.buffer, gifThumbnailData.filename, 'image/gif', 
+            'preview', process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+          );
+          // Сохраняем URL GIF-превью отдельно
+          req.gifPreviewUrl = gifThumbResult.secure_url;
+        }
+      } catch (gifError) {
+        console.error('Failed to generate GIF preview:', gifError);
+      }
+
       fileBuffer = await fs.readFile(tempFilePath);
       finalFilename = req.file.filename;
       fileMimetype = req.file.mimetype;
@@ -221,7 +242,8 @@ const uploadToGoogleDrive = async (req, res, next) => {
       format: ext.substring(1),
       bytes: fileBuffer.length,
       url: result.secure_url,
-      thumbnailUrl: thumbnailUrl
+      thumbnailUrl: thumbnailUrl,
+      gifPreviewUrl: req.gifPreviewUrl || null // Добавляем URL GIF-превью
     };
 
     next();

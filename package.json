@@ -12,7 +12,10 @@
     "dev": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run dev\""
   },
   "devDependencies": {
+    "braces": "^3.0.3",
+    "chokidar": "^4.0.3",
     "concurrently": "^8.2.2",
+    "nodemon": "^3.1.10",
     "open": "^10.1.2"
   },
   "dependencies": {

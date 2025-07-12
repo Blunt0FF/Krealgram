@@ -17,7 +17,14 @@ console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downlo
 exports.createPost = async (req, res) => {
   try {
     const { caption, videoUrl, videoData, image, youtubeData: incomingYoutubeData } = req.body;
-    const authorId = req.user.id; // User ID from authMiddleware
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ 
+        message: 'Unauthorized: User not authenticated',
+        error: 'User ID is missing'
+      });
+    }
+
+    const authorId = req.user.id; // Используем ID из middleware аутентификации
 
     // Подробное логирование для отладки загрузки с iPhone
     if (req.file) {
@@ -158,6 +165,7 @@ exports.createPost = async (req, res) => {
       thumbnailUrl: thumbnailUrl, // Прямой URL на превью (для видео)
       videoUrl: videoUrl, // URL для встраивания (если применимо, н-р, YouTube)
       youtubeData: youtubeData,
+      gifPreview: req.uploadResult?.gifPreviewUrl || null, // Добавляем GIF-превью
     };
     
     console.log('Final post data being saved:', JSON.stringify(finalPostData, null, 2));
@@ -1013,6 +1021,7 @@ exports.downloadExternalVideo = async (req, res) => {
         image: result.videoUrl, // Используем videoUrl как основное изображение
         videoUrl: result.videoUrl,
         thumbnailUrl: result.thumbnailUrl, // <--- Убедимся, что это поле передается
+        gifPreview: result.gifPreviewUrl, // Добавляем GIF-превью
         googleDriveFileId: result.fileId, // ID файла в Google Drive
         youtubeData: {
           platform: result.platform,
