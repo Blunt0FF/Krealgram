@@ -25,7 +25,22 @@ const SearchPage = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setSearchResults(data.users || []);
+        const processedUsers = data.users || []
+          .map(user => {
+            // Расширенная отладка аватаров
+            console.log('🔍 Search User Avatar Debug:', {
+              userId: user._id,
+              username: user.username,
+              originalAvatar: user.avatar,
+              processedAvatar: getAvatarUrl(user.avatar)
+            });
+
+            return {
+              ...user,
+              avatarUrl: getAvatarUrl(user.avatar)
+            };
+          });
+        setSearchResults(processedUsers);
       }
     } catch (e) {
       console.error('Search error:', e);
@@ -110,17 +125,12 @@ const SearchPage = () => {
 
   // Специальная функция для Safari
   const getSafeAvatarUrl = (user) => {
-    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-    
+    // Если аватар пустой, используем дефолтный
     if (!user.avatar) {
       return '/default-avatar.png';
     }
 
-    // Для Safari попробуем сначала дефолтную аватарку, если проблемы с загрузкой
-    if (isSafari) {
-      console.log('Safari detected, using safe avatar loading for', user.username);
-    }
-    
+    // Используем стандартную логику getAvatarUrl
     return getAvatarUrl(user.avatar) || '/default-avatar.png';
   };
 

@@ -152,22 +152,45 @@ const generateVideoThumbnail = async (inputPath) => {
   });
 };
 
-const generateGifThumbnail = async (inputPath) => {
-  console.log('[THUMBNAIL_GEN] Starting GIF thumbnail generation...');
+const generateGifThumbnail = async (inputPath, options = {}) => {
+  console.log('[THUMBNAIL_GEN] Starting universal GIF thumbnail generation...');
   
+  // Получаем длительность видео
+  const getDuration = () => {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(inputPath, (err, metadata) => {
+        if (err) {
+          console.error('[THUMBNAIL_GEN] Error getting video duration:', err);
+          resolve(30); // Fallback к 30 секундам
+        } else {
+          const duration = metadata.format.duration;
+          resolve(Math.min(duration, 30)); // Точно 30 секунд
+        }
+      });
+    });
+  };
+
   const tempThumbPath = path.join(TEMP_OUTPUT_DIR, `thumb-${Date.now()}.gif`);
+  
+  // Получаем длительность видео
+  const videoDuration = await getDuration();
   
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
+      .on('start', (commandLine) => {
+        console.log('[THUMBNAIL_GEN] Spawned FFmpeg with command: ' + commandLine);
+      })
       .on('end', async () => {
         try {
-          console.log('[THUMBNAIL_GEN] ✅ GIF Thumbnail created successfully.');
+          console.log('[THUMBNAIL_GEN] ✅ Universal GIF Thumbnail created successfully.');
           const thumbnailBuffer = await fs.readFile(tempThumbPath);
           resolve({
             buffer: thumbnailBuffer,
-            filename: path.basename(tempThumbPath)
+            filename: path.basename(tempThumbPath),
+            duration: 30 // Всегда 30 секунд
           });
         } catch (readError) {
+          console.error('[THUMBNAIL_GEN] Error reading thumbnail:', readError);
           reject(readError);
         } finally {
           await fs.unlink(tempThumbPath).catch(err => console.error('Failed to cleanup gif thumb.', err));
@@ -178,9 +201,14 @@ const generateGifThumbnail = async (inputPath) => {
         reject(err);
       })
       .outputOptions([
-        '-vf', 'fps=1,scale=320:-1:flags=lanczos', // 1 кадр в секунду, масштабирование
-        '-loop', '0', // Бесконечный цикл
-        '-t', '3' // Длительность 3 секунды
+        // Настройки для полной длины 30 секунд
+        '-vf', 'fps=30,scale=480:-1:flags=lanczos', // 30 FPS
+        '-loop', '0', // Бесконечный цикл (зацикливание)
+        `-t`, `30`, // ТОЧНО 30 секунд
+        '-gifflags', '+transdiff', // Улучшение качества переходов
+        '-gifflags', '+offsetting', // Дополнительная оптимизация
+        '-pix_fmt', 'rgb8', // Оптимизация цветопередачи
+        '-compression_level', '9' // Максимальная компрессия
       ])
       .toFormat('gif')
       .save(tempThumbPath);

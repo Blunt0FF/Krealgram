@@ -248,6 +248,12 @@ export const getFileSizeKB = (dataUrl) => {
 export const getImageUrl = (imagePath, options = {}) => {
   if (!imagePath) return '/default-avatar.png';
 
+  // Специальная обработка для путей из постов
+  if (imagePath.startsWith('krealgram/posts/')) {
+    const secureApiUrl = API_URL.replace(/^http:/, 'https');
+    return `${secureApiUrl}/uploads/${imagePath}`;
+  }
+
   // Если это Google Drive URL, используем наш прокси
   if (imagePath.includes('drive.google.com')) {
     try {
@@ -288,6 +294,7 @@ export const getAvatarUrl = (avatarPath) => {
   if (!avatarPath) {
     return '/default-avatar.png'; // Заглушка по умолчанию
   }
+
   // Используем getImageUrl, так как логика та же
   return getImageUrl(avatarPath);
 };

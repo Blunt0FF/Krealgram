@@ -55,12 +55,22 @@ exports.getUserProfile = async (req, res) => {
 
     // Добавляем полные URL для изображений постов пользователя
     if (user.posts && user.posts.length > 0) {
-      user.posts = user.posts.map(post => ({
-        ...post,
-        imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`,
-        likeCount: post.likes ? post.likes.length : 0,
-        commentCount: post.comments ? post.comments.length : 0
-      })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      user.posts = user.posts.map(post => {
+        const commentCount = post.comments ? post.comments.length : 0;
+        console.log(`[DEBUG] Post ${post._id} comments:`, {
+          commentsArray: post.comments,
+          commentsCount: commentCount,
+          commentsType: typeof post.comments,
+          commentsIsArray: Array.isArray(post.comments)
+        });
+
+        return {
+          ...post,
+          imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`,
+          likeCount: post.likes ? post.likes.length : 0,
+          commentCount: commentCount
+        };
+      }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
     
     // Явно добавляем postsCount

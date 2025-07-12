@@ -1,9 +1,9 @@
 .external-video-upload-overlay {
-  position: absolute;
+  position: fixed; /* фиксируем относительно экрана */
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;     /* вся ширина экрана */
+  height: 100vh;    /* вся высота экрана */
   background: rgba(0, 0, 0, 0.8);
   display: flex;
   justify-content: center;

@@ -438,7 +438,12 @@ exports.deletePost = async (req, res) => {
     }
 
     // 1. Delete media from Google Drive
-    const fileUrls = [post.image, post.thumbnailUrl].filter(Boolean);
+    const fileUrls = [
+      post.image, 
+      post.thumbnailUrl, 
+      post.gifPreview  // Добавляем GIF-превью
+    ].filter(Boolean);
+
     for (const urlString of fileUrls) {
       if (urlString && urlString.includes('drive.google.com')) {
         try {

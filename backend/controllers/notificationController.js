@@ -11,7 +11,20 @@ exports.getNotifications = async (req, res) => {
   try {
     const userNotifications = await UserNotifications.findOne({ userId })
       .populate('notifications.sender', 'username avatar')
-      .populate('notifications.post', '_id caption image')
+      .populate({
+        path: 'notifications.post',
+        select: '_id caption image imageUrl videoUrl mediaType thumbnailUrl youtubeData author',
+        populate: [
+          {
+            path: 'author',
+            select: 'username avatar'
+          },
+          {
+            path: 'youtubeData',
+            select: 'thumbnailUrl'
+          }
+        ]
+      })
       .lean();
 
     if (!userNotifications) {
