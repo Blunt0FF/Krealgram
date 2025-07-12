@@ -644,7 +644,8 @@ exports.getUserVideos = async (req, res) => {
     const { userId } = req.params;
 
     const userVideos = await Post.find({
-      author: userId,      $or: [
+      author: userId,
+      $or: [
         { mediaType: 'video' },
         { youtubeData: { $exists: true, $ne: null } }
       ]

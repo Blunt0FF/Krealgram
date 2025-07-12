@@ -32,6 +32,17 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 600px;
+  /* Добавляем минимальную высоту для мобильных */
+  min-height: fit-content;
+}
+
+@media (max-width: 680px) {
+  .create-post-box {
+    padding: 20px;
+    margin: 0 10px;
+    /* Убираем фиксированную высоту, позволяем контенту определять размер */
+    min-height: auto;
+  }
 }
 
 .create-post-box h2 {
@@ -133,13 +144,20 @@
 
 .image-preview {
   margin-top: 20px;
+  /* Добавляем ограничение для больших изображений на мобильных */
 }
 
-.image-preview img {
+.image-preview img, .image-preview video {
   width: 100%;
   max-height: 400px;
   object-fit: contain;
   border-radius: 4px;
+}
+
+@media (max-width: 680px) {
+  .image-preview img, .image-preview video {
+    max-height: 300px; /* Уменьшаем максимальную высоту на мобильных */
+  }
 }
 
 .create-post-button {
