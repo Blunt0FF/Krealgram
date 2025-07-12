@@ -275,3 +275,9 @@
   color: #8e8e8e;
   font-style: italic;
 }
+В
+@media (max-width: 768px) {
+  .create-post-container {
+    padding-bottom: 60px; /* Увеличиваем отступ снизу */
+  }
+}

@@ -152,22 +152,51 @@ const generateVideoThumbnail = async (inputPath) => {
   });
 };
 
-const generateGifThumbnail = async (inputPath) => {
-  console.log('[THUMBNAIL_GEN] Starting GIF thumbnail generation...');
+const generateGifThumbnail = async (inputPath, options = {}) => {
+  console.log('[THUMBNAIL_GEN] Starting universal GIF thumbnail generation...');
   
+  // Получаем длительность видео
+  const getDuration = () => {
+    return new Promise((resolve, reject) => {
+      ffmpeg.ffprobe(inputPath, (err, metadata) => {
+        if (err) {
+          console.error('[THUMBNAIL_GEN] Error getting video duration:', err);
+          resolve(5); // Fallback к 5 секундам
+        } else {
+          const duration = metadata.format.duration;
+          resolve(Math.min(duration, 5)); // Точно 5 секунд
+        }
+      });
+    });
+  };
+
   const tempThumbPath = path.join(TEMP_OUTPUT_DIR, `thumb-${Date.now()}.gif`);
+  
+  // Получаем длительность видео
+  const videoDuration = await getDuration();
   
   return new Promise((resolve, reject) => {
     ffmpeg(inputPath)
+      .on('start', (commandLine) => {
+        console.log('[THUMBNAIL_GEN] Spawned FFmpeg with command: ' + commandLine);
+      })
       .on('end', async () => {
         try {
-          console.log('[THUMBNAIL_GEN] ✅ GIF Thumbnail created successfully.');
+          console.log('[THUMBNAIL_GEN] ✅ Universal GIF Thumbnail created successfully.');
           const thumbnailBuffer = await fs.readFile(tempThumbPath);
+          
+          // Проверяем размер файла
+          const stats = fs.statSync(tempThumbPath);
+          const fileSizeInMB = stats.size / (1024 * 1024);
+          console.log(`[THUMBNAIL_GEN] Generated GIF size: ${fileSizeInMB.toFixed(2)} MB`);
+          
           resolve({
             buffer: thumbnailBuffer,
-            filename: path.basename(tempThumbPath)
+            filename: path.basename(tempThumbPath),
+            duration: 5 // Всегда 5 секунд
           });
         } catch (readError) {
+          console.error('[THUMBNAIL_GEN] Error reading thumbnail:', readError);
           reject(readError);
         } finally {
           await fs.unlink(tempThumbPath).catch(err => console.error('Failed to cleanup gif thumb.', err));
@@ -178,9 +207,13 @@ const generateGifThumbnail = async (inputPath) => {
         reject(err);
       })
       .outputOptions([
-        '-vf', 'fps=1,scale=320:-1:flags=lanczos', // 1 кадр в секунду, масштабирование
-        '-loop', '0', // Бесконечный цикл
-        '-t', '3' // Длительность 3 секунды
+        // Радикально уменьшаем параметры
+        '-vf', 'fps=10,scale=240:-1:flags=lanczos', // 10 FPS, 240px ширина
+        '-loop', '0', // Бесконечный цикл (зацикливание)
+        `-t`, `5`, // Точно 5 секунд
+        '-gifflags', '+transdiff', // Улучшение качества переходов
+        '-pix_fmt', 'rgb8', // Оптимизация цветопередачи
+        '-compression_level', '9' // Максимальная компрессия
       ])
       .toFormat('gif')
       .save(tempThumbPath);

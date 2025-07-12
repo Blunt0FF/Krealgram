@@ -1,0 +1,30 @@
+{
+  "name": "krealgram",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "start": "cd backend && npm install && npm start",
+    "dev": "concurrently \"cd frontend && npm run dev\" \"cd backend && npm run dev\""
+  },
+  "devDependencies": {
+    "braces": "^3.0.3",
+    "chokidar": "^4.0.3",
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.10",
+    "open": "^10.1.2"
+  },
+  "dependencies": {
+    "cheerio": "^1.1.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "heic2any": "^0.0.4",
+    "yt-dlp-wrap": "^2.3.12"
+  },
+  "overrides": {
+    "esbuild": "^0.25.0"
+  }
+}

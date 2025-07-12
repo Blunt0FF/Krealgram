@@ -4,6 +4,7 @@ const path = require('path');
 const fetch = require('node-fetch');
 const axios = require('axios'); // Используем axios для большей надежности
 const { uploadBufferToGoogleDrive } = require('../middlewares/uploadMiddleware');
+const ffmpeg = require('fluent-ffmpeg'); // Добавляем ffmpeg для генерации превью
 
 
 class VideoDownloader {
@@ -268,6 +269,98 @@ class VideoDownloader {
     return `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
+
+const generateVideoThumbnail = async (videoPath) => {
+  try {
+    console.log('[THUMBNAIL_GEN] Starting video thumbnail generation from path:', videoPath);
+    
+    // Проверяем существование файла
+    if (!fs.existsSync(videoPath)) {
+      throw new Error('Видео файл не найден');
+    }
+
+    const thumbnailPath = path.join(
+      path.dirname(videoPath), 
+      `thumb-${Date.now()}.jpg`
+    );
+
+    // Используем ffmpeg для генерации превью
+    await new Promise((resolve, reject) => {
+      ffmpeg(videoPath)
+        .screenshots({
+          count: 1,
+          folder: path.dirname(thumbnailPath),
+          filename: path.basename(thumbnailPath),
+          size: '320x240'
+        })
+        .on('end', () => {
+          console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
+          resolve(thumbnailPath);
+        })
+        .on('error', (err) => {
+          console.error('[THUMBNAIL_GEN] ❌ Thumbnail generation error:', err);
+          reject(err);
+        });
+    });
+
+    return thumbnailPath;
+  } catch (error) {
+    console.error('[THUMBNAIL_GEN] Ошибка генерации превью:', error);
+    throw error;
+  }
+};
+
+const generateUniversalGifThumbnail = async (videoPath) => {
+  try {
+    console.log('[THUMBNAIL_GEN] Starting universal GIF thumbnail generation...');
+    
+    const outputPath = path.join(
+      path.dirname(videoPath), 
+      `thumb-${Date.now()}.gif`
+    );
+
+    // Более строгие параметры для уменьшения размера
+    await new Promise((resolve, reject) => {
+      ffmpeg(videoPath)
+        .fps(10)  // Уменьшаем количество кадров
+        .videoFilters([
+          'scale=480:-1:flags=lanczos',  // Уменьшаем размер
+          'trim=duration=5'  // Ограничиваем длительность 5 секундами
+        ])
+        .outputOptions([
+          '-loop 0',
+          '-pix_fmt rgb8',
+          '-compression_level 9'
+        ])
+        .toFormat('gif')
+        .on('end', () => {
+          console.log('[THUMBNAIL_GEN] ✅ Universal GIF Thumbnail created successfully.');
+          resolve(outputPath);
+        })
+        .on('error', (err) => {
+          console.error('[THUMBNAIL_GEN] ❌ GIF generation error:', err);
+          reject(err);
+        })
+        .save(outputPath);
+    });
+
+    // Проверяем размер файла
+    const stats = fs.statSync(outputPath);
+    const fileSizeInMB = stats.size / (1024 * 1024);
+    console.log(`[THUMBNAIL_GEN] GIF Size: ${fileSizeInMB.toFixed(2)} MB`);
+
+    // Если файл больше 10 МБ, пересоздаем с еще большим сжатием
+    if (fileSizeInMB > 10) {
+      fs.unlinkSync(outputPath);
+      return generateUniversalGifThumbnail(videoPath);
+    }
+
+    return outputPath;
+  } catch (error) {
+    console.error('[THUMBNAIL_GEN] Ошибка генерации GIF:', error);
+    throw error;
+  }
+};
 
 module.exports = VideoDownloader; 
 

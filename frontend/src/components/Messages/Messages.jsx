@@ -77,61 +77,6 @@ const Messages = ({ currentUser }) => {
     }
   }, [showNewMessageModal]);
 
-  useEffect(() => {
-    if (!currentUser?._id) return;
-
-    // Подключение к сокету
-    const socket = io(API_URL, {
-      query: { userId: currentUser._id },
-      transports: ['websocket'],
-    });
-
-    socket.on('connect', () => {
-      console.log('Socket connected for messages:', socket.id);
-    });
-
-    socket.on('newMessage', ({ conversationId, message }) => {
-      console.log('Received new message:', message, 'for conv:', conversationId);
-
-      // Обновляем список диалогов, перемещая текущий наверх
-      setConversations(prev => {
-          const currentConv = prev.find(c => c._id === conversationId);
-          if (currentConv) {
-              const otherConvs = prev.filter(c => c._id !== conversationId);
-              return [{ ...currentConv, lastMessage: message, lastMessageAt: message.createdAt }, ...otherConvs];
-          } 
-          // Если это новый диалог, запросим его с сервера
-          else {
-              fetchConversations();
-              return prev;
-          }
-      });
-
-      // Если открыт этот диалог, добавляем сообщение
-      if (selectedConversation?._id === conversationId) {
-        setMessages(prev => [...prev, message]);
-      }
-    });
-
-    // Обработчик удаления сообщения
-    socket.on('messageDeleted', ({ conversationId, messageId }) => {
-      console.log(`Received messageDeleted event for conv ${conversationId}, msg ${messageId}`);
-      if (selectedConversation?._id === conversationId) {
-        setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageId));
-      }
-      // Также можно обновить lastMessage в списке диалогов, если удалили последнее сообщение
-      fetchConversations();
-    });
-
-    socket.on('disconnect', () => {
-      console.log('Socket disconnected from messages.');
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [currentUser, selectedConversation, fetchConversations]);
-
   // Обновляем время каждую минуту для корректного отображения последней активности
   useEffect(() => {
     const timer = setInterval(() => {
@@ -580,24 +525,50 @@ const Messages = ({ currentUser }) => {
     setTotalMessages(0);
   };
 
-  const deleteMessage = async (messageId) => {
-    if (!selectedConversation || !messageId) return;
+  const fetchMessages = async () => {
+    try {
+      const response = await axios.get('/api/conversations/get-messages', {
+        params: { conversationId: selectedConversation._id }
+      });
+      // ... existing code ...
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
 
+  const deleteMessage = async (messageId) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(
-        `${API_URL}/api/conversations/${selectedConversation._id}/messages/${messageId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`${API_URL}/api/conversations/delete-message/${messageId}`, {
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to delete message: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      // Обновляем список сообщений
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg._id !== messageId)
       );
-      // Front-end state will be updated via the 'messageDeleted' socket event.
-    } catch (error) {
-      console.error('Error deleting message:', error.response ? error.response.data : error.message);
-      alert('Не удалось удалить сообщение.');
-    } finally {
+
+      // Обновляем список диалогов
+      fetchConversations();
+
+      // Закрываем модальное окно подтверждения
       setShowDeleteConfirm(false);
       setMessageToDelete(null);
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      // Показываем уведомление об ошибке
+      alert('Не удалось удалить сообщение. Попробуйте позже.');
     }
   };
 

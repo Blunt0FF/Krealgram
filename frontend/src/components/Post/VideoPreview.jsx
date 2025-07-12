@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
+import { getVideoPreviewThumbnail, getModalVideoThumbnail } from '../../utils/videoUtils';
 import { getVideoUrl } from '../../utils/imageUtils';
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
@@ -11,7 +11,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const clickTimeoutRef = useRef(null);
   
   const gifUrl = getVideoPreviewThumbnail(post);
-  const staticUrl = getStaticThumbnail(post);
+  const staticUrl = getModalVideoThumbnail(post);
 
   const handleImageError = () => {
     setImageError(true);
@@ -62,30 +62,21 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         style={{ 
           width: '100%',
           height: 'auto',
-          maxHeight: '900px',
+          maxHeight: '600px',
           cursor: 'pointer',
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           ...style
         }}
-        onClick={handleVideoClick}
-        onDoubleClick={onDoubleClick}
       >
-        <div style={{
-          background: 'rgba(0,0,0,0.7)',
-          borderRadius: '50%',
-          width: '60px',
-          height: '60px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        </div>
+        <img 
+          src="/video-placeholder.svg" 
+          alt="Video placeholder" 
+          style={{
+            width: '100%',
+            height: 'auto',
+            maxHeight: '600px',
+            objectFit: 'contain'
+          }}
+        />
       </div>
     );
   }
@@ -149,10 +140,10 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       )}
       
       {/* Fallback статичное превью */}
-      {imageError && !staticError && !showVideo && (
+      {(imageError || !gifUrl) && !showVideo && (
         <img
           src={staticUrl}
-          alt="Video preview"
+          alt="Video static preview"
           style={{
             width: '100%',
             height: 'auto',
@@ -162,28 +153,6 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           }}
           onError={handleStaticError}
         />
-      )}
-
-      {/* Play кнопка */}
-      {!showVideo && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'rgba(0,0,0,0.7)',
-          borderRadius: '50%',
-          width: '60px',
-          height: '60px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1
-        }}>
-          <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        </div>
       )}
     </div>
   );

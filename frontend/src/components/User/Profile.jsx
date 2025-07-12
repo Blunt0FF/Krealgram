@@ -604,6 +604,19 @@ const Profile = ({ user: currentUserProp }) => {
             if (post.likes && Array.isArray(post.likes)) {
               post.likesCount = post.likes.length;
             }
+
+            // Корректный подсчет комментариев
+            post.commentsCount = post.comments ? post.comments.length : 
+                                  (post.commentsCount || 0);
+
+            // Расширенный отладочный вывод для комментариев
+            console.log('Post comments debug:', {
+              postId: post._id,
+              comments: post.comments,
+              commentsCount: post.commentsCount,
+              commentsType: typeof post.comments,
+              commentsIsArray: Array.isArray(post.comments)
+            });
           });
 
           setFollowInfo({

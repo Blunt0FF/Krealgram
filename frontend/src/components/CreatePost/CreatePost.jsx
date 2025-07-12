@@ -124,9 +124,7 @@ const CreatePost = () => {
 
       if (parsedVideoData) {
         // Для внешних видео (скачанных или по ссылке) отправляем URL и метаданные
-        // videoUrl будет либо оригинальной ссылкой (YouTube), либо ссылкой на наш GDrive (TikTok/Insta)
         formData.append('videoUrl', parsedVideoData.videoUrl || parsedVideoData.originalUrl);
-        // videoData содержит всю остальную информацию (platform, thumbnailUrl, и т.д.)
         formData.append('videoData', JSON.stringify(parsedVideoData.videoData || parsedVideoData));
       } else if (compressedFile) {
         // Для локально загруженного файла отправляем сам файл
@@ -146,14 +144,12 @@ const CreatePost = () => {
         throw new Error(data.message || 'Error creating post');
       }
 
-      setCaption('');
-      setPreviewUrl(null);
-      setVideoUrl('');
-      setParsedVideoData(null);
-      setCompressedFile(null);
-      setOriginalFileName('');
-      
-      navigate('/');
+      // Используем sessionStorage для сохранения toast-сообщения
+      sessionStorage.setItem('toastMessage', 'Post created successfully!');
+
+      // Используем replace для предотвращения возврата назад
+      navigate('/feed', { replace: true });
+    
     } catch (error) {
       console.error('Error creating post:', error);
       setError(error.message || 'An error occurred while creating the post');

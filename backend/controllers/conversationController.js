@@ -3,7 +3,8 @@ const User = require('../models/userModel');
 const mongoose = require('mongoose');
 const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
 const googleDrive = require('../config/googleDrive');
-const { onlineUsers, io } = require('../index'); // ИСПРАВЛЕННЫЙ ПУТЬ
+// Удаляем импорт onlineUsers и io
+// const { onlineUsers, io } = require('../index');
 
 // @desc    Получение списка диалогов пользователя
 // @route   GET /api/conversations
@@ -135,6 +136,9 @@ exports.sendMessage = async (req, res) => {
     const recipientId = req.params.recipientId;
     const senderId = req.user._id;
 
+    // Получаем глобальный объект io из req, если он был установлен в middleware
+    const io = req.app.get('io');
+
     if (!recipientId) {
       await session.abortTransaction();
       session.endSession();
@@ -248,102 +252,90 @@ exports.sendMessage = async (req, res) => {
     ]);
     const sentMessage = conversation.messages[lastMessageIndex];
 
-    // Отправляем уведомление через WebSocket, если есть
-    if (req.app.get('io')) {
-      req.app.get('io').to(recipientId.toString()).emit('newMessage', {
+    // Отправляем уведомление получателю через Socket.IO, если io доступен
+    if (io) {
+      io.to(recipientId).emit('newMessage', {
         conversationId: conversation._id,
-        message: sentMessage
+        message: sentMessage,
+        sender: req.user
       });
     }
 
-    res.status(200).json({
-      conversationId: conversation._id,
-      sentMessage: sentMessage
+    res.status(201).json({
+      message: 'Message sent successfully',
+      sentMessage
     });
 
   } catch (error) {
+    console.error('Error sending message:', error);
     await session.abortTransaction();
     session.endSession();
-    console.error('Error sending message:', error);
-    res.status(500).json({ message: 'Error sending message' });
+    res.status(500).json({ message: 'Server error while sending message.', error: error.message });
   }
 };
 
-// @desc    Удаление сообщения из диалога
-// @route   DELETE /api/conversations/:conversationId/messages/:messageId
+// @desc    Удаление сообщения в диалоге
+// @route   DELETE /api/conversations/delete-message/:messageId
 // @access  Private
 exports.deleteMessage = async (req, res) => {
-  const { conversationId, messageId } = req.params;
-  const userId = req.user.id;
-  
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // Находим диалог и атомарно удаляем сообщение, если пользователь является его автором
-    const conversation = await Conversation.findOneAndUpdate(
-      { 
-        _id: conversationId, 
-        'messages._id': messageId,
-        'messages.sender': userId // Проверяем авторство прямо в запросе
-      },
-      { 
-        $pull: { messages: { _id: messageId } } 
-      },
-      { new: false, session } // new: false вернет документ *до* удаления, чтобы мы могли получить данные удаленного сообщения
-    );
+    const messageId = req.params.messageId;
+    const userId = req.user._id;
 
-    // Если conversation === null, значит либо диалог/сообщение не найдены, либо пользователь не автор
+    // Находим диалог, содержащий это сообщение
+    const conversation = await Conversation.findOne({
+      'messages._id': messageId,
+      participants: userId
+    }).session(session);
+
     if (!conversation) {
       await session.abortTransaction();
       session.endSession();
-      // Проверяем, существует ли диалог, чтобы дать более точную ошибку
-      const convExists = await Conversation.findById(conversationId).select('_id').lean();
-      if (!convExists) {
-        return res.status(404).json({ message: 'Conversation not found.' });
-      }
-      return res.status(403).json({ message: 'Message not found or you are not authorized to delete it.' });
+      return res.status(404).json({ message: 'Conversation not found or message does not exist.' });
     }
 
-    // Находим удаленное сообщение в "старом" документе, чтобы получить URL файла
-    const message = conversation.messages.find(m => m._id.toString() === messageId);
+    // Проверяем, что сообщение принадлежит текущему пользователю
+    const messageToDelete = conversation.messages.find(msg => 
+      msg._id.toString() === messageId && msg.sender.toString() === userId.toString()
+    );
 
-    // Если в сообщении есть медиафайл, загруженный на Google Drive, удаляем его
-    if (message && message.media && message.media.url && message.media.url.includes('drive.google.com')) {
-      try {
-        const url = new URL(message.media.url);
-        const fileId = url.searchParams.get('id');
-        if (fileId) {
-            console.log(`[DELETE_MSG] Attempting to delete Google Drive file: ${fileId}`);
-            await googleDrive.deleteFile(fileId);
-            console.log(`[DELETE_MSG] ✅ Successfully deleted Google Drive file: ${fileId}`);
-        }
-      } catch(error) {
-          console.error(`[DELETE_MSG] ❌ Could not delete file from URL ${message.media.url}.`, error.message);
-          // Не прерываем операцию, если файл не удалось удалить
-      }
+    if (!messageToDelete) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({ message: 'You are not authorized to delete this message.' });
     }
-    
+
+    // Удаляем сообщение
+    conversation.messages = conversation.messages.filter(msg => 
+      msg._id.toString() !== messageId
+    );
+
+    // Обновляем последнее сообщение, если нужно
+    if (conversation.messages.length > 0) {
+      conversation.lastMessageAt = conversation.messages[conversation.messages.length - 1].createdAt;
+    } else {
+      conversation.lastMessageAt = null;
+    }
+
+    await conversation.save({ session });
     await session.commitTransaction();
     session.endSession();
-    
-    // Отправляем уведомление через WebSocket всем участникам диалога
-    if (io) {
-      conversation.participants.forEach(participantId => {
-        io.to(participantId.toString()).emit('messageDeleted', { conversationId, messageId });
-      });
-    }
 
     res.status(200).json({ 
-      success: true, 
       message: 'Message deleted successfully',
-      conversationId,
-      messageId 
+      conversationId: conversation._id
     });
+
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
     console.error('Error deleting message:', error);
-    res.status(500).json({ message: 'Server error while deleting message.', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error while deleting message', 
+      error: error.message 
+    });
   }
 };

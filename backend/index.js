@@ -48,6 +48,8 @@ app.set('io', io); // Сделаем io доступным в контролле
 const whitelist = [
   "http://localhost:4000",
   "http://127.0.0.1:4000",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
   "https://krealgram.vercel.app",
   "https://krealgram.com",
   "https://www.krealgram.com"
@@ -63,8 +65,8 @@ const corsOptions = {
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
   credentials: true,
   maxAge: 86400 // 24 часа
 };
