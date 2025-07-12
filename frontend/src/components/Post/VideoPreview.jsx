@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { getVideoPreviewThumbnail, getModalVideoThumbnail } from '../../utils/videoUtils';
+import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 import { getVideoUrl } from '../../utils/imageUtils';
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
@@ -11,7 +11,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const clickTimeoutRef = useRef(null);
   
   const gifUrl = getVideoPreviewThumbnail(post);
-  const staticUrl = getModalVideoThumbnail(post);
+  const staticUrl = getStaticThumbnail(post);
 
   const handleImageError = () => {
     setImageError(true);
