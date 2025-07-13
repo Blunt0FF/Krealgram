@@ -33,10 +33,10 @@ export async function checkAndSetApiUrl() {
   try {
     const baseUrl = getBaseUrl();
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // Увеличено время ожидания
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // Увеличено время ожидания до 5 секунд
 
     // Проверяем доступность базового URL
-    await fetch(`${baseUrl}/api/health`, { 
+    const response = await fetch(`${baseUrl}/api/health`, { 
       method: 'GET',
       signal: controller.signal,
       headers: {
@@ -44,13 +44,20 @@ export async function checkAndSetApiUrl() {
       }
     });
 
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const healthData = await response.json();
+    console.log('[API Health]', healthData);
+
     clearTimeout(timeoutId);
     API_URL = baseUrl;
     SOCKET_URL = baseUrl.startsWith('https') 
       ? `wss://${baseUrl.split('://')[1]}` 
       : `ws://${baseUrl.split('://')[1]}`;
   } catch (error) {
-    console.warn('Не удалось установить API URL, используем удаленный:', REMOTE_URL);
+    console.warn('Не удалось установить API URL, используем удаленный:', REMOTE_URL, error);
     API_URL = REMOTE_URL;
     SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
   }

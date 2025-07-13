@@ -90,6 +90,7 @@ const likeRoutes = require('./routes/likeRoutes');
 const conversationRoutes = require('./routes/conversationRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const indexRoutes = require('./routes/index');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
@@ -100,6 +101,7 @@ app.use('/api/likes', likeRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', indexRoutes);
 
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
