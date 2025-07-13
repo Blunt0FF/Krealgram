@@ -2,22 +2,18 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const path = require('path'); // Добавим path для работы с путями к статическим файлам
+const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
-const connectDB = require('./config/db'); // Мы создадим этот файл далее
+const connectDB = require('./config/db');
 const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
 const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
 
-// Загружаем переменные окружения
 dotenv.config();
-
 console.log('[SERVER] 🚀 Starting Krealgram backend...');
 
-// Подключаемся к MongoDB
 connectDB();
 
-// Инициализируем Google Drive асинхронно, но не блокируем запуск сервера
 const googleDrive = require('./config/googleDrive');
 googleDrive.initialize().then(() => {
   console.log('[SERVER] ✅ Google Drive initialization completed');
@@ -42,9 +38,8 @@ const io = new Server(server, {
   }
 });
 
-app.set('io', io); // Сделаем io доступным в контроллерах
+app.set('io', io);
 
-// Настройки CORS для Express
 const whitelist = [
   "http://localhost:4000",
   "http://127.0.0.1:4000",
@@ -56,8 +51,6 @@ const whitelist = [
 ];
 const corsOptions = {
   origin: (origin, callback) => {
-    // Разрешаем запросы без origin (например, с мобильных приложений или curl)
-    // или если источник в белом списке.
     if (!origin || whitelist.includes(origin)) {
       callback(null, true);
     } else {
@@ -68,42 +61,29 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
   exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
   credentials: true,
-  maxAge: 86400 // 24 часа
+  maxAge: 86400
 };
 
-// Сначала обрабатываем OPTIONS-запросы для всех маршрутов.
-// Это критически важно для "непростых" запросов (POST, PUT, DELETE с кастомными заголовками),
-// которые требуют preflight-запроса от браузера.
 app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 
-// Временно разрешаем все origins для отладки
-app.use(cors({ origin: '*', credentials: true }));
-
-// Важно: middleware для парсинга JSON должен идти после CORS
-app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// Раздача статических файлов из папки 'uploads'
-// __dirname в ES Modules не работает так, как в CommonJS, но так как package.json указывает "type": "commonjs" (по умолчанию для npm init -y)
-// то __dirname будет работать корректно.
-// Если бы мы использовали "type": "module", пришлось бы использовать import.meta.url
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Базовый маршрут для проверки
 app.get('/', (req, res) => {
   res.send('Krealgram API is working!');
 });
 
-// TODO: Подключить маршруты (routes)
 const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');
 const userRoutes = require('./routes/userRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const likeRoutes = require('./routes/likeRoutes');
-const conversationRoutes = require('./routes/conversationRoutes'); // Добавляем маршруты для диалогов
-const notificationRoutes = require('./routes/notificationRoutes'); // Импортируем маршруты уведомлений
-const adminRoutes = require('./routes/adminRoutes'); // Админские маршруты
+const conversationRoutes = require('./routes/conversationRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
@@ -115,7 +95,6 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Прокси-эндпоинт для Google Drive
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
   const { google } = require('googleapis');
@@ -136,7 +115,6 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       return res.status(500).send('Google Drive not initialized');
     }
 
-    // Получаем метаданные файла
     const meta = await drive.drive.files.get({
       fileId,
       fields: 'name, mimeType, size'
@@ -151,13 +129,11 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       fileSize
     });
 
-    // Получаем сам файл как stream
     const fileRes = await drive.drive.files.get({
       fileId,
       alt: 'media'
     }, { responseType: 'stream' });
 
-    // Обработка диапазонных запросов (для больших файлов)
     const range = req.headers.range;
     if (range) {
       console.log(`[PROXY-DRIVE_FULL_DEBUG] Range request:`, range);
@@ -211,14 +187,10 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
   }
 });
 
-// Настройка Socket.IO
 io.on('connection', async (socket) => {
-  // Присоединение к комнате по userId
   const userId = socket.handshake.query.userId;
   if (userId) {
     socket.join(userId);
-
-    // Устанавливаем пользователя как онлайн
     try {
       const User = require('./models/userModel');
       await User.findByIdAndUpdate(userId, {
@@ -231,7 +203,6 @@ io.on('connection', async (socket) => {
   }
 
   socket.on('disconnect', async () => {
-    // Устанавливаем пользователя как оффлайн при отключении
     if (userId) {
       try {
         const User = require('./models/userModel');
@@ -248,22 +219,14 @@ io.on('connection', async (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Сбрасываем всех пользователей в offline при запуске сервера
 resetAllUsersToOffline().then(() => {
-  // console.log('All users set to offline on server start');
 }).catch((error) => {
   console.error('Failed to reset user statuses:', error);
 });
 
-// Запускаем сервис обновления статуса пользователей
 startUserStatusUpdater();
 
 server.listen(PORT, () => {
-  console.log(`[SERVER] ✅ Server running on port ${PORT}`);
-  if (Array.isArray(corsOptions.origin)) {
-    console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin.join(', ')}`);
-  } else {
-    console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin}`);
-  }
+  console.log(`[SERVER] 🌐 CORS whitelist: ${whitelist.join(', ')}`);
   console.log(`[SERVER] 📡 Socket.IO ready`);
-}); 
+});

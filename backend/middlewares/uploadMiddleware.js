@@ -181,38 +181,55 @@ const uploadToGoogleDrive = async (req, res, next) => {
       finalFilename = optimized.original.info.filename;
       fileMimetype = `image/${optimized.original.info.format}`;
     } else if (isVideo) {
-      const thumbnailData = await generateVideoThumbnail(tempFilePath);
-      if (thumbnailData) {
-        const thumbResult = await uploadProcessedToGoogleDrive(
-          thumbnailData.buffer, thumbnailData.filename, 'image/jpeg', 
-          'preview', process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
-        );
-        thumbnailUrl = thumbResult.secure_url;
+      let thumbnailData = null;
+      let gifThumbnailData = null;
+
+      try {
+        thumbnailData = await generateVideoThumbnail(tempFilePath);
+      } catch (thumbnailError) {
+        console.error('[UPLOAD_MIDDLEWARE] Ошибка создания превью для видео:', thumbnailError);
+      }
+
+      if (thumbnailData && thumbnailData.buffer) {
+        try {
+          const thumbResult = await uploadProcessedToGoogleDrive(
+            thumbnailData.buffer, 
+            thumbnailData.filename, 
+            'image/jpeg', 
+            'video_preview', 
+            process.env.GOOGLE_DRIVE_VIDEO_PREVIEWS_FOLDER_ID
+          );
+          thumbnailUrl = thumbResult.secure_url;
+        } catch (uploadError) {
+          console.error('[UPLOAD_MIDDLEWARE] Ошибка загрузки превью видео:', uploadError);
+        }
       }
 
       // Создаем GIF-превью с расширенными настройками
       try {
-        const gifThumbnailData = await generateGifThumbnail(tempFilePath, {
-          maxDuration: 30,  // Максимальная длительность 30 секунд
-          maxFps: 30        // Максимальный FPS
+        gifThumbnailData = await generateGifThumbnail(tempFilePath, {
+          maxDuration: 10,  // Максимальная длительность 10 секунд
+          maxFps: 10,       // Максимальный FPS
+          maxScale: 480     // Максимальное разрешение
         });
 
         if (gifThumbnailData) {
+          const gifBuffer = await fs.readFile(gifThumbnailData);
           const gifThumbResult = await uploadProcessedToGoogleDrive(
-            gifThumbnailData.buffer, 
-            gifThumbnailData.filename, 
+            gifBuffer, 
+            path.basename(gifThumbnailData), 
             'image/gif', 
-            'preview', 
-            process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+            'gif_preview', 
+            process.env.GOOGLE_DRIVE_GIF_PREVIEWS_FOLDER_ID
           );
           
-          // Сохраняем URL GIF-превью и его длительность
+          // Сохраняем URL GIF-превью
           req.gifPreviewUrl = gifThumbResult.secure_url;
-          req.gifPreviewDuration = gifThumbnailData.duration;
         }
       } catch (gifError) {
         console.error('Ошибка создания GIF превью:', gifError);
-        // Логируем, но не прерываем загрузку
+        // Не прерываем загрузку, если не удалось создать GIF
+        req.gifPreviewUrl = null;
       }
 
       fileBuffer = await fs.readFile(tempFilePath);

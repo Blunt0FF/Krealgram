@@ -1,327 +1,122 @@
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const cloudinary = require('../config/cloudinary');
+const googleDrive = require('../config/googleDrive');
 
 class SimpleVideoDownloader {
   constructor() {
-    this.tempDir = path.join(__dirname, '../temp');
-    
-    // Создаем временную директорию если её нет
-    if (!fs.existsSync(this.tempDir)) {
-      fs.mkdirSync(this.tempDir, { recursive: true });
-    }
+    this.tempInputDir = path.join(__dirname, '../backend/temp/input');
+    this.tempOutputDir = path.join(__dirname, '../backend/temp/output');
+    this.previewDir = path.join(__dirname, '../backend/temp/preview');
   }
 
-  // Определяем платформу по URL
-  detectPlatform(url) {
-    if (url.includes('tiktok.com')) return 'tiktok';
-    if (url.includes('instagram.com')) return 'instagram';
-    if (url.includes('vk.com') || url.includes('vk.ru')) return 'vk';
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
-    if (url.includes('twitter.com') || url.includes('x.com')) return 'twitter';
-    return 'unknown';
-  }
-
-  // Извлекаем ID видео из YouTube URL
-  extractYouTubeId(url) {
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
-  }
-
-  // Получение информации о YouTube видео
-  async getYouTubeInfo(videoId) {
+  async generateGifPreview(videoPath, platform, videoId) {
     try {
-      // Используем простое API для получения информации о видео
-      const response = await axios.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
-      
-      return {
-        title: response.data.title,
-        author_name: response.data.author_name,
-        thumbnail_url: response.data.thumbnail_url,
-        duration: null, // Не доступно через oEmbed
-        platform: 'youtube'
-      };
-    } catch (error) {
-      console.error('Ошибка получения информации о YouTube видео:', error);
-      return null;
-    }
-  }
+      const outputFilename = `${platform}_${videoId}_preview.gif`;
+      const outputPath = path.join(this.previewDir, outputFilename);
 
-  // Загрузка превью в Cloudinary
-  async uploadThumbnailToCloudinary(thumbnailUrl, platform, videoId) {
-    try {
-      console.log(`🔄 Загружаю превью в Cloudinary: ${thumbnailUrl}`);
-      
-      const result = await cloudinary.uploader.upload(thumbnailUrl, {
-        resource_type: 'image',
-        folder: `external_videos/${platform}/thumbnails`,
-        public_id: `thumb_${videoId}`,
-        quality: 'auto',
-        format: 'jpg'
-      });
-
-      console.log(`✅ Превью успешно загружено в Cloudinary:`, result.secure_url);
-      
-      return {
-        publicId: result.public_id,
-        url: result.secure_url,
-        width: result.width,
-        height: result.height,
-        format: result.format,
-        bytes: result.bytes
-      };
-      
-    } catch (error) {
-      console.error('❌ Ошибка загрузки превью в Cloudinary:', error);
-      throw new Error(`Не удалось загрузить превью в Cloudinary: ${error.message}`);
-    }
-  }
-
-  // Основной метод для обработки внешних видео (пока только YouTube)
-  async processExternalVideo(url) {
-    try {
-      const platform = this.detectPlatform(url);
-      
-      if (platform === 'youtube') {
-        const videoId = this.extractYouTubeId(url);
-        if (!videoId) {
-          throw new Error('Не удалось извлечь ID видео из YouTube URL');
-        }
-
-        console.log(`🎬 Обрабатываю YouTube видео: ${videoId}`);
-
-        // Получаем информацию о видео
-        const videoInfo = await this.getYouTubeInfo(videoId);
-        if (!videoInfo) {
-          throw new Error('Не удалось получить информацию о YouTube видео');
-        }
-
-        // Загружаем превью в Cloudinary
-        const thumbnailResult = await this.uploadThumbnailToCloudinary(
-          videoInfo.thumbnail_url, 
-          platform, 
-          videoId
-        );
-
-        return {
-          success: true,
-          platform: platform,
-          originalUrl: url,
-          videoInfo: {
-            title: videoInfo.title,
-            uploader: videoInfo.author_name,
-            thumbnail: videoInfo.thumbnail_url,
-            videoId: videoId
-          },
-          cloudinary: {
-            publicId: thumbnailResult.publicId,
-            url: thumbnailResult.url,
-            thumbnailUrl: thumbnailResult.url,
-            width: thumbnailResult.width,
-            height: thumbnailResult.height,
-            format: thumbnailResult.format,
-            bytes: thumbnailResult.bytes
-          },
-          mediaType: 'video',
-          image: thumbnailResult.publicId, // Для совместимости с существующей схемой
-          youtubeData: {
-            videoId: videoId,
-            embedUrl: `https://www.youtube.com/embed/${videoId}`,
-            thumbnailUrl: thumbnailResult.url,
-            title: videoInfo.title,
-            platform: 'youtube',
-            originalUrl: url
-          }
-        };
-      } else {
-        throw new Error(`Платформа ${platform} пока не поддерживается. Доступна только YouTube.`);
+      // Создаем директорию для превью, если она не существует
+      if (!fs.existsSync(this.previewDir)) {
+        fs.mkdirSync(this.previewDir, { recursive: true });
       }
 
+      // Генерируем GIF превью с помощью ffmpeg
+      const ffmpeg = require('fluent-ffmpeg');
+      return new Promise((resolve, reject) => {
+        ffmpeg(videoPath)
+          .fps(30)
+          .duration(30)
+          .size('320x?')
+          .outputOptions('-vf', 'scale=320:-2')
+          .toFormat('gif')
+          .on('end', () => {
+            console.log(`✅ Превью успешно создано: ${outputPath}`);
+            resolve(outputPath);
+          })
+          .on('error', (err) => {
+            console.error('❌ Ошибка создания превью:', err);
+            reject(err);
+          })
+          .save(outputPath);
+      });
     } catch (error) {
-      console.error('❌ Ошибка обработки внешнего видео:', error);
+      console.error('❌ Ошибка генерации превью:', error);
       throw error;
     }
   }
 
-  // Проверка поддерживаемых платформ
-  static getSupportedPlatforms() {
-    return ['youtube']; // Пока только YouTube
-  }
-
-  // Проверка валидности URL
-  static isValidUrl(url) {
+  async uploadPreviewToGoogleDrive(thumbnailPath, platform, videoId) {
     try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
-module.exports = SimpleVideoDownloader; 
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const cloudinary = require('../config/cloudinary');
-
-class SimpleVideoDownloader {
-  constructor() {
-    this.tempDir = path.join(__dirname, '../temp');
-    
-    // Создаем временную директорию если её нет
-    if (!fs.existsSync(this.tempDir)) {
-      fs.mkdirSync(this.tempDir, { recursive: true });
-    }
-  }
-
-  // Определяем платформу по URL
-  detectPlatform(url) {
-    if (url.includes('tiktok.com')) return 'tiktok';
-    if (url.includes('instagram.com')) return 'instagram';
-    if (url.includes('vk.com') || url.includes('vk.ru')) return 'vk';
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
-    if (url.includes('twitter.com') || url.includes('x.com')) return 'twitter';
-    return 'unknown';
-  }
-
-  // Извлекаем ID видео из YouTube URL
-  extractYouTubeId(url) {
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
-  }
-
-  // Получение информации о YouTube видео
-  async getYouTubeInfo(videoId) {
-    try {
-      // Используем простое API для получения информации о видео
-      const response = await axios.get(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`);
+      console.log(`🔄 Загружаю превью в Google Drive: ${thumbnailPath}`);
       
-      return {
-        title: response.data.title,
-        author_name: response.data.author_name,
-        thumbnail_url: response.data.thumbnail_url,
-        duration: null, // Не доступно через oEmbed
-        platform: 'youtube'
+      const fileMetadata = {
+        name: `${platform}_${videoId}_preview.gif`,
+        parents: [process.env.GOOGLE_DRIVE_PREVIEW_FOLDER_ID]
       };
-    } catch (error) {
-      console.error('Ошибка получения информации о YouTube видео:', error);
-      return null;
-    }
-  }
-
-  // Загрузка превью в Cloudinary
-  async uploadThumbnailToCloudinary(thumbnailUrl, platform, videoId) {
-    try {
-      console.log(`🔄 Загружаю превью в Cloudinary: ${thumbnailUrl}`);
       
-      const result = await cloudinary.uploader.upload(thumbnailUrl, {
-        resource_type: 'image',
-        folder: `external_videos/${platform}/thumbnails`,
-        public_id: `thumb_${videoId}`,
-        quality: 'auto',
-        format: 'jpg'
+      const media = {
+        mimeType: 'image/gif',
+        body: fs.createReadStream(thumbnailPath)
+      };
+
+      const result = await googleDrive.drive.files.create({
+        resource: fileMetadata,
+        media: media,
+        fields: 'id, webViewLink, webContentLink'
       });
 
-      console.log(`✅ Превью успешно загружено в Cloudinary:`, result.secure_url);
-      
-      return {
-        publicId: result.public_id,
-        url: result.secure_url,
-        width: result.width,
-        height: result.height,
-        format: result.format,
-        bytes: result.bytes
-      };
-      
+      console.log(`✅ Превью успешно загружено в Google Drive:`, result.data.webContentLink);
+      return result.data.webContentLink;
     } catch (error) {
-      console.error('❌ Ошибка загрузки превью в Cloudinary:', error);
-      throw new Error(`Не удалось загрузить превью в Cloudinary: ${error.message}`);
+      console.error('❌ Ошибка загрузки превью в Google Drive:', error);
+      throw new Error(`Не удалось загрузить превью в Google Drive: ${error.message}`);
     }
   }
 
-  // Основной метод для обработки внешних видео (пока только YouTube)
-  async processExternalVideo(url) {
+  async processVideoPreview(videoUrl, platform, videoId) {
     try {
-      const platform = this.detectPlatform(url);
-      
-      if (platform === 'youtube') {
-        const videoId = this.extractYouTubeId(url);
-        if (!videoId) {
-          throw new Error('Не удалось извлечь ID видео из YouTube URL');
-        }
+      const inputFilename = `${platform}_${videoId}_input${path.extname(videoUrl)}`;
+      const inputPath = path.join(this.tempInputDir, inputFilename);
 
-        console.log(`🎬 Обрабатываю YouTube видео: ${videoId}`);
-
-        // Получаем информацию о видео
-        const videoInfo = await this.getYouTubeInfo(videoId);
-        if (!videoInfo) {
-          throw new Error('Не удалось получить информацию о YouTube видео');
-        }
-
-        // Загружаем превью в Cloudinary
-        const thumbnailResult = await this.uploadThumbnailToCloudinary(
-          videoInfo.thumbnail_url, 
-          platform, 
-          videoId
-        );
-
-        return {
-          success: true,
-          platform: platform,
-          originalUrl: url,
-          videoInfo: {
-            title: videoInfo.title,
-            uploader: videoInfo.author_name,
-            thumbnail: videoInfo.thumbnail_url,
-            videoId: videoId
-          },
-          cloudinary: {
-            publicId: thumbnailResult.publicId,
-            url: thumbnailResult.url,
-            thumbnailUrl: thumbnailResult.url,
-            width: thumbnailResult.width,
-            height: thumbnailResult.height,
-            format: thumbnailResult.format,
-            bytes: thumbnailResult.bytes
-          },
-          mediaType: 'video',
-          image: thumbnailResult.publicId, // Для совместимости с существующей схемой
-          youtubeData: {
-            videoId: videoId,
-            embedUrl: `https://www.youtube.com/embed/${videoId}`,
-            thumbnailUrl: thumbnailResult.url,
-            title: videoInfo.title,
-            platform: 'youtube',
-            originalUrl: url
-          }
-        };
-      } else {
-        throw new Error(`Платформа ${platform} пока не поддерживается. Доступна только YouTube.`);
+      // Создаем директории, если они не существуют
+      if (!fs.existsSync(this.tempInputDir)) {
+        fs.mkdirSync(this.tempInputDir, { recursive: true });
       }
 
+      // Скачиваем видео
+      const response = await axios({
+        method: 'get',
+        url: videoUrl,
+        responseType: 'stream'
+      });
+
+      const writer = fs.createWriteStream(inputPath);
+      response.data.pipe(writer);
+
+      await new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+      });
+
+      // Генерируем превью
+      const thumbnailPath = await this.generateGifPreview(inputPath, platform, videoId);
+
+      // Загружаем превью в Google Drive
+      const thumbnailResult = await this.uploadPreviewToGoogleDrive(thumbnailPath, platform, videoId);
+
+      // Удаляем временные файлы
+      fs.unlinkSync(inputPath);
+      fs.unlinkSync(thumbnailPath);
+
+      return {
+        inputPath,
+        thumbnailPath,
+        thumbnailUrl: thumbnailResult
+      };
     } catch (error) {
-      console.error('❌ Ошибка обработки внешнего видео:', error);
+      console.error('❌ Ошибка обработки видео:', error);
       throw error;
-    }
-  }
-
-  // Проверка поддерживаемых платформ
-  static getSupportedPlatforms() {
-    return ['youtube']; // Пока только YouTube
-  }
-
-  // Проверка валидности URL
-  static isValidUrl(url) {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
     }
   }
 }

@@ -20,9 +20,9 @@ async function migrateOnRender() {
     // Проверяем посты с Cloudinary
     const posts = await Post.find({
       $or: [
-        { image: { $regex: 'cloudinary.com' } },
-        { thumbnailUrl: { $regex: 'cloudinary.com' } },
-        { gifPreview: { $regex: 'cloudinary.com' } }
+        { image: { $regex: 'drive.google.com' } },
+        { thumbnailUrl: { $regex: 'drive.google.com' } },
+        { gifPreview: { $regex: 'drive.google.com' } }
       ]
     });
     
@@ -33,18 +33,18 @@ async function migrateOnRender() {
     for (const post of posts) {
       let changed = false;
       
-      if (post.image && post.image.includes('cloudinary.com')) {
+      if (post.image && post.image.includes('drive.google.com')) {
         // Временно заменяем на placeholder до настройки Google Drive
         post.image = '/api/placeholder/image/' + post._id;
         changed = true;
       }
       
-      if (post.thumbnailUrl && post.thumbnailUrl.includes('cloudinary.com')) {
+      if (post.thumbnailUrl && post.thumbnailUrl.includes('drive.google.com')) {
         post.thumbnailUrl = '/api/placeholder/thumbnail/' + post._id;
         changed = true;
       }
       
-      if (post.gifPreview && post.gifPreview.includes('cloudinary.com')) {
+      if (post.gifPreview && post.gifPreview.includes('drive.google.com')) {
         post.gifPreview = '/api/placeholder/gif/' + post._id;
         changed = true;
       }
@@ -58,14 +58,14 @@ async function migrateOnRender() {
     
     // Проверяем пользователей
     const users = await User.find({
-      avatar: { $regex: 'cloudinary.com' }
+      avatar: { $regex: 'drive.google.com' }
     });
     
     console.log(`👤 Найдено ${users.length} пользователей с Cloudinary аватарами`);
     
     let usersUpdated = 0;
     for (const user of users) {
-      if (user.avatar && user.avatar.includes('cloudinary.com')) {
+      if (user.avatar && user.avatar.includes('drive.google.com')) {
         user.avatar = '/api/placeholder/avatar/' + user._id;
         await user.save();
         usersUpdated++;

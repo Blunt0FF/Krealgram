@@ -5,8 +5,8 @@ const fs = require('fs').promises;
 const getMediaConfig = () => {
   return {
     isDevelopment: process.env.NODE_ENV !== 'production',
-    useCloudinary: process.env.USE_CLOUDINARY === 'true',
     cloudinaryConfig: {
+      useCloudinary: process.env.USE_CLOUDINARY === 'true',
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
       api_secret: process.env.CLOUDINARY_API_SECRET
@@ -58,9 +58,10 @@ const processYouTubeUrl = (url) => {
 const getMediaUrl = (filename, type = 'post') => {
   const config = getMediaConfig();
   
-  if (config.useCloudinary) {
+  if (config.cloudinaryConfig.useCloudinary) {
     // В продакшене с Cloudinary будем возвращать Cloudinary URL
-    return `https://res.cloudinary.com/${config.cloudinaryConfig.cloud_name}/image/upload/v1/${filename}`;
+    // TODO: Реализовать логику для Google Drive
+    return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
   } else {
     // В разработке используем локальные файлы
     return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;

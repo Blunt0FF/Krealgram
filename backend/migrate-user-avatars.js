@@ -53,12 +53,9 @@ const migrateUserAvatars = async () => {
         console.log(`   Старый аватар: ${user.avatar}`);
         
         // Формируем Cloudinary URL
-        let cloudinaryUrl = `https://res.cloudinary.com/dibcwdwsd/image/upload/${user.avatar}`;
-        console.log(`   Cloudinary URL: ${cloudinaryUrl}`);
         
         // Проверяем существование файла
         try {
-          const response = await axios.head(cloudinaryUrl, { timeout: 10000 });
           console.log(`   ✅ Файл существует (${response.status})`);
         } catch (error) {
           console.log(`   ⚠️  Файл не найден или недоступен: ${error.message}`);
@@ -69,7 +66,6 @@ const migrateUserAvatars = async () => {
           
           for (const format of formats) {
             try {
-              const urlWithFormat = `${cloudinaryUrl}.${format}`;
               const response = await axios.head(urlWithFormat, { timeout: 5000 });
               console.log(`   ✅ Найден файл с форматом: ${format}`);
               foundFormat = format;
@@ -86,12 +82,10 @@ const migrateUserAvatars = async () => {
           }
           
           // Обновляем URL с найденным форматом
-          cloudinaryUrl = `${cloudinaryUrl}.${foundFormat}`;
         }
         
         // Скачиваем файл
         console.log(`   📥 Скачивание файла...`);
-        const response = await axios.get(cloudinaryUrl, { 
           responseType: 'arraybuffer',
           timeout: 30000
         });

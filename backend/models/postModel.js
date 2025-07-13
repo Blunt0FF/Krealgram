@@ -76,8 +76,8 @@ const postSchema = new mongoose.Schema({
       viewCount: Number,
       uploadDate: String
     },
-    cloudinaryData: {
-      publicId: String,
+    googleDriveData: {
+      fileId: String,
       url: String,
       thumbnailUrl: String,
       duration: Number,

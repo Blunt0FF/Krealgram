@@ -50,7 +50,6 @@ exports.createPost = async (req, res) => {
     } : 'No file');
     console.log('Cloudinary config:', {
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      use_cloudinary: process.env.USE_CLOUDINARY,
       api_key_exists: !!process.env.CLOUDINARY_API_KEY
     });
     console.log('Author ID:', authorId);
@@ -73,7 +72,7 @@ exports.createPost = async (req, res) => {
         youtubeData = incomingYoutubeData;
         console.log('Using provided youtubeData for downloaded video:', youtubeData);
       }
-    }
+    } 
     // Проверяем, есть ли URL видео (для iframe/внешних ссылок)
     else if (videoUrl) {
       console.log('[IPHONE_DEBUG] Processing video from URL:', videoUrl);
@@ -112,8 +111,9 @@ exports.createPost = async (req, res) => {
           note: 'External video content'
         };
       }
-    } else if (req.uploadResult) {
-      // Обычная загрузка файла через Google Drive
+    } 
+    // Обычная загрузка файла через Google Drive
+    else if (req.uploadResult) {
       console.log('Processing uploaded file via Google Drive:', req.uploadResult);
       
       imagePath = req.uploadResult.secure_url;
@@ -125,6 +125,14 @@ exports.createPost = async (req, res) => {
       // Сохраняем MIME-type для правильного отображения GIF
       if (req.file && req.file.mimetype) {
         console.log('File MIME type:', req.file.mimetype);
+      }
+    } 
+    // Если нет данных вообще
+    else {
+      // Проверяем что у нас есть хотя бы что-то для отображения
+      if (!videoUrl && !caption?.trim()) {
+        console.log('No video URL, no file, and no caption provided');
+        return res.status(400).json({ message: 'Media content or caption is required for the post.' });
       }
     }
 
@@ -192,9 +200,13 @@ exports.createPost = async (req, res) => {
     
     // Clean up uploaded file if DB error occurred
     if (req.file && req.file.path) {
-      fs.unlink(path.join(__dirname, '..', 'uploads', req.file.filename), (err) => {
-        if (err) console.error("Error deleting file on failed post creation:", err);
-      });
+      try {
+        fs.unlink(path.join(__dirname, '..', 'uploads', req.file.filename), (err) => {
+          if (err) console.error("Error deleting file on failed post creation:", err);
+        });
+      } catch (cleanupError) {
+        console.error("Error during file cleanup:", cleanupError);
+      }
     }
     
     if (error.name === 'ValidationError') {
@@ -427,49 +439,68 @@ exports.deletePost = async (req, res) => {
     const postId = req.params.id;
     const userId = req.user.id;
 
+    // Находим пост перед удалением, чтобы получить URL файлов
     const post = await Post.findById(postId);
 
     if (!post) {
-      return res.status(404).json({ message: 'Post not found.' });
+      return res.status(404).json({ message: 'Post not found' });
     }
 
+    // Проверяем права пользователя
     if (post.author.toString() !== userId) {
-      return res.status(403).json({ message: 'Access denied. You are not the author of this post.' });
+      return res.status(403).json({ message: 'Not authorized to delete this post' });
     }
 
-    // 1. Delete media from Google Drive
-    const fileUrls = [
-      post.image, 
-      post.thumbnailUrl, 
-      post.gifPreview  // Добавляем GIF-превью
-    ].filter(Boolean);
-
-    for (const urlString of fileUrls) {
-      if (urlString && urlString.includes('drive.google.com')) {
-        try {
-          const url = new URL(urlString);
-          const fileId = url.searchParams.get('id');
-          if (fileId) {
-            console.log(`[DELETE_POST] Deleting file from Google Drive: ${fileId}`);
-            await googleDrive.deleteFile(fileId);
-            console.log(`[DELETE_POST] ✅ Successfully deleted file: ${fileId}`);
-          }
-        } catch (error) {
-          console.error(`[DELETE_POST] Failed to delete file ${urlString} from Google Drive:`, error);
-        }
+    // Удаляем файлы из Google Drive
+    try {
+      // Удаление основного файла (видео/изображения)
+      if (post.image && post.image.includes('drive.google.com')) {
+        const mainFileId = post.image.split('id=')[1];
+        await googleDrive.deleteFile(mainFileId);
+        console.log(`[DELETE_POST] ✅ Successfully deleted main file: ${mainFileId}`);
       }
+
+      // Удаление превью видео
+      if (post.thumbnailUrl && post.thumbnailUrl.includes('drive.google.com')) {
+        const thumbnailFileId = post.thumbnailUrl.split('id=')[1];
+        await googleDrive.deleteFile(thumbnailFileId);
+        console.log(`[DELETE_POST] ✅ Successfully deleted video thumbnail: ${thumbnailFileId}`);
+      }
+
+      // Удаление GIF превью
+      if (post.gifPreview && post.gifPreview.includes('drive.google.com')) {
+        const gifPreviewFileId = post.gifPreview.split('id=')[1];
+        await googleDrive.deleteFile(gifPreviewFileId);
+        console.log(`[DELETE_POST] ✅ Successfully deleted GIF preview: ${gifPreviewFileId}`);
+      }
+    } catch (driveError) {
+      console.error('[DELETE_POST] Error deleting files from Google Drive:', driveError);
+      // Не прерываем выполнение, если не удалось удалить файлы
     }
 
-    // 2. Delete the post from the database
-    await Post.findByIdAndDelete(postId);
+    // Удаляем связанные лайки
+    await Like.deleteMany({ post: postId });
 
-    // 3. Remove the post from the user's posts array
+    // Удаляем пост из массива постов пользователя
     await User.findByIdAndUpdate(userId, { $pull: { posts: postId } });
 
-    res.status(200).json({ message: 'Post and associated media deleted successfully.' });
+    // Удаляем сам пост
+    await Post.findByIdAndDelete(postId);
+
+    res.status(200).json({ 
+      message: 'Post deleted successfully',
+      deletedFiles: {
+        mainFile: post.image,
+        thumbnailUrl: post.thumbnailUrl,
+        gifPreview: post.gifPreview
+      }
+    });
   } catch (error) {
     console.error('Error deleting post:', error);
-    res.status(500).json({ message: 'An error occurred while deleting the post.' });
+    res.status(500).json({ 
+      message: 'Server error while deleting post', 
+      error: error.message 
+    });
   }
 };
 
@@ -701,7 +732,6 @@ exports.getUserVideos = async (req, res) => {
         videoUrl: videoObj.videoUrl,
         mobileThumbnailUrl: videoObj.mobileThumbnailUrl,
         youtubeData: videoObj.youtubeData,
-        cloudinaryEnabled: process.env.USE_CLOUDINARY
       });
       
       return {

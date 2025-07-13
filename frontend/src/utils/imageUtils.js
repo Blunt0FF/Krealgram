@@ -254,7 +254,7 @@ export const getImageUrl = (imagePath, options = {}) => {
 
   if (!imagePath) {
     console.log('[IMAGE_URL_DEBUG] No image path, returning default');
-    return options.isThumbnail ? '/video-placeholder.png' : '/default-post-placeholder.png';
+    return '/default-post-placeholder.png';
   }
 
   const { isThumbnail = false } = options;
@@ -296,16 +296,6 @@ export const getImageUrl = (imagePath, options = {}) => {
     return fullUrl;
   }
 
-  // Если это Google Drive ID
-  if (imagePath.match(/^[a-zA-Z0-9_-]{33}$/)) {
-    const proxyUrl = `${API_URL}/api/proxy-drive/${imagePath}`;
-    console.log('[IMAGE_URL_DEBUG] Google Drive ID detected:', {
-      original: imagePath,
-      proxyUrl
-    });
-    return proxyUrl;
-  }
-
   // Если это просто имя файла
   const fullUrl = `${API_URL}/uploads/${imagePath}`;
   console.log('[IMAGE_URL_DEBUG] Filename path:', {
@@ -315,7 +305,12 @@ export const getImageUrl = (imagePath, options = {}) => {
   return fullUrl;
 };
 
-export const getAvatarUrl = (avatarPath, options = {}) => {
+/**
+ * Получает URL для аватара
+ * @param {string} avatarPath - путь к аватару
+ * @returns {string} - полный URL аватара
+ */
+export const getAvatarUrl = (avatarPath) => {
   console.log('[AVATAR_URL_DEBUG] Input:', {
     avatarPath,
     apiUrl: API_URL
@@ -353,14 +348,14 @@ export const getAvatarUrl = (avatarPath, options = {}) => {
     return fullUrl;
   }
 
-  // Если это Google Drive ID
-  if (avatarPath.match(/^[a-zA-Z0-9_-]{33}$/)) {
-    const proxyUrl = `${API_URL}/api/proxy-drive/${avatarPath}`;
-    console.log('[AVATAR_URL_DEBUG] Google Drive ID detected:', {
+  // Если это относительный путь к аватару
+  if (avatarPath.startsWith('images/') || avatarPath.startsWith('/images/')) {
+    const fullUrl = `${API_URL}${avatarPath.startsWith('/') ? avatarPath : '/' + avatarPath}`;
+    console.log('[AVATAR_URL_DEBUG] Images path:', {
       original: avatarPath,
-      proxyUrl
+      fullUrl
     });
-    return proxyUrl;
+    return fullUrl;
   }
 
   // Если это просто имя файла
@@ -401,11 +396,28 @@ export const getVideoUrl = (videoPath, options = {}) => {
     return videoPath;
   }
   
-  // Если это Google Drive ID
-  if (videoPath.match(/^[a-zA-Z0-9_-]{33}$/)) {
-    return `${API_URL}/api/proxy-drive/${videoPath}`;
+  // Если путь начинается с krealgram/, значит это путь к Cloudinary
+  if (videoPath.startsWith('krealgram/')) {
+    let cloudinaryUrl = `https://res.cloudinary.com/dibcwdwsd/video/upload/`;
+    return cloudinaryUrl + videoPath;
   }
   
   // Для остальных файлов используем локальный путь
   return `${API_URL}/uploads/${videoPath}`;
+}; 
+
+// Утилиты для работы с изображениями и видео
+export const generateVideoPreviewUrl = (videoPath) => {
+  // Используем Google Drive URL
+  let googleDriveUrl = `https://drive.google.com/uc?id=`;
+  return googleDriveUrl + videoPath;
+};
+
+export const isValidMediaUrl = (url) => {
+  // Проверка URL медиафайлов
+  return url && (
+    url.startsWith('http') || 
+    url.startsWith('/') || 
+    url.includes('drive.google.com')
+  );
 }; 

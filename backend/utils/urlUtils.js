@@ -1,4 +1,3 @@
-const { cloudinary } = require('../config/cloudinary');
 
 // Функция для получения правильного URL медиа файла
 const getMediaUrl = (imagePath, type = 'image') => {

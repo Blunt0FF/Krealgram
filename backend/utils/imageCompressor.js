@@ -127,15 +127,29 @@ const generateVideoThumbnail = async (inputPath) => {
     ffmpeg(inputPath)
       .on('end', async () => {
         try {
-          console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
+          // Проверяем существование файла
+          const fileExists = await fs.access(tempThumbPath)
+            .then(() => true)
+            .catch(() => false);
+          
+          if (!fileExists) {
+            console.error('[THUMBNAIL_GEN] Thumbnail file was not created');
+            return reject(new Error('Thumbnail file was not created'));
+          }
+
           const thumbnailBuffer = await fs.readFile(tempThumbPath);
+          
+          console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
           resolve({
             buffer: thumbnailBuffer,
-            filename: path.basename(tempThumbPath)
+            filename: path.basename(tempThumbPath),
+            path: tempThumbPath
           });
         } catch (readError) {
+          console.error('[THUMBNAIL_GEN] Error reading thumbnail:', readError);
           reject(readError);
         } finally {
+          // Удаляем временный файл
           await fs.unlink(tempThumbPath).catch(err => console.error('Failed to cleanup thumb.', err));
         }
       })
@@ -156,10 +170,18 @@ const generateGifThumbnail = async (inputPath, options = {}) => {
   console.log('[THUMBNAIL_GEN] Starting GIF thumbnail generation (30s, good quality)...');
 
   const PREVIEW_DIR = path.join(__dirname, '../temp/preview');
-  // Создаем директорию для превью, если она не существует
-  if (!fs.existsSync(PREVIEW_DIR)) {
-    fs.mkdirSync(PREVIEW_DIR, { recursive: true });
-  }
+  const MAX_DURATION = options.maxDuration || 10; // Максимальная длительность 10 секунд
+  const MAX_FPS = options.maxFps || 10; // Максимальный FPS
+  const MAX_SCALE = options.maxScale || 480; // Максимальное разрешение
+
+  // Создаем директорию для превью
+  await fs.mkdir(PREVIEW_DIR, { recursive: true }).catch(err => {
+    if (err.code !== 'EEXIST') {
+      console.error('[THUMBNAIL_GEN] Error creating preview directory:', err);
+    }
+  });
+
+  const tempThumbPath = path.join(PREVIEW_DIR, `thumb-${Date.now()}.gif`);
 
   // Получаем длительность видео
   const getDuration = () => {
@@ -167,89 +189,43 @@ const generateGifThumbnail = async (inputPath, options = {}) => {
       ffmpeg.ffprobe(inputPath, (err, metadata) => {
         if (err) {
           console.error('[THUMBNAIL_GEN] Error getting video duration:', err);
-          resolve(30); // Fallback к 30 секундам
+          resolve(MAX_DURATION);
         } else {
           const duration = metadata.format.duration;
-          resolve(Math.min(duration, 30)); // Не больше 30 секунд
+          resolve(Math.min(duration, MAX_DURATION));
         }
       });
     });
   };
 
-  const tempThumbPath = path.join(PREVIEW_DIR, `thumb-${Date.now()}.gif`);
-
-  // Получаем длительность видео
-  const videoDuration = await getDuration();
-  const previewDuration = Math.min(videoDuration, 30);
-
-  // Для длинных видео берем только первые 10-15 секунд
-  const effectiveDuration = Math.min(previewDuration, 10);
-
   return new Promise(async (resolve, reject) => {
-    let attempts = 0;
-    const maxAttempts = 3;
-    let currentFps = 30; // Начинаем с 30 кадров
-    let currentQuality = 5;
-    let currentScale = 480; // HD качество
-    
-    while (attempts < maxAttempts) {
-      try {
-        const command = ffmpeg(inputPath)
-          .on('start', (commandLine) => {
-            console.log('[THUMBNAIL_GEN] Spawned FFmpeg with command: ' + commandLine);
-          })
-          .on('error', (err) => {
-            console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
-            reject(err);
-          });
-        
-        command
-          .outputOptions([
-            '-vf', `fps=${currentFps},scale=${currentScale}:-1:flags=lanczos`,
-            '-loop', '0',
-            '-t', `${effectiveDuration}`, // Используем эффективную длительность
-            '-gifflags', '+transdiff',
-            '-pix_fmt', 'rgb8',
-            '-compression_level', `${currentQuality}`
-          ])
-          .toFormat('gif')
-          .save(tempThumbPath);
-        
-        command.on('end', async () => {
-          try {
-            const thumbnailBuffer = await fs.readFile(tempThumbPath);
-            const stats = await fs.stat(tempThumbPath);
-            const sizeMB = stats.size / (1024 * 1024);
-            
-            if (sizeMB <= 1) {
-              console.log(`[THUMBNAIL_GEN] ✅ GIF создан за ${attempts + 1} попытку, размер: ${sizeMB.toFixed(2)}MB`);
-              resolve({
-                buffer: thumbnailBuffer,
-                filename: path.basename(tempThumbPath),
-                duration: effectiveDuration
-              });
-            } else {
-              console.log(`[THUMBNAIL_GEN] GIF слишком большой (${sizeMB.toFixed(2)}MB), пробуем уменьшить...`);
-              attempts++;
-              currentFps = Math.max(10, currentFps - 5); // Уменьшаем FPS
-              currentQuality = Math.max(1, currentQuality - 1);
-              currentScale = Math.max(240, currentScale - 120); // Уменьшаем разрешение
-              await fs.unlink(tempThumbPath);
-              if (attempts >= maxAttempts) {
-                console.warn('[THUMBNAIL_GEN] Не удалось создать GIF - слишком большой размер');
-                resolve(null); // Возвращаем null, если не удалось создать
-              }
-            }
-          } catch (err) {
-            console.error('[THUMBNAIL_GEN] Ошибка чтения превью:', err);
-            reject(err);
-            await fs.unlink(tempThumbPath).catch(() => {});
-          }
-        });
-      } catch (err) {
-        reject(err);
-        await fs.unlink(tempThumbPath).catch(() => {});
-      }
+    try {
+      const videoDuration = await getDuration();
+      
+      // Ограничиваем длительность и FPS
+      const command = ffmpeg(inputPath)
+        .outputOptions([
+          `-t ${videoDuration}`, // Ограничиваем длительность
+          `-vf fps=${MAX_FPS},scale=${MAX_SCALE}:-1:flags=lanczos`, // Ограничиваем FPS и размер
+          '-loop 0', // Зацикливаем GIF
+          '-f gif' // Формат GIF
+        ])
+        .on('start', (commandLine) => {
+          console.log('[THUMBNAIL_GEN] Spawned FFmpeg with command:', commandLine);
+        })
+        .on('error', (err) => {
+          console.error('[THUMBNAIL_GEN] FFmpeg GIF error:', err.message);
+          reject(err);
+        })
+        .on('end', () => {
+          console.log('[THUMBNAIL_GEN] ✅ GIF Thumbnail created successfully.');
+          resolve(tempThumbPath);
+        })
+        .save(tempThumbPath);
+
+    } catch (error) {
+      console.error('[THUMBNAIL_GEN] Error generating GIF:', error);
+      reject(error);
     }
   });
 };
