@@ -92,26 +92,39 @@ export const getVideoUrl = (videoPath, options = {}) => {
   }
 };
 
-// Получение thumbnail для Cloudinary видео
-export const getCloudinaryVideoThumbnail = (videoUrl, options = {}) => {
-  if (!videoUrl || !videoUrl.includes('cloudinary.com')) {
-    return videoUrl;
+export const getVideoThumbnail = (post, options = {}) => {
+  if (!post) return '/video-placeholder.png';
+
+  const { 
+    width = 300, 
+    height = 300, 
+    crop = 'pad', 
+    quality = 'auto' 
+  } = options;
+
+  // Приоритет: thumbnailUrl, gifPreview, статический плейсхолдер
+  if (post.thumbnailUrl) return post.thumbnailUrl;
+  if (post.gifPreview) return post.gifPreview;
+
+  return '/video-placeholder.png';
+};
+
+export const generateVideoPreview = (videoUrl, options = {}) => {
+  if (!videoUrl) return null;
+
+  const { 
+    width = 300, 
+    height = 300, 
+    format = 'gif' 
+  } = options;
+
+  // Для Google Drive видео
+  if (videoUrl.includes('drive.google.com')) {
+    // Логика генерации превью для Google Drive
+    return null;
   }
 
-  const { width = 400, height = 'auto', quality = 'auto' } = options;
-  
-  // Создаем thumbnail с сохранением пропорций (без c_fill)
-  if (height === 'auto') {
-    return videoUrl.replace(
-      '/video/upload/',
-      `/video/upload/w_${width},c_scale,q_${quality},f_jpg,so_0/`
-    );
-  } else {
-    return videoUrl.replace(
-      '/video/upload/',
-      `/video/upload/w_${width},h_${height},c_fit,q_${quality},f_jpg,so_0/`
-    );
-  }
+  return null;
 };
 
 // Получение статичного превью для fallback
