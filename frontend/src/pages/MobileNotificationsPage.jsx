@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getAvatarUrl } from '../utils/imageUtils';
 import { API_URL } from '../config';
 import './MobileNotificationsPage.css'; // Стили для этой страницы
+import { getImageUrl } from '../utils/imageUtils';
 
 // Утилита для форматирования времени (та же, что и в NotificationsPanel)
 const timeAgo = (date) => {
@@ -19,6 +20,39 @@ const timeAgo = (date) => {
   if (interval > 1) return Math.floor(interval) + 'm ago';
   if (seconds < 10) return 'now';
   return Math.floor(seconds) + 's ago';
+};
+
+// Обновленная логика получения превью
+const getPostPreviewUrl = (post) => {
+  // Для видео постов используем статичное превью
+  if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
+    // Используем thumbnailUrl если есть
+    if (post.thumbnailUrl) return post.thumbnailUrl;
+    if (post.mobileThumbnailUrl) return post.mobileThumbnailUrl;
+
+    // Создаем статичное превью для Cloudinary видео
+    const videoUrl = post.imageUrl || post.image;
+    if (videoUrl && videoUrl.includes('cloudinary.com')) {
+      return videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_50,h_50,c_fill,f_jpg,so_0,q_auto/`
+      );
+    }
+    return '/video-placeholder.svg';
+  }
+
+  // Для обычных изображений
+  const urls = [
+    post.thumbnailUrl,
+    post.imageUrl,
+    post.image,
+    post.youtubeData?.thumbnailUrl,
+    post.preview,
+    post.gifPreview,
+    '/default-post-placeholder.png'
+  ].filter(Boolean);
+
+  return getImageUrl(urls[0], { isThumbnail: true });
 };
 
 // Компонент элемента уведомления (тот же, что и в NotificationsPanel)
@@ -131,49 +165,18 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
           <div className="notification-time-mobile">{timeAgo(createdAt)}</div>
         </div>
         {post && (post.image || post.imageUrl) && (type === 'like' || type === 'comment') && (
-            <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
-              {(() => {
-                // Используем правильную логику для получения превью
-                let imageUrl;
-                
-                // Для видео постов используем статичное превью
-                if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
-                  // Используем thumbnailUrl если есть, иначе создаем статичное превью
-                  if (post.thumbnailUrl) {
-                    imageUrl = post.thumbnailUrl;
-                  } else if (post.mobileThumbnailUrl) {
-                    imageUrl = post.mobileThumbnailUrl;
-                  } else {
-                    // Создаем статичное превью для Cloudinary видео
-                    const videoUrl = post.imageUrl || post.image;
-                    if (videoUrl && videoUrl.includes('cloudinary.com')) {
-                      imageUrl = videoUrl.replace(
-                        '/video/upload/',
-                        `/video/upload/w_44,h_44,c_fill,f_jpg,so_0,q_auto/`
-                      );
-                    } else {
-                      imageUrl = '/video-placeholder.svg';
-                    }
-                  }
-                } else {
-                  // Для обычных изображений
-                  imageUrl = post.imageUrl || (post.image?.startsWith('http') ? post.image : `${API_URL}/uploads/${post.image}`);
-                }
-                
-                return (
-                  <img 
-                    src={imageUrl} 
-                    alt="Post thumbnail" 
-                    className="notification-post-image-mobile"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = '/video-placeholder.svg';
-                    }}
-                  />
-                );
-              })()}
-            </Link>
-        )}
+  <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
+    <img 
+      src={getPostPreviewUrl(post)} 
+      alt="Post thumbnail" 
+      className="notification-post-image-mobile"
+      onError={(e) => {
+        e.target.onerror = null;
+        e.target.src = '/video-placeholder.svg';
+      }}
+    />
+  </Link>
+)}
         <button className="notification-delete-btn" onClick={handleDelete}>×</button>
       </div>
     </div>

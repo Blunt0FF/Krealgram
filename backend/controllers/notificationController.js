@@ -1,6 +1,30 @@
 const UserNotifications = require('../models/notificationModel');
 const User = require('../models/userModel');
 
+// Добавляем отладочную информацию о посте
+const processNotificationPost = (post) => {
+  if (!post) return null;
+
+  const debugPost = {
+    _id: post._id,
+    mediaType: post.mediaType,
+    image: post.image,
+    imageUrl: post.imageUrl,
+    videoUrl: post.videoUrl,
+    thumbnailUrl: post.thumbnailUrl,
+    preview: post.preview,
+    gifPreview: post.gifPreview,
+    youtubeData: post.youtubeData ? { 
+      thumbnailUrl: post.youtubeData.thumbnailUrl 
+    } : null,
+    type: post.type
+  };
+
+  console.log('[NOTIFICATION_DEBUG] Post Details:', JSON.stringify(debugPost, null, 2));
+
+  return debugPost;
+};
+
 // Get all notifications for the current user (with pagination)
 exports.getNotifications = async (req, res) => {
   const userId = req.user.id;
@@ -40,7 +64,14 @@ exports.getNotifications = async (req, res) => {
     // Sort notifications by creation date (newest first) and apply pagination
     const sortedNotifications = userNotifications.notifications
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(skip, skip + limit);
+      .slice(skip, skip + limit)
+      .map(notification => {
+        // Обработка превью для поста
+        if (notification.post) {
+          notification.post = processNotificationPost(notification.post);
+        }
+        return notification;
+      });
 
     const totalNotifications = userNotifications.notifications.length;
     const unreadCount = userNotifications.unreadCount || 0;

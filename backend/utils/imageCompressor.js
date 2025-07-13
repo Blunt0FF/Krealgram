@@ -273,25 +273,25 @@ const generateUniversalGifThumbnail = async (inputPath) => {
     while (attempts < maxAttempts) {
       try {
         const command = ffmpeg(inputPath)
-          .on('start', (commandLine) => {
-            console.log('[THUMBNAIL_GEN] Spawned FFmpeg with command: ' + commandLine);
-          })
-          .on('error', (err) => {
-            console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
-            reject(err);
+      .on('start', (commandLine) => {
+        console.log('[THUMBNAIL_GEN] Spawned FFmpeg with command: ' + commandLine);
+      })
+      .on('error', (err) => {
+        console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
+        reject(err);
           });
         
         command
-          .outputOptions([
+      .outputOptions([
             '-vf', `fps=${currentFps},scale=${currentScale}:-1:flags=lanczos`,
             '-loop', '0',
             '-t', `${effectiveDuration}`, // Используем эффективную длительность
-            '-gifflags', '+transdiff',
-            '-pix_fmt', 'rgb8',
+        '-gifflags', '+transdiff',
+        '-pix_fmt', 'rgb8',
             '-compression_level', `${currentQuality}`
-          ])
-          .toFormat('gif')
-          .save(tempThumbPath);
+      ])
+      .toFormat('gif')
+      .save(tempThumbPath);
         
         command.on('end', async () => {
           try {

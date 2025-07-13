@@ -5,6 +5,7 @@ import { getAvatarUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
 import { API_URL } from '../../config';
 import axios from 'axios';
+import { getImageUrl } from '../../utils/imageUtils';
 
 const timeAgo = (date) => {
   const seconds = Math.floor((new Date() - new Date(date)) / 1000);
@@ -23,6 +24,12 @@ const timeAgo = (date) => {
 };
 
 const NotificationItem = ({ notification, onClose, onDelete }) => {
+  // Безопасная проверка на существование поста
+  if (!notification || !notification.post) {
+    console.warn('[DEBUG] Notification or post is null');
+    return null;
+  }
+
   const { sender, type, post, createdAt } = notification;
   const navigate = useNavigate();
 
@@ -112,6 +119,16 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
       content = 'New notification.';
   }
 
+  const getThumbnailSrc = React.useMemo(() => {
+    // Приоритет для превью, затем для основного изображения
+    const imageUrl = notification.post.thumbnailUrl || notification.post.image;
+    if (imageUrl) {
+      return getImageUrl(imageUrl, { isThumbnail: true });
+    }
+    // Заглушка по умолчанию
+    return '/default-post-placeholder.png';
+  }, [notification.post.thumbnailUrl, notification.post.image]);
+
   return (
     <div 
       className={`notification-item-link ${!post || (type !=='like' && type !=='comment') ? 'no-post-image' : ''}`} 
@@ -148,37 +165,43 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
 
 // New component for post preview
 const PostPreview = ({ post }) => {
-  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+  const getThumbnailSrc = React.useMemo(() => {
+    const urls = [
+      post.thumbnailUrl,
+      post.imageUrl,
+      post.image,
+      post.youtubeData?.thumbnailUrl,
+      post.preview,
+      post.gifPreview,
+      '/default-post-placeholder.png'
+    ].filter(Boolean);
 
-  const urls = [
-    getMediaThumbnail(post),
-    post.thumbnailUrl,
-    post.imageUrl,
-    post.image,
-    post.youtubeData?.thumbnailUrl
-  ].filter(Boolean);
-
-  useEffect(() => {
-    setCurrentUrlIndex(0);
+    return getImageUrl(urls[0], { isThumbnail: true });
   }, [post]);
 
-  const handleImageError = () => {
-    if (currentUrlIndex < urls.length - 1) {
-      setCurrentUrlIndex(prev => prev + 1);
-    }
+  const handleImageError = (e) => {
+    e.target.onerror = null; // Предотвращаем бесконечный цикл ошибок
+    e.target.src = '/default-post-placeholder.png';
   };
 
-  if (urls.length === 0) {
-    return <img src='/default-post-placeholder.png' alt='Post Preview' className='notification-post-preview' />;
-  }
+  const isVideo = () => {
+    const videoIndicators = [
+      post.mediaType === 'video',
+      post.videoUrl,
+      post.youtubeData,
+      post.type === 'video'
+    ];
+
+    return videoIndicators.some(Boolean);
+  };
 
   return (
     <img 
-      src={urls[currentUrlIndex]} 
-      alt='Post Preview' 
-      className='notification-post-preview' 
+      src={getThumbnailSrc} 
+      alt="Post preview" 
+      className="notification-post-preview"
       onError={handleImageError}
-      loading='lazy'
+      loading="lazy"
     />
   );
 };
