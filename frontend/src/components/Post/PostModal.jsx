@@ -652,6 +652,7 @@ const PostModal = ({
               return (
                 <video 
                   src={getVideoUrl(postData.imageUrl || (postData.image?.startsWith('http') ? postData.image : `${API_URL}/uploads/${postData.image}`), { mimeType: postData.mimeType })}
+                  type="video/mp4"
                   className="post-modal-video"
                   controls={true}
                   muted={false}

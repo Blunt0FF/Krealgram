@@ -76,7 +76,8 @@ const corsOptions = {
 // которые требуют preflight-запроса от браузера.
 app.options('*', cors(corsOptions));
 
-app.use(cors(corsOptions));
+// Временно разрешаем все origins для отладки
+app.use(cors({ origin: '*', credentials: true }));
 
 // Важно: middleware для парсинга JSON должен идти после CORS
 app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных
@@ -91,15 +92,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Базовый маршрут для проверки
 app.get('/', (req, res) => {
   res.send('Krealgram API is working!');
-});
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'Server is running',
-    timestamp: new Date().toISOString()
-  });
 });
 
 // TODO: Подключить маршруты (routes)
@@ -229,5 +221,4 @@ server.listen(PORT, () => {
     console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin}`);
   }
   console.log(`[SERVER] 📡 Socket.IO ready`);
-  console.log(`[SERVER] 🔗 Health check: http://localhost:${PORT}/api/health`);
 }); 

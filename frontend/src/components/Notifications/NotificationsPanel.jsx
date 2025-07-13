@@ -120,8 +120,8 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
       <div className={`notification-item ${!notification.read ? 'unread' : ''}`}>
         <Link to={`/profile/${sender.username}`} className="notification-avatar-link" onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(`/profile/${sender.username}`); }}>
           <img 
-            src={getAvatarUrl(sender.avatar)} 
-            alt={sender.username} 
+            src={getAvatarUrl(notification.sender?.avatar)}
+            alt={notification.sender?.username}
             className="notification-avatar"
             onError={(e) => {
               e.target.onerror = null;
@@ -137,84 +137,49 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
         </div>
         {post && (type === 'like' || type === 'comment') && (
           <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(linkTo); }}>
-            {(() => {
-              // Расширенный отладочный вывод
-              const previewUrls = [
-                post.thumbnailUrl,
-                post.imageUrl,
-                post.image,
-                post.youtubeData?.thumbnailUrl
-              ].filter(Boolean);
-
-              const isValidUrl = (url) => {
-                try {
-                  new URL(url);
-                  return true;
-                } catch {
-                  return false;
-                }
-              };
-
-              const getValidPreviewUrl = async (urls) => {
-                for (const url of urls) {
-                  try {
-                    if (isValidUrl(url)) {
-                      const response = await fetch(url, { method: 'HEAD' });
-                      if (response.ok) {
-                        return url;
-                      }
-                    }
-                  } catch (error) {
-                    console.warn(`Preview URL check failed for: ${url}`, error);
-                  }
-                }
-                return '/default-post-placeholder.png';
-              };
-
-              // Используем async/await для проверки URL
-              const fetchPreviewUrl = async () => {
-                const previewUrl = await getValidPreviewUrl(previewUrls);
-                
-                console.group('🖼️ Notification Preview Debug');
-                console.log('Notification Object:', notification);
-                console.log('Post Object:', post);
-                console.log('Notification Type:', type);
-                console.log('Preview URL Candidates:', previewUrls);
-                console.log('Selected Preview URL:', previewUrl);
-                console.groupEnd();
-
-                return previewUrl;
-              };
-
-              // Используем хук для асинхронной загрузки превью
-              const [previewUrl, setPreviewUrl] = useState('/default-post-placeholder.png');
-
-              useEffect(() => {
-                fetchPreviewUrl().then(setPreviewUrl);
-              }, [post]);
-
-              return (
-                <img 
-                  src={previewUrl} 
-                  alt="Post Preview" 
-                  className="notification-post-preview" 
-                  style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                  onError={(e) => { 
-                    console.error('❌ Preview Error:', {
-                      src: e.target.src,
-                      fullPostObject: post,
-                      previewUrls: previewUrls
-                    });
-                    e.target.src = '/default-post-placeholder.png'; 
-                  }}
-                />
-              );
-            })()}
+            <PostPreview post={post} />
           </Link>
         )}
         <button className="notification-delete-btn" onClick={handleDelete}>×</button>
       </div>
     </div>
+  );
+};
+
+// New component for post preview
+const PostPreview = ({ post }) => {
+  const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
+
+  const urls = [
+    getMediaThumbnail(post),
+    post.thumbnailUrl,
+    post.imageUrl,
+    post.image,
+    post.youtubeData?.thumbnailUrl
+  ].filter(Boolean);
+
+  useEffect(() => {
+    setCurrentUrlIndex(0);
+  }, [post]);
+
+  const handleImageError = () => {
+    if (currentUrlIndex < urls.length - 1) {
+      setCurrentUrlIndex(prev => prev + 1);
+    }
+  };
+
+  if (urls.length === 0) {
+    return <img src='/default-post-placeholder.png' alt='Post Preview' className='notification-post-preview' />;
+  }
+
+  return (
+    <img 
+      src={urls[currentUrlIndex]} 
+      alt='Post Preview' 
+      className='notification-post-preview' 
+      onError={handleImageError}
+      loading='lazy'
+    />
   );
 };
 

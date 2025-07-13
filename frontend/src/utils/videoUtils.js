@@ -293,6 +293,20 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
     }
   }
 
+  // Для Google Drive видео
+  if (videoUrl && videoUrl.includes('drive.google.com')) {
+    try {
+      const url = new URL(videoUrl);
+      const fileId = url.searchParams.get('id');
+      if (fileId) {
+        const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
+        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
+      }
+    } catch (e) {
+      console.error("Invalid Google Drive URL", videoUrl);
+    }
+  }
+
   return '/video-placeholder.svg';
 };
 

@@ -140,13 +140,14 @@ export const compressAvatar = (file) => {
 };
 
 /**
- * Сжимает изображение поста
+ * Возвращает оригинальный файл для поста (без сжатия на фронте)
  * @param {File} file - файл изображения  
- * @returns {Promise<Blob>} - Blob сжатого изображения поста
+ * @returns {Promise<File>} - Оригинальный файл без изменений
  */
 export const compressPostImage = (file) => {
-  // Для постов можно использовать WebP для лучшего сжатия, если поддерживается, или JPEG
-  return compressImage(file, 1080, 1080, 0.85, 'image/jpeg'); // Ширина 1080, качество 0.85, формат JPEG
+  // Возвращаем оригинальный файл без сжатия
+  // Сжатие будет происходить на backend с сохранением оригинального разрешения
+  return Promise.resolve(file);
 };
 
 // Сжатие изображения для сообщений (до 100КБ)
@@ -245,72 +246,69 @@ export const getFileSizeKB = (dataUrl) => {
 }; 
 
 export const getImageUrl = (imagePath, options = {}) => {
-  if (!imagePath) return null;
-  
-  // Если это уже полный URL (начинается с http/https), возвращаем как есть
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    // Если это Cloudinary URL и нужно добавить флаги для GIF
-    if (imagePath.includes('res.cloudinary.com') && !imagePath.includes('fl_animated')) {
-      const isGif = options.isGif === true || options.mimeType === 'image/gif' || 
-                    imagePath.toLowerCase().includes('gif');
-      if (isGif) {
-        // Вставляем максимальные настройки для GIF после /upload/
-        return imagePath.replace('/upload/', '/upload/fl_animated,q_100,f_auto/');
-      } else {
-        // Обычный флаг для других изображений
-        return imagePath.replace('/upload/', '/upload/fl_animated/');
-      }
-    }
-    return imagePath;
-  }
-  
-  // Если это base64 данные, возвращаем как есть
-  if (imagePath.startsWith('data:')) {
-    return imagePath;
-  }
-  
-  // Если путь начинается с krealgram/, значит это путь к Cloudinary
+  if (!imagePath) return '/default-avatar.png';
+
+  // Restore handling for old Cloudinary paths
   if (imagePath.startsWith('krealgram/')) {
-    let cloudinaryUrl = `https://res.cloudinary.com/dibcwdwsd/image/upload/`;
-    
-    // Проверяем если это GIF файл и нужно сохранить анимацию
-    const isGif = imagePath.toLowerCase().includes('gif') || 
-                  imagePath.toLowerCase().endsWith('.gif') ||
-                  options.isGif === true ||
-                  options.mimeType === 'image/gif';
-    
-    // Добавляем флаги для максимального качества GIF
-    if (isGif) {
-      cloudinaryUrl += `fl_animated,q_100,f_auto/`; // Максимальное качество + автоформат для лучшей производительности
-    } else {
-      cloudinaryUrl += `fl_animated/`; // Обычный флаг для других изображений
-    }
-    
-    return cloudinaryUrl + imagePath;
+    return `https://res.cloudinary.com/dibcwdwsd/image/upload/${imagePath}`;
   }
-  
-  // Для остальных файлов используем локальный путь
-  return `${API_URL}/uploads/${imagePath}`;
+
+  // Enhanced GDrive detection: if it's a file ID (alphanumeric 33 chars), use proxy
+  if (/^[a-zA-Z0-9_-]{33}$/.test(imagePath)) {
+    const secureApiUrl = API_URL.replace(/^http:/, 'https');
+    return `${secureApiUrl}/api/proxy-drive/${imagePath}`;
+  }
+
+  // Если это ссылка на Google Drive — вытаскиваем id и строим proxy-URL
+  const driveMatch = imagePath.match(/drive\.google\.com\/uc\?id=([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    const id = driveMatch[1];
+    const secureApiUrl = API_URL.replace(/^http:/, 'https');
+    return `${secureApiUrl}/api/proxy-drive/${id}`;
+  }
+
+  // For /uploads/ paths
+  if (imagePath.startsWith('/uploads/')) {
+    return `${API_URL}${imagePath}`;
+  }
+
+  // Fallback for other cases
+  return imagePath.startsWith('http') ? imagePath : `${API_URL}/uploads/${imagePath}`;
 };
 
+/**
+ * Получает URL для аватара
+ * @param {string} avatarPath - путь к аватару
+ * @returns {string} - полный URL аватара
+ */
 export const getAvatarUrl = (avatarPath) => {
   if (!avatarPath) {
-    return '/default-avatar.png';
+    return '/default-avatar.png'; // Заглушка по умолчанию
   }
-  
-  // Для Safari добавляем crossOrigin anonymous для Cloudinary URLs
-  const imageUrl = getImageUrl(avatarPath);
-  if (!imageUrl) {
-    return '/default-avatar.png';
-  }
-  
-  return imageUrl;
+
+  // Используем getImageUrl, так как логика та же
+  return getImageUrl(avatarPath);
 };
 
-// Специальная функция для видео URLs
 export const getVideoUrl = (videoPath, options = {}) => {
   if (!videoPath) return null;
-  
+
+  // Если это Google Drive URL, используем наш прокси
+  if (videoPath.includes('drive.google.com')) {
+    try {
+      const url = new URL(videoPath);
+      const fileId = url.searchParams.get('id');
+      if (fileId) {
+        // Принудительно используем https для API_URL
+        const secureApiUrl = API_URL.replace(/^http:/, 'https');
+        return `${secureApiUrl}/api/proxy-drive/${fileId}`;
+      }
+    } catch (e) {
+      console.error("Invalid Google Drive URL", videoPath);
+      return videoPath; // fallback to original path
+    }
+  }
+
   // Если это уже полный URL (начинается с http/https), возвращаем как есть
   if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
     return videoPath;

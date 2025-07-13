@@ -17,6 +17,7 @@ import MobileNavigation from './components/Navigation/MobileNavigation';
 import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
 import { API_URL } from './config';
+import { checkAndSetApiUrl } from './config';
 import './App.css';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
@@ -64,45 +65,51 @@ const App = () => {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetch(`${API_URL}/api/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      .then(res => {
-        if (res.ok) return res.json();
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+    const initializeApp = async () => {
+      await checkAndSetApiUrl();
+      
+      const token = localStorage.getItem('token');
+      if (token) {
+        fetch(`${API_URL}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => {
+          if (res.ok) return res.json();
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setIsAuthenticated(false);
+          setUser(null);
+          setUnreadCount(0);
+          throw new Error('Token verification failed or session expired');
+        })
+        .then(userData => {
+          setIsAuthenticated(true);
+          setUser(userData.user);
+          localStorage.setItem('user', JSON.stringify(userData.user));
+          fetchUnreadCount(token);
+        })
+        .catch(error => {
+          console.error('Authentication check error:', error.message);
+          if (error.message !== 'Token verification failed or session expired') {
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setIsAuthenticated(false);
+              setUser(null);
+              setUnreadCount(0);
+          }
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
         setIsAuthenticated(false);
         setUser(null);
         setUnreadCount(0);
-        throw new Error('Token verification failed or session expired');
-      })
-      .then(userData => {
-        setIsAuthenticated(true);
-        setUser(userData.user);
-        localStorage.setItem('user', JSON.stringify(userData.user));
-        fetchUnreadCount(token);
-      })
-      .catch(error => {
-        console.error('Authentication check error:', error.message);
-        if (error.message !== 'Token verification failed or session expired') {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setIsAuthenticated(false);
-            setUser(null);
-            setUnreadCount(0);
-        }
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-    } else {
-      setLoading(false);
-      setIsAuthenticated(false);
-      setUser(null);
-      setUnreadCount(0);
-    }
+      }
+    };
+
+    initializeApp();
   }, []);
 
   if (loading) {

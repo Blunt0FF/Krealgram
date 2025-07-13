@@ -1,78 +1,31 @@
-// API Configuration - ВСЕГДА используем Render
-const getApiUrl = () => {
-  // Проверяем локальный бэкенд
-  const localBackendUrl = 'http://localhost:3000';
-  const productionBackendUrl = 'https://krealgram-backend.onrender.com';
+// API Configuration
+export const REMOTE_URL = 'https://krealgram-backend.onrender.com';
+export const LOCAL_URL = 'http://localhost:3000';
 
-  return new Promise((resolve) => {
-    const startTime = Date.now();
-    
-    fetch(`${localBackendUrl}/api/health`, { 
-      method: 'GET', 
-      timeout: 5000, // Увеличим таймаут до 5 секунд
-      headers: {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
-      }
-    })
-      .then(response => {
-        const endTime = Date.now();
-        const duration = endTime - startTime;
-        
-        console.group('🌐 Backend Connection Check');
-        console.log(`🔍 Checking local backend: ${localBackendUrl}`);
-        console.log(`⏱️ Response time: ${duration}ms`);
-        
-        if (response.ok) {
-          console.log('✅ Local backend is available');
-          console.groupEnd();
-          resolve(localBackendUrl);
-        } else {
-          console.log('❌ Local backend not responding');
-          console.log('🌍 Falling back to production');
-          console.groupEnd();
-          resolve(productionBackendUrl);
-        }
-      })
-      .catch((error) => {
-        console.group('🌐 Backend Connection Check');
-        console.log('❌ Local backend connection failed');
-        console.log('Error details:', error.message);
-        console.log('🌍 Falling back to production');
-        console.groupEnd();
-        resolve(productionBackendUrl);
-      });
-  });
-};
+export let API_URL = REMOTE_URL; // Default to remote
 
-// Экспортируем как функцию для динамической загрузки
-export const getApiUrlSync = () => {
-  const localBackendUrl = 'http://localhost:3000';
-  const productionBackendUrl = 'https://krealgram-backend.onrender.com';
+// WebSocket Configuration
+export let SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`; // Default to remote
 
+export async function checkAndSetApiUrl() {
   try {
-    const storedBackendUrl = localStorage.getItem('BACKEND_URL');
-    if (storedBackendUrl) {
-      console.log('🔄 Using stored backend URL:', storedBackendUrl);
-      return storedBackendUrl;
-    }
-  } catch {}
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
 
-  return productionBackendUrl;
-};
+    await fetch(LOCAL_URL, { // Changed from '/api/health' to root
+      method: 'HEAD',
+      signal: controller.signal
+    });
 
-// Асинхронная инициализация
-getApiUrl().then(url => {
-  try {
-    localStorage.setItem('BACKEND_URL', url);
-    console.log('💾 Saved backend URL:', url);
-  } catch {}
-});
+    clearTimeout(timeoutId);
+    API_URL = LOCAL_URL;
+    SOCKET_URL = `ws://${LOCAL_URL.split('://')[1]}`;
+    console.log('Using local backend');
+  } catch (error) {
+    API_URL = REMOTE_URL;
+    SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
+    console.log('Using remote backend');
+  }
+}
 
-// Экспорт текущего URL
-export const API_URL = getApiUrlSync();
-
-// WebSocket Configuration - ВСЕГДА используем Render
-export const SOCKET_URL = 'wss://krealgram-backend.onrender.com';
-
-// Other configuration constants can be added here 
+// Call this in App.jsx on mount" 

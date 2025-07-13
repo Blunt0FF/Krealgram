@@ -662,7 +662,6 @@ const Profile = ({ user: currentUserProp }) => {
               alt={profile.user.username}
               loading="lazy"
               onClick={() => {
-                // Check that avatar is not default
                 const avatarUrl = getAvatarUrl(profile.user.avatar);
                 if (profile.user.avatar && avatarUrl && avatarUrl !== '/default-avatar.png' && !avatarUrl.includes('default-avatar.png')) {
                   setShowAvatarModal(true);
