@@ -31,12 +31,12 @@ const whitelist = [
   "http://127.0.0.1:3000",
   "https://krealgram.vercel.app",
   "https://krealgram.com",
-  "https://www.krealgram.com",
-  "https://krealgram-frontend.vercel.app"
+  "https://www.krealgram.com"
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
+    console.log('[CORS] Incoming origin:', origin);
     if (!origin || whitelist.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
