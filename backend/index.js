@@ -31,20 +31,36 @@ const whitelist = [
   "http://127.0.0.1:3000",
   "https://krealgram.vercel.app",
   "https://krealgram.com",
-  "https://www.krealgram.com"
+  "https://www.krealgram.com",
+  "https://krealgram-frontend.vercel.app"
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || whitelist.includes(origin)) {
+    if (!origin || whitelist.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin', 
+    'Cache-Control',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: [
+    'Content-Range', 
+    'X-Content-Range', 
+    'Cache-Control', 
+    'Access-Control-Allow-Origin'
+  ],
   credentials: true,
   maxAge: 86400
 };

@@ -23,8 +23,26 @@ export default defineConfig(({ mode }) => {
           target: 'https://krealgram-backend.onrender.com',
           changeOrigin: true,
           secure: true,
-          rewrite: (path) => path.replace(/^\/api/, '')
+          rewrite: (path) => path.replace(/^\/api/, ''),
+          headers: {
+            'Origin': 'http://localhost:4000'
+          }
         }
+      },
+      cors: {
+        origin: [
+          'http://localhost:4000', 
+          'https://krealgram.com', 
+          'https://krealgram-backend.onrender.com'
+        ],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        allowedHeaders: [
+          'Content-Type', 
+          'Authorization', 
+          'X-Requested-With', 
+          'Accept', 
+          'Origin'
+        ]
       }
     },
     resolve: {
