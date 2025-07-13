@@ -5,6 +5,10 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    'import.meta.env.VITE_VERCEL': JSON.stringify(process.env.VITE_VERCEL || false),
+    'import.meta.env.DEV': JSON.stringify(process.env.VITE_NODE_ENV === 'development')
+  },
   server: {
     port: 4000,
     proxy: {

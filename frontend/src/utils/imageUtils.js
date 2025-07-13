@@ -1,4 +1,5 @@
 import { API_URL } from '../config';
+import { getBaseUrl } from '../config';
 
 /**
  * Сжимает изображение до указанного размера и качества
@@ -247,6 +248,12 @@ export const getFileSizeKB = (dataUrl) => {
 
 export const getImageUrl = (imagePath, options = {}) => {
   console.group('🖼️ getImageUrl Debugging');
+  console.log('🌍 Environment:', {
+    VITE_BASE_URL: import.meta.env.VITE_BASE_URL,
+    DEV: import.meta.env.DEV,
+    hostname: window.location.hostname,
+    baseUrl: getBaseUrl()
+  });
   
   // Если передан объект, пытаемся извлечь путь
   if (typeof imagePath === 'object' && imagePath !== null) {
@@ -271,10 +278,12 @@ export const getImageUrl = (imagePath, options = {}) => {
       return '/default-post-placeholder.png';
     }
 
+    const baseUrl = getBaseUrl();
+
     // Обработка локальных путей
     if (imagePath.startsWith('/Users/') || imagePath.startsWith('/home/')) {
       const fileName = imagePath.split('/').pop();
-      const proxyUrl = `${API_URL}/uploads/${fileName}`;
+      const proxyUrl = `${baseUrl}/uploads/${fileName}`;
       console.log('📁 Constructed local URL:', proxyUrl);
       console.groupEnd();
       return proxyUrl;
@@ -303,7 +312,7 @@ export const getImageUrl = (imagePath, options = {}) => {
         });
         
         if (fileId) {
-          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
+          const proxyUrl = `${baseUrl}/api/proxy-drive/${fileId}`;
           console.log('✅ Constructed proxy URL:', proxyUrl);
           console.groupEnd();
           return proxyUrl;
@@ -321,7 +330,7 @@ export const getImageUrl = (imagePath, options = {}) => {
     }
 
     // Локальные пути в uploads
-    const localUrl = `${API_URL}/uploads/${imagePath}`;
+    const localUrl = `${baseUrl}/uploads/${imagePath}`;
     console.log('📂 Constructed uploads URL:', localUrl);
     console.groupEnd();
     return localUrl;

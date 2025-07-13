@@ -26,4 +26,19 @@ export async function checkAndSetApiUrl() {
   }
 }
 
+export const getBaseUrl = () => {
+  // Приоритет: явно указанные переменные окружения -> локальный -> удаленный
+  if (import.meta.env.VITE_BASE_URL) {
+    return import.meta.env.VITE_BASE_URL;
+  }
+  
+  // Локальная разработка
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return LOCAL_URL;
+  }
+  
+  // Vercel или продакшн
+  return REMOTE_URL;
+};
+
 // Call this in App.jsx on mount 

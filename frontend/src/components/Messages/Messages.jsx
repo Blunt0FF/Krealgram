@@ -880,6 +880,11 @@ const Messages = ({ currentUser }) => {
                       )}
                       {message.media && message.media.type === 'image' && (
                         <div className="message-image" onClick={() => openImageModal(message.media.url)}>
+                          {console.log('🖼️ Rendering image message:', { 
+                            mediaUrl: message.media.url, 
+                            mediaType: message.media.type,
+                            fullMessage: message
+                          })}
                           <img 
                             src={getImageUrl(message.media.url)} 
                             alt="Shared image" 
@@ -893,6 +898,11 @@ const Messages = ({ currentUser }) => {
                               objectFit: 'cover'
                             }}
                             onError={(e) => {
+                              console.error('❌ Image load error:', { 
+                                src: e.target.src, 
+                                message: message.media,
+                                fullMessage: message
+                              });
                               e.target.src = '/default-post-placeholder.png';
                             }}
                           />

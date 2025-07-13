@@ -106,8 +106,20 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     headers: req.headers,
     method: req.method,
     url: req.url,
+    origin: req.headers.origin,
+    referer: req.headers.referer,
     isInitialized: drive.isInitialized
   });
+
+  // Добавляем заголовки CORS для всех ответов
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+
+  // Обработка preflight OPTIONS запросов
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   try {
     if (!drive.isInitialized) {
@@ -190,7 +202,6 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
 
     fileRes.data.on('error', (err) => {
@@ -199,16 +210,12 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     });
 
     fileRes.data.pipe(res);
+    console.log('[PROXY-DRIVE] File streaming started successfully');
     console.groupEnd();
-  } catch (err) {
-    console.error('[PROXY-DRIVE] Global error:', {
-      message: err.message,
-      stack: err.stack,
-      code: err.code,
-      details: err.response ? err.response.data : null
-    });
+  } catch (error) {
+    console.error('[PROXY-DRIVE] Unexpected error:', error);
     console.groupEnd();
-    res.status(500).send('Proxy error: ' + err.message);
+    res.status(500).send('Unexpected error during file proxy');
   }
 });
 

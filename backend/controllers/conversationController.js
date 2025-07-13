@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
 const googleDrive = require('../config/googleDrive');
 const Post = require('../models/postModel'); // Добавляем импорт Post
+const { google } = require('googleapis');
+const drive = require('../config/googleDrive');
 // Удаляем импорт onlineUsers и io
 // const { onlineUsers, io } = require('../index');
 
@@ -336,6 +338,27 @@ exports.deleteMessage = async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(403).json({ message: 'You are not authorized to delete this message.' });
+    }
+
+    // Удаление файла с Google Drive, если есть медиа
+    if (messageToDelete.media && messageToDelete.media.url) {
+      try {
+        const googleDriveMatch = messageToDelete.media.url.match(/\/api\/proxy-drive\/([^/]+)/);
+        if (googleDriveMatch && googleDriveMatch[1]) {
+          const fileId = googleDriveMatch[1];
+          
+          console.log(`🗑️ Attempting to delete Google Drive file: ${fileId}`);
+          
+          await drive.drive.files.delete({
+            fileId: fileId
+          });
+          
+          console.log(`✅ Successfully deleted Google Drive file: ${fileId}`);
+        }
+      } catch (driveError) {
+        console.error('❌ Error deleting file from Google Drive:', driveError);
+        // Не прерываем операцию, если не удалось удалить файл
+      }
     }
 
     // Удаляем сообщение
