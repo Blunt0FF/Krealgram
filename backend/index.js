@@ -81,6 +81,14 @@ app.get('/', (req, res) => {
   res.send('Krealgram API is working!');
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    environment: process.env.NODE_ENV || 'unknown',
+    timestamp: new Date().toISOString()
+  });
+});
+
 const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -218,4 +226,55 @@ server.listen(PORT, () => {
   console.log(`[SERVER] ✅ Server running on port ${PORT}`);
   console.log(`[SERVER] 🌐 CORS whitelist: ${whitelist.join(', ')}`);
   console.log(`[SERVER] 📡 Socket.IO ready`);
+});
+
+// Добавим отладочную информацию о маршрутах
+console.log('Загруженные маршруты:');
+console.log('Маршруты auth:', Object.keys(authRoutes.stack || {}));
+console.log('Маршруты posts:', Object.keys(postRoutes.stack || {}));
+console.log('Маршруты users:', Object.keys(userRoutes.stack || {}));
+console.log('Маршруты admin:', Object.keys(adminRoutes.stack || {}));
+
+// Глобальный обработчик ошибок с расширенным логированием
+app.use((err, req, res, next) => {
+  console.error('[GLOBAL_ERROR_HANDLER] Полная информация об ошибке:', {
+    message: err.message,
+    name: err.name,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    headers: req.headers
+  });
+
+  // Специфические обработчики для разных типов ошибок
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      message: 'Ошибка валидации данных',
+      errors: err.errors
+    });
+  }
+
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      message: 'Unauthorized',
+      error: 'Требуется аутентификация'
+    });
+  }
+
+  // Общий обработчик для всех остальных ошибок
+  res.status(err.status || 500).json({
+    message: err.message || 'Внутренняя ошибка сервера',
+    error: process.env.NODE_ENV === 'development' ? err.stack : {}
+  });
+});
+
+// Обработчик для неопределенных маршрутов
+app.use((req, res, next) => {
+  console.warn(`[404_HANDLER] Маршрут не найден: ${req.method} ${req.path}`);
+  res.status(404).json({
+    message: 'Маршрут не найден',
+    path: req.path
+  });
 });

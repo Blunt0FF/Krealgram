@@ -30,6 +30,10 @@ export const getBaseUrl = () => {
 };
 
 export async function checkAndSetApiUrl() {
+  // Добавляем статическую переменную для отслеживания вызова
+  if (checkAndSetApiUrl.called) return;
+  checkAndSetApiUrl.called = true;
+
   try {
     const baseUrl = getBaseUrl();
     const controller = new AbortController();

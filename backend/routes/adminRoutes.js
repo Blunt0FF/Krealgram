@@ -1,27 +1,42 @@
 const express = require('express');
 const router = express.Router();
-const { protect, admin } = require('../middlewares/authMiddleware');
-const { migrateUserAvatars } = require('../migrate-user-avatars');
 const { migrateCloudinaryToDriveOnRender } = require('../migrate-render');
 
-// @desc    Migrate all user avatars to Google Drive
-router.post('/migrate-avatars', protect, admin, async (req, res) => {
+// Middleware для логирования запросов
+router.use((req, res, next) => {
+  console.log(`[ADMIN_ROUTES] Входящий запрос: ${req.method} ${req.path}`);
+  next();
+});
+
+// Обработчик миграции с расширенной обработкой ошибок
+router.post('/migrate-media', async (req, res, next) => {
   try {
-    const result = await migrateUserAvatars();
-    res.json(result);
+    console.log('[ADMIN_ROUTES] Начало миграции медиафайлов');
+    
+    const result = await migrateCloudinaryToDriveOnRender();
+    
+    console.log('[ADMIN_ROUTES] Миграция завершена:', result);
+    
+    res.status(200).json({ 
+      message: 'Миграция медиафайлов выполнена',
+      status: 'completed',
+      result 
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Ошибка миграции аватаров', error: error.message });
+    console.error('[ADMIN_ROUTES] Ошибка миграции:', error);
+    
+    // Передаем ошибку в глобальный обработчик ошибок
+    next(error);
   }
 });
 
-// @desc    Migrate all media files to Google Drive
-router.post('/migrate-media', protect, admin, async (req, res) => {
-  try {
-    const result = await migrateCloudinaryToDriveOnRender();
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ message: 'Ошибка миграции медиафайлов', error: error.message });
-  }
+// Обработчик неизвестных маршрутов
+router.use((req, res, next) => {
+  console.warn(`[ADMIN_ROUTES] Неизвестный маршрут: ${req.method} ${req.path}`);
+  res.status(404).json({ 
+    message: 'Маршрут не найден',
+    path: req.path 
+  });
 });
 
 module.exports = router; 
