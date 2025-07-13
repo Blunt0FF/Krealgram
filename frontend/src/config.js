@@ -28,4 +28,4 @@ export async function checkAndSetApiUrl() {
   }
 }
 
-// Call this in App.jsx on mount" 
+// Call this in App.jsx on mount 
