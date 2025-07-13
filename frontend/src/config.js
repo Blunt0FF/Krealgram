@@ -27,17 +27,33 @@ export async function checkAndSetApiUrl() {
 }
 
 export const getBaseUrl = () => {
-  // Приоритет: явно указанные переменные окружения -> локальный -> удаленный
+  // Приоритет: 
+  // 1. Явно указанные переменные окружения
+  // 2. Vercel
+  // 3. Локальный хост
+  // 4. Удаленный бэкенд
+
   if (import.meta.env.VITE_BASE_URL) {
     return import.meta.env.VITE_BASE_URL;
   }
-  
+
+  // Vercel production
+  if (import.meta.env.VITE_VERCEL === 'true') {
+    return 'https://krealgram-backend.onrender.com';
+  }
+
   // Локальная разработка
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+  if (window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1') {
     return LOCAL_URL;
   }
-  
-  // Vercel или продакшн
+
+  // Если домен krealgram.com
+  if (window.location.hostname === 'krealgram.com') {
+    return 'https://krealgram-backend.onrender.com';
+  }
+
+  // Fallback к удаленному бэкенду
   return REMOTE_URL;
 };
 
