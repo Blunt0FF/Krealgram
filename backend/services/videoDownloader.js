@@ -1,23 +1,23 @@
-const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const fetch = require('node-fetch');
-const axios = require('axios'); // Используем axios для большей надежности
-const { uploadBufferToGoogleDrive } = require('../middlewares/uploadMiddleware');
-const ffmpeg = require('fluent-ffmpeg'); // Добавляем ffmpeg для генерации превью
+const { spawn } = require('child_process');
+const ffmpeg = require('fluent-ffmpeg');
+const { generateUniversalGifThumbnail } = require('../utils/imageCompressor');
 
 
 class VideoDownloader {
   constructor() {
     this.tempDir = path.join(__dirname, '../temp');
+    this.previewDir = path.join(this.tempDir, 'preview');
     this.ensureTempDir();
   }
 
-  async ensureTempDir() {
+  ensureTempDir() {
     try {
-      await fs.promises.access(this.tempDir);
-    } catch {
-      await fs.promises.mkdir(this.tempDir, { recursive: true });
+      fs.mkdirSync(this.tempDir, { recursive: true });
+      fs.mkdirSync(this.previewDir, { recursive: true });
+    } catch (error) {
+      console.error('Ошибка создания временных директорий:', error);
     }
   }
 
@@ -65,7 +65,7 @@ class VideoDownloader {
     try {
       console.log('🎵 Downloading TikTok video:', url);
       
-      const { videoUrl, title, uploader, duration, thumbnailUrl } = await this.extractTikTokVideoAPI(url);
+      const { videoUrl, title, uploader, duration, thumbnailUrl: originalThumbnailUrl } = await this.extractTikTokVideoAPI(url);
 
       console.log('📥 Downloading video buffer from:', videoUrl);
       const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
@@ -79,8 +79,33 @@ class VideoDownloader {
       console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
       
       console.log('📤 Uploading to Google Drive...');
-      // Указываем контекст 'post', чтобы создавалось превью, если это возможно
       const driveResult = await uploadBufferToGoogleDrive(videoBuffer, 'tiktok-video.mp4', 'video/mp4', 'post');
+
+      const tempVideoPath = path.join(this.tempDir, `tiktok-${Date.now()}.mp4`);
+      await fs.writeFile(tempVideoPath, videoBuffer);
+
+      let generatedThumbnailUrl = null;
+      try {
+        const thumbnailPath = await generateUniversalGifThumbnail(tempVideoPath);
+        console.log('🖼️ GIF Preview создан:', thumbnailPath);
+
+        if (thumbnailPath) {
+          const thumbnailBuffer = await fs.readFile(thumbnailPath);
+          const thumbnailDriveResult = await uploadBufferToGoogleDrive(
+            thumbnailBuffer, 
+            `preview-${path.basename(thumbnailPath)}`, 
+            'image/gif', 
+            'preview'
+          );
+          generatedThumbnailUrl = thumbnailDriveResult.secure_url;
+          
+          await fs.unlink(thumbnailPath);
+        }
+      } catch (previewError) {
+        console.error('❌ Ошибка создания GIF Preview:', previewError);
+      }
+
+      await fs.unlink(tempVideoPath);
 
       return {
         success: true,
@@ -91,8 +116,7 @@ class VideoDownloader {
           uploader: uploader,
         },
         videoUrl: driveResult.secure_url,
-        // Если image compressor создаст превью для видео, оно будет здесь
-        thumbnailUrl: driveResult.thumbnailUrl || thumbnailUrl, 
+        thumbnailUrl: generatedThumbnailUrl || originalThumbnailUrl || driveResult.thumbnailUrl, 
         fileId: driveResult.public_id,
         originalUrl: url
       };
@@ -306,58 +330,6 @@ const generateVideoThumbnail = async (videoPath) => {
     return thumbnailPath;
   } catch (error) {
     console.error('[THUMBNAIL_GEN] Ошибка генерации превью:', error);
-    throw error;
-  }
-};
-
-const generateUniversalGifThumbnail = async (videoPath) => {
-  try {
-    console.log('[THUMBNAIL_GEN] Starting universal GIF thumbnail generation...');
-    
-    const outputPath = path.join(
-      path.dirname(videoPath), 
-      `thumb-${Date.now()}.gif`
-    );
-
-    // Более строгие параметры для уменьшения размера
-    await new Promise((resolve, reject) => {
-      ffmpeg(videoPath)
-        .fps(10)  // Уменьшаем количество кадров
-        .videoFilters([
-          'scale=480:-1:flags=lanczos',  // Уменьшаем размер
-          'trim=duration=5'  // Ограничиваем длительность 5 секундами
-        ])
-        .outputOptions([
-          '-loop 0',
-          '-pix_fmt rgb8',
-          '-compression_level 9'
-        ])
-        .toFormat('gif')
-        .on('end', () => {
-          console.log('[THUMBNAIL_GEN] ✅ Universal GIF Thumbnail created successfully.');
-          resolve(outputPath);
-        })
-        .on('error', (err) => {
-          console.error('[THUMBNAIL_GEN] ❌ GIF generation error:', err);
-          reject(err);
-        })
-        .save(outputPath);
-    });
-
-    // Проверяем размер файла
-    const stats = fs.statSync(outputPath);
-    const fileSizeInMB = stats.size / (1024 * 1024);
-    console.log(`[THUMBNAIL_GEN] GIF Size: ${fileSizeInMB.toFixed(2)} MB`);
-
-    // Если файл больше 10 МБ, пересоздаем с еще большим сжатием
-    if (fileSizeInMB > 10) {
-      fs.unlinkSync(outputPath);
-      return generateUniversalGifThumbnail(videoPath);
-    }
-
-    return outputPath;
-  } catch (error) {
-    console.error('[THUMBNAIL_GEN] Ошибка генерации GIF:', error);
     throw error;
   }
 };
