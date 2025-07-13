@@ -3,6 +3,7 @@ const User = require('../models/userModel');
 const mongoose = require('mongoose');
 const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
 const googleDrive = require('../config/googleDrive');
+const Post = require('../models/postModel'); // Добавляем импорт Post
 // Удаляем импорт onlineUsers и io
 // const { onlineUsers, io } = require('../index');
 
@@ -167,14 +168,43 @@ exports.sendMessage = async (req, res) => {
     // Обработка пересланного поста
     if (sharedPostString) {
       try {
+        console.log('Received sharedPost JSON:', sharedPostString);
         const sharedPost = JSON.parse(sharedPostString);
+        console.log('Parsed sharedPost:', JSON.stringify(sharedPost, null, 2));
+
         if (sharedPost && (sharedPost.id || sharedPost._id)) {
-          newMessage.sharedPost = {
-            post: sharedPost.id || sharedPost._id
-          };
+          // Проверяем, существует ли пост в базе данных
+          const existingPost = await Post.findById(sharedPost.id || sharedPost._id);
+          console.log('Existing post:', existingPost ? 'Found' : 'Not found');
+          
+          if (existingPost) {
+            newMessage.sharedPost = {
+              post: existingPost._id
+            };
+          } else {
+            // Если пост не найден, создаем временный пост
+            const tempPost = new Post({
+              author: senderId, // Текущий пользователь как автор
+              caption: sharedPost.caption || '',
+              image: sharedPost.image || sharedPost.imageUrl,
+              imageUrl: sharedPost.imageUrl || sharedPost.image,
+              mediaType: sharedPost.mediaType || 'image',
+              videoUrl: sharedPost.videoUrl,
+              youtubeData: sharedPost.youtubeData,
+              createdAt: sharedPost.createdAt || new Date()
+            });
+            
+            console.log('Creating temporary post:', JSON.stringify(tempPost, null, 2));
+            
+            const savedTempPost = await tempPost.save({ session });
+            
+            newMessage.sharedPost = {
+              post: savedTempPost._id
+            };
+          }
         }
       } catch(e) {
-        console.error("Failed to parse sharedPost JSON", e);
+        console.error("Failed to parse or process sharedPost JSON", e);
         // Не прерываем операцию, просто не добавляем пост
       }
     }

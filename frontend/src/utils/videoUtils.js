@@ -148,58 +148,40 @@ export const getProfileGifThumbnail = (post, options = {}) => {
 };
 
 // Получение превью для любого типа медиа (для модалки и фоновых изображений)
-export const getMediaThumbnail = (post, options = {}) => {
-  if (!post) return '/video-placeholder.svg';
+export const getMediaThumbnail = (post) => {
+  console.log('getMediaThumbnail input:', JSON.stringify(post, null, 2));
 
-  // Приоритет: новые поля с backend
-  if (post.thumbnailUrl) {
-    return post.thumbnailUrl;
-  }
-  
-  if (post.mobileThumbnailUrl) {
-    return post.mobileThumbnailUrl;
-  }
-
-  // YouTube видео - проверяем все возможные источники
+  // YouTube превью
   if (post.youtubeData && post.youtubeData.thumbnailUrl) {
+    console.log('Using YouTube thumbnail:', post.youtubeData.thumbnailUrl);
     return post.youtubeData.thumbnailUrl;
   }
 
-  // YouTube URL - улучшенная проверка
-  let youtubeId = null;
-  
-  if (post.videoUrl) {
-    // Стандартный YouTube URL
-    if (post.videoUrl.includes('youtube.com/watch?v=')) {
-      const match = post.videoUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-      youtubeId = match ? match[1] : null;
-    }
-    // Короткий YouTube URL
-    else if (post.videoUrl.includes('youtu.be/')) {
-      const match = post.videoUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-      youtubeId = match ? match[1] : null;
-    }
-    // Embed URL
-    else if (post.videoUrl.includes('youtube.com/embed/')) {
-      const match = post.videoUrl.match(/embed\/([a-zA-Z0-9_-]{11})/);
-      youtubeId = match ? match[1] : null;
-    }
-  }
-  
-  if (youtubeId) {
-    // Используем maxresdefault для лучшего качества
-    return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
-  }
-
-  // Для загруженных видео возвращаем статичное JPG превью
-  const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
-  if (videoUrl && videoUrl.includes('cloudinary.com')) {
-    return videoUrl.replace(
-      '/video/upload/',
-      `/video/upload/w_400,c_scale,f_jpg,so_0,q_auto/`
+  // Cloudinary видео превью
+  if (post.imageUrl && post.imageUrl.includes('cloudinary.com/') && post.imageUrl.includes('/video/')) {
+    const thumbnailUrl = post.imageUrl.replace(
+      '/video/upload/', 
+      '/video/upload/w_400,c_limit,f_jpg,so_0,q_auto/'
     );
+    console.log('Using Cloudinary video thumbnail:', thumbnailUrl);
+    return thumbnailUrl;
   }
 
+  // Cloudinary изображение
+  if (post.imageUrl && post.imageUrl.includes('cloudinary.com/')) {
+    console.log('Using Cloudinary image:', post.imageUrl);
+    return post.imageUrl;
+  }
+
+  // Google Drive превью
+  if (post.imageUrl && post.imageUrl.includes('drive.google.com')) {
+    const thumbnailUrl = `${API_URL}/api/proxy-drive/${post.imageUrl.split('id=')[1]}`;
+    console.log('Using Google Drive thumbnail:', thumbnailUrl);
+    return thumbnailUrl;
+  }
+
+  // Fallback превью
+  console.log('Using fallback placeholder');
   return '/video-placeholder.svg';
 };
 

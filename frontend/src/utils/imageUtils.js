@@ -246,13 +246,90 @@ export const getFileSizeKB = (dataUrl) => {
 }; 
 
 export const getImageUrl = (imagePath, options = {}) => {
-  if (!imagePath) return '/default-post-placeholder.png';
+  console.group('🖼️ getImageUrl Debugging');
   
-  if (imagePath.startsWith('http')) {
-    return `${API_URL}/api/proxy-drive/${imagePath.split('id=')[1]}`;
+  // Если передан объект, пытаемся извлечь путь
+  if (typeof imagePath === 'object' && imagePath !== null) {
+    imagePath = 
+      imagePath.imageUrl || 
+      imagePath.image || 
+      imagePath.thumbnailUrl || 
+      imagePath.url || 
+      '/default-post-placeholder.png';
   }
+
+  console.log('Input:', { 
+    imagePath, 
+    type: typeof imagePath, 
+    options 
+  });
+
+  try {
+    if (!imagePath) {
+      console.warn('❌ Empty image path, returning default');
+      console.groupEnd();
+      return '/default-post-placeholder.png';
+    }
+
+    // Обработка локальных путей
+    if (imagePath.startsWith('/Users/') || imagePath.startsWith('/home/')) {
+      const fileName = imagePath.split('/').pop();
+      const proxyUrl = `${API_URL}/uploads/${fileName}`;
+      console.log('📁 Constructed local URL:', proxyUrl);
+      console.groupEnd();
+      return proxyUrl;
+    }
   
-  return imagePath;
+    // Улучшенная обработка Google Drive URL
+    if (imagePath.includes('drive.google.com')) {
+      console.log('🔍 Detected Google Drive URL');
+      try {
+        const url = new URL(imagePath);
+        console.log('URL Object:', {
+          href: url.href,
+          origin: url.origin,
+          pathname: url.pathname,
+          search: url.search
+        });
+
+        const fileId = 
+          url.searchParams.get('id') || 
+          url.pathname.split('/').pop() ||
+          imagePath.match(/\/file\/d\/([^/]+)/)?.[1];
+        
+        console.log('Google Drive URL parsing:', { 
+          url: imagePath, 
+          extractedId: fileId 
+        });
+        
+        if (fileId) {
+          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
+          console.log('✅ Constructed proxy URL:', proxyUrl);
+          console.groupEnd();
+          return proxyUrl;
+        }
+      } catch (e) {
+        console.error('❌ Google Drive URL parsing error:', e);
+      }
+    }
+
+    // Если уже полный URL - возвращаем как есть
+    if (imagePath.startsWith('http')) {
+      console.log('🌐 Returning full URL:', imagePath);
+      console.groupEnd();
+      return imagePath;
+    }
+
+    // Локальные пути в uploads
+    const localUrl = `${API_URL}/uploads/${imagePath}`;
+    console.log('📂 Constructed uploads URL:', localUrl);
+    console.groupEnd();
+    return localUrl;
+  } catch (error) {
+    console.error('❌ getImageUrl error:', error);
+    console.groupEnd();
+    return '/default-post-placeholder.png';
+  }
 };
 
 /**
@@ -261,13 +338,26 @@ export const getImageUrl = (imagePath, options = {}) => {
  * @returns {string} - полный URL аватара
  */
 export const getAvatarUrl = (avatarPath) => {
+  // Если пустой путь - возвращаем дефолтный аватар
   if (!avatarPath) return '/default-avatar.png';
   
-  if (avatarPath.startsWith('http')) {
+  // Google Drive URL
+  if (avatarPath.includes('drive.google.com')) {
     return `${API_URL}/api/proxy-drive/${avatarPath.split('id=')[1]}`;
   }
   
-  return avatarPath;
+  // Cloudinary или локальные пути
+  if (avatarPath.startsWith('krealgram/')) {
+    return `https://res.cloudinary.com/dibcwdwsd/image/upload/${avatarPath}`;
+  }
+  
+  // Если уже полный URL - возвращаем как есть
+  if (avatarPath.startsWith('http')) {
+    return avatarPath;
+  }
+  
+  // Для локальных путей добавляем базовый URL
+  return `${API_URL}/uploads/${avatarPath}`;
 };
 
 export const getVideoUrl = (videoPath, options = {}) => {

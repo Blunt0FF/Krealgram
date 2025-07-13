@@ -12,6 +12,7 @@ import '../Post/ShareModal.css';
 import { API_URL } from '../../config';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import axios from 'axios';
+import { getImageUrl, getVideoUrl } from '../../utils/imageUtils';
 
 const Messages = ({ currentUser }) => {
   const location = useLocation();
@@ -311,7 +312,18 @@ const Messages = ({ currentUser }) => {
     const formData = new FormData();
     formData.append('text', text);
     if (postToShare) {
-      formData.append('sharedPost', JSON.stringify(postToShare));
+      // Проверяем, что пост имеет все необходимые поля
+      const validPost = {
+        id: postToShare.id || postToShare._id,
+        image: postToShare.image || postToShare.imageUrl,
+        caption: postToShare.caption || '',
+        author: typeof postToShare.author === 'object' 
+          ? postToShare.author.username 
+          : postToShare.author,
+        createdAt: postToShare.createdAt || new Date().toISOString()
+      };
+      
+      formData.append('sharedPost', JSON.stringify(validPost));
     }
     if (fileToSend) {
       formData.append('media', fileToSend, fileToSend.name);
@@ -439,21 +451,57 @@ const Messages = ({ currentUser }) => {
   };
 
   const sendPostToUser = async (userToChatWith) => {
+    console.log('sendPostToUser called with:', { 
+      userToChatWith, 
+      sharedPost: JSON.stringify(sharedPost, null, 2) 
+    });
+
     if (!userToChatWith || !sharedPost) {
       console.log('Missing data for sending post:', { userToChatWith, sharedPost });
+      return;
+    }
+
+    // Добавляем дополнительную проверку данных
+    if (!userToChatWith._id) {
+      console.error('Invalid user data: missing _id');
       return;
     }
 
     try {
       const conversation = await startConversation(userToChatWith);
       if (conversation) {
+        // Список возможных источников изображения в порядке приоритета
+        const imageSources = [
+          sharedPost?.imageUrl, 
+          sharedPost?.image, 
+          sharedPost?.thumbnailUrl,
+          '/default-post-placeholder.png',
+          '/video-placeholder.svg'
+        ].filter(Boolean); // Удаляем пустые значения
+
         const postToShare = {
-          id: sharedPost._id || sharedPost.id,
-          image: sharedPost.imageUrl || sharedPost.image,
-          caption: sharedPost.caption || '',
-          author: typeof sharedPost.author === 'object' ? sharedPost.author.username : sharedPost.author,
-          createdAt: sharedPost.createdAt || new Date().toISOString()
+          id: sharedPost?._id || sharedPost?.id || '',
+          image: imageSources[0] || '',
+          imageUrl: imageSources[0] || '',
+          caption: sharedPost?.caption || '',
+          author: sharedPost?.author?.username || sharedPost?.author || 'Unknown',
+          createdAt: sharedPost?.createdAt || new Date().toISOString(),
+          mediaType: sharedPost?.mediaType || 
+            (sharedPost?.videoUrl ? 'video' : 
+            (sharedPost?.youtubeData ? 'youtube' : 'image')),
+          thumbnailUrl: imageSources[1] || imageSources[0] || ''
         };
+
+        console.log('Prepared postToShare:', JSON.stringify(postToShare, null, 2));
+
+        // Проверяем, что postToShare имеет необходимые данные
+        if (!postToShare.id) {
+          console.error('Invalid post data: missing id', postToShare);
+          return;
+        }
+
+        // Обновляем состояние для отправки
+        setSharedPost(postToShare);
 
         // Явно передаем ID получателя, чтобы избежать проблем с асинхронным состоянием
         await sendMessage(null, conversation.participant._id);
@@ -464,7 +512,7 @@ const Messages = ({ currentUser }) => {
     } catch (error) {
       console.error('Error sending post:', error);
     }
-  };
+};
 
   const openImageModal = (imageSrc) => {
     setSelectedImage(imageSrc);
@@ -589,7 +637,20 @@ const Messages = ({ currentUser }) => {
   };
 
   const handlePostClickInMessage = (post) => {
-    setSelectedPostForModal(post);
+    console.log('Clicked post in message:', post);
+    
+    // Проверяем, что пост имеет все необходимые поля
+    const postToOpen = {
+      ...post,
+      author: typeof post.author === 'object' 
+        ? post.author 
+        : { username: post.author },
+      image: post.image || post.imageUrl,
+      thumbnailUrl: post.thumbnailUrl || post.image || post.imageUrl,
+      mediaType: post.mediaType || (post.videoUrl ? 'video' : 'image')
+    };
+
+    setSelectedPostForModal(postToOpen);
     setPostModalOpen(true);
   };
 
@@ -820,7 +881,7 @@ const Messages = ({ currentUser }) => {
                       {message.media && message.media.type === 'image' && (
                         <div className="message-image" onClick={() => openImageModal(message.media.url)}>
                           <img 
-                            src={message.media.url} 
+                            src={getImageUrl(message.media.url)} 
                             alt="Shared image" 
                             className="responsive-message-img"
                             style={{ 
@@ -828,7 +889,11 @@ const Messages = ({ currentUser }) => {
                               maxHeight: '400px',
                               borderRadius: '8px',
                               marginTop: '4px',
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              e.target.src = '/default-post-placeholder.png';
                             }}
                           />
                         </div>
@@ -836,7 +901,7 @@ const Messages = ({ currentUser }) => {
                       {message.media && message.media.type === 'video' && (
                         <div className="message-video" style={{ marginTop: '4px' }}>
                           <video 
-                            src={message.media.url} 
+                            src={getVideoUrl(message.media.url)} 
                             controls
                             poster={(() => {
                               // Создаем превью для Cloudinary видео
@@ -853,6 +918,9 @@ const Messages = ({ currentUser }) => {
                               maxHeight: '400px',
                               borderRadius: '8px',
                               width: '100%'
+                            }}
+                            onError={(e) => {
+                              e.target.src = '/video-placeholder.svg';
                             }}
                           />
                         </div>
@@ -978,13 +1046,16 @@ const Messages = ({ currentUser }) => {
                   <img 
                     src={(() => {
                       // Определяем является ли пост видео
-                      const isVideo = sharedPost.mediaType === 'video' || 
-                                      sharedPost.videoUrl || 
-                                      sharedPost.youtubeData ||
-                                      (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
+                      const isVideo = 
+                        sharedPost.mediaType === 'video' || 
+                        sharedPost.videoUrl || 
+                        sharedPost.youtubeData ||
+                        (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
                       
                       // Для видео используем превью, для изображений - обычное изображение
-                      return isVideo ? getMediaThumbnail(sharedPost) : (sharedPost.imageUrl || sharedPost.image);
+                      return isVideo 
+                        ? getMediaThumbnail(sharedPost) 
+                        : getImageUrl(sharedPost.imageUrl || sharedPost.image);
                     })()} 
                     alt="Post preview" 
                     style={{ 
@@ -995,9 +1066,7 @@ const Messages = ({ currentUser }) => {
                     }}
                     onError={(e) => {
                       // Fallback на заглушку видео если превью не загрузилось
-                      if (e.target.src !== '/video-placeholder.svg') {
-                        e.target.src = '/video-placeholder.svg';
-                      }
+                      e.target.src = '/video-placeholder.svg';
                     }}
                   />
                   {/* Показываем иконку плеера для видео */}
