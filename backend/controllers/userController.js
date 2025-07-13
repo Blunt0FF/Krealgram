@@ -53,9 +53,24 @@ exports.getUserProfile = async (req, res) => {
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
+    console.log('[PROFILE_DEBUG] User data:', {
+      username: user.username,
+      avatar: user.avatar,
+      postsCount: user.posts ? user.posts.length : 0,
+      followersCount: user.followers ? user.followers.length : 0,
+      followingCount: user.following ? user.following.length : 0
+    });
+
     // Добавляем полные URL для изображений постов пользователя
     if (user.posts && user.posts.length > 0) {
       user.posts = user.posts.map(post => {
+        console.log(`[PROFILE_DEBUG] Post details:`, {
+          postId: post._id,
+          image: post.image,
+          imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`,
+          comments: post.comments
+        });
+
         const commentCount = post.comments ? post.comments.length : 0;
         console.log(`[DEBUG] Post ${post._id} comments:`, {
           commentsArray: post.comments,

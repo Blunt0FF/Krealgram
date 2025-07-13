@@ -121,6 +121,14 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
   const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
 
+  console.log(`[PROXY-DRIVE_FULL_DEBUG] Incoming request details:`, {
+    fileId,
+    headers: req.headers,
+    method: req.method,
+    url: req.url,
+    isInitialized: drive.isInitialized
+  });
+
   try {
     console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
     if (!drive.isInitialized) {
@@ -131,11 +139,17 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     // Получаем метаданные файла
     const meta = await drive.drive.files.get({
       fileId,
-      fields: 'name, mimeType'
+      fields: 'name, mimeType, size'
     });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
     const fileName = meta.data.name || 'file';
-    console.log(`[PROXY-DRIVE] mimeType: ${mimeType}, fileName: ${fileName}`);
+    const fileSize = meta.data.size || 0;
+
+    console.log(`[PROXY-DRIVE_FULL_DEBUG] File metadata:`, {
+      mimeType,
+      fileName,
+      fileSize
+    });
 
     // Получаем сам файл как stream
     const fileRes = await drive.drive.files.get({
@@ -143,25 +157,56 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       alt: 'media'
     }, { responseType: 'stream' });
 
+    // Обработка диапазонных запросов (для больших файлов)
+    const range = req.headers.range;
+    if (range) {
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Range request:`, range);
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': mimeType
+      });
+    } else {
+      res.setHeader('Content-Length', fileSize);
+    }
+
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
 
-    fileRes.data.on('end', () => {
-      console.log(`[PROXY-DRIVE] Файл ${fileId} успешно отправлен на фронт`);
+    fileRes.data.on('data', (chunk) => {
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Chunk received: ${chunk.length} bytes`);
     });
+
+    fileRes.data.on('end', () => {
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Файл ${fileId} полностью отправлен на фронт`);
+    });
+
     fileRes.data.on('error', (err) => {
-      console.error('[PROXY-DRIVE] Ошибка при отправке файла:', err);
+      console.error('[PROXY-DRIVE_FULL_DEBUG] Ошибка при отправке файла:', err);
       res.status(500).send('Error streaming file');
     });
+
     fileRes.data.pipe(res);
   } catch (err) {
+    console.error('[PROXY-DRIVE_FULL_DEBUG] Полная ошибка:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+      details: err.response ? err.response.data : null
+    });
+
     if (err.message && err.message.includes('File not found')) {
-      console.warn(`[PROXY-DRIVE] ⚠️ Файл не найден: ${fileId}`);
+      console.warn(`[PROXY-DRIVE_FULL_DEBUG] ⚠️ Файл не найден: ${fileId}`);
       return res.status(404).send('File not found');
     }
-    console.error('[PROXY-DRIVE] ❌ Ошибка:', err.message);
     res.status(500).send('Proxy error: ' + err.message);
   }
 });
