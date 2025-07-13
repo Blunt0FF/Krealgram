@@ -12,7 +12,7 @@ export async function checkAndSetApiUrl() {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
 
-    await fetch(LOCAL_URL, { // Changed from '/api/health' to root
+    await fetch(LOCAL_URL, { 
       method: 'HEAD',
       signal: controller.signal
     });
@@ -20,11 +20,9 @@ export async function checkAndSetApiUrl() {
     clearTimeout(timeoutId);
     API_URL = LOCAL_URL;
     SOCKET_URL = `ws://${LOCAL_URL.split('://')[1]}`;
-    console.log('Using local backend');
   } catch (error) {
     API_URL = REMOTE_URL;
     SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
-    console.log('Using remote backend');
   }
 }
 

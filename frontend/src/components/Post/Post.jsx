@@ -15,14 +15,15 @@ import './Post.css';
 
 const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
   // --- DEBUG LOG ---
-  console.log('[POST_DEBUG] Rendering Post component with data:', {
-    postId: post?._id,
-    mediaType: post?.mediaType,
-    image: post?.image,
-    videoUrl: post?.videoUrl,
-    thumbnailUrl: post?.thumbnailUrl,
-    author: post?.author?.username
-  });
+  // Удаляем отладочный лог
+  // console.log('[POST_DEBUG] Rendering Post component with data:', {
+  //   postId: post?._id,
+  //   mediaType: post?.mediaType,
+  //   image: post?.image,
+  //   videoUrl: post?.videoUrl,
+  //   thumbnailUrl: post?.thumbnailUrl,
+  //   author: post?.author?.username
+  // });
   // --- END DEBUG LOG ---
 
   const [isLiked, setIsLiked] = useState(() => {

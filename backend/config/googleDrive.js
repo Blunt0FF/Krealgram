@@ -163,6 +163,53 @@ class GoogleDriveManager {
       return false;
     }
   }
+
+  async linkFiles(mainFileId, previewFileId) {
+    try {
+      await this.drive.files.update({
+        fileId: mainFileId,
+        resource: {
+          properties: {
+            previewFileId: previewFileId
+          }
+        }
+      });
+      await this.drive.files.update({
+        fileId: previewFileId,
+        resource: {
+          properties: {
+            mainFileId: mainFileId
+          }
+        }
+      });
+      console.log(`✅ Файлы ${mainFileId} и ${previewFileId} связаны`);
+    } catch (error) {
+      console.error('❌ Ошибка связывания файлов:', error);
+    }
+  }
+
+  async deleteLinkedFiles(fileId) {
+    try {
+      // Получаем метаданные файла
+      const fileMetadata = await this.drive.files.get({
+        fileId: fileId,
+        fields: 'properties'
+      });
+
+      const previewFileId = fileMetadata.data.properties?.previewFileId;
+
+      // Удаляем основной файл
+      await this.drive.files.delete({ fileId: fileId });
+
+      // Если есть превью, удаляем и его
+      if (previewFileId) {
+        await this.drive.files.delete({ fileId: previewFileId });
+        console.log(`✅ Удалены связанные файлы: ${fileId} и ${previewFileId}`);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка удаления связанных файлов:', error);
+    }
+  }
 }
 
 module.exports = new GoogleDriveManager(); 

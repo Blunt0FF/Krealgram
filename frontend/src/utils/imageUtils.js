@@ -246,63 +246,13 @@ export const getFileSizeKB = (dataUrl) => {
 }; 
 
 export const getImageUrl = (imagePath, options = {}) => {
-  console.log('[IMAGE_URL_DEBUG] Input:', {
-    imagePath,
-    options,
-    apiUrl: API_URL
-  });
-
-  if (!imagePath) {
-    console.log('[IMAGE_URL_DEBUG] No image path, returning default');
-    return '/default-post-placeholder.png';
+  if (!imagePath) return '/default-post-placeholder.png';
+  
+  if (imagePath.startsWith('http')) {
+    return `${API_URL}/api/proxy-drive/${imagePath.split('id=')[1]}`;
   }
-
-  const { isThumbnail = false } = options;
-
-  // Если это полный URL Google Drive, преобразуем в прокси
-  if (imagePath.includes('drive.google.com/uc?id=')) {
-    const fileId = imagePath.split('id=')[1];
-    const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
-    console.log('[IMAGE_URL_DEBUG] Google Drive URL converted:', {
-      original: imagePath,
-      proxyUrl
-    });
-    return proxyUrl;
-  }
-
-  // Если это полный URL другого типа, возвращаем как есть
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    console.log('[IMAGE_URL_DEBUG] Full URL detected:', imagePath);
-    return imagePath;
-  }
-
-  // Если это локальный путь
-  if (imagePath.startsWith('/uploads') || imagePath.startsWith('uploads')) {
-    const fullUrl = `${API_URL}${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
-    console.log('[IMAGE_URL_DEBUG] Local uploads path:', {
-      original: imagePath,
-      fullUrl
-    });
-    return fullUrl;
-  }
-
-  // Если это относительный путь к картинке
-  if (imagePath.startsWith('images/') || imagePath.startsWith('/images/')) {
-    const fullUrl = `${API_URL}${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
-    console.log('[IMAGE_URL_DEBUG] Images path:', {
-      original: imagePath,
-      fullUrl
-    });
-    return fullUrl;
-  }
-
-  // Если это просто имя файла
-  const fullUrl = `${API_URL}/uploads/${imagePath}`;
-  console.log('[IMAGE_URL_DEBUG] Filename path:', {
-    original: imagePath,
-    fullUrl
-  });
-  return fullUrl;
+  
+  return imagePath;
 };
 
 /**
@@ -311,60 +261,13 @@ export const getImageUrl = (imagePath, options = {}) => {
  * @returns {string} - полный URL аватара
  */
 export const getAvatarUrl = (avatarPath) => {
-  console.log('[AVATAR_URL_DEBUG] Input:', {
-    avatarPath,
-    apiUrl: API_URL
-  });
-
-  if (!avatarPath) {
-    console.log('[AVATAR_URL_DEBUG] No avatar path, returning default');
-    return '/default-avatar.png';
+  if (!avatarPath) return '/default-avatar.png';
+  
+  if (avatarPath.startsWith('http')) {
+    return `${API_URL}/api/proxy-drive/${avatarPath.split('id=')[1]}`;
   }
-
-  // Если это полный URL Google Drive, преобразуем в прокси
-  if (avatarPath.includes('drive.google.com/uc?id=')) {
-    const fileId = avatarPath.split('id=')[1];
-    const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
-    console.log('[AVATAR_URL_DEBUG] Google Drive URL converted:', {
-      original: avatarPath,
-      proxyUrl
-    });
-    return proxyUrl;
-  }
-
-  // Если это полный URL другого типа, возвращаем как есть
-  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
-    console.log('[AVATAR_URL_DEBUG] Full URL detected:', avatarPath);
-    return avatarPath;
-  }
-
-  // Если это локальный путь
-  if (avatarPath.startsWith('/uploads') || avatarPath.startsWith('uploads')) {
-    const fullUrl = `${API_URL}${avatarPath.startsWith('/') ? avatarPath : '/' + avatarPath}`;
-    console.log('[AVATAR_URL_DEBUG] Local uploads path:', {
-      original: avatarPath,
-      fullUrl
-    });
-    return fullUrl;
-  }
-
-  // Если это относительный путь к аватару
-  if (avatarPath.startsWith('images/') || avatarPath.startsWith('/images/')) {
-    const fullUrl = `${API_URL}${avatarPath.startsWith('/') ? avatarPath : '/' + avatarPath}`;
-    console.log('[AVATAR_URL_DEBUG] Images path:', {
-      original: avatarPath,
-      fullUrl
-    });
-    return fullUrl;
-  }
-
-  // Если это просто имя файла
-  const fullUrl = `${API_URL}/uploads/${avatarPath}`;
-  console.log('[AVATAR_URL_DEBUG] Filename path:', {
-    original: avatarPath,
-    fullUrl
-  });
-  return fullUrl;
+  
+  return avatarPath;
 };
 
 export const getVideoUrl = (videoPath, options = {}) => {
