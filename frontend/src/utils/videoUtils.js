@@ -285,7 +285,10 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
         return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
       }
     } catch (e) {
-      console.error("Invalid Google Drive URL", videoUrl);
+      console.error("Invalid Google Drive URL", {
+        videoUrl: videoUrl,
+        error: e.message
+      });
     }
   }
 

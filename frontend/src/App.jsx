@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Feed from './components/Feed/Feed';
 import Login from './pages/Login';
@@ -16,8 +16,7 @@ import Sidebar from './components/Sidebar/Sidebar';
 import MobileNavigation from './components/Navigation/MobileNavigation';
 import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
-import { API_URL } from './config';
-import { checkAndSetApiUrl } from './config';
+import { API_URL, LOCAL_URL, REMOTE_URL, checkAndSetApiUrl } from './config';
 import './App.css';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
@@ -29,6 +28,8 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const initializedRef = useRef(false);
 
   const handleLogout = async () => {
     try {
@@ -65,42 +66,62 @@ const App = () => {
   };
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     const initializeApp = async () => {
-      await checkAndSetApiUrl();
-      
+      console.log('🌐 Current environment:', {
+        hostname: window.location.hostname,
+        protocol: window.location.protocol,
+        API_URL: API_URL,
+        LOCAL_URL,
+        REMOTE_URL
+      });
+
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+      if (isLocal) {
+        await checkAndSetApiUrl();
+      }
+
       const token = localStorage.getItem('token');
       if (token) {
         fetch(`${API_URL}/api/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
-        .then(res => {
-          if (res.ok) return res.json();
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setIsAuthenticated(false);
-          setUser(null);
-          setUnreadCount(0);
-          throw new Error('Token verification failed or session expired');
-        })
-        .then(userData => {
-          setIsAuthenticated(true);
-          setUser(userData.user);
-          localStorage.setItem('user', JSON.stringify(userData.user));
-          fetchUnreadCount(token);
-        })
-        .catch(error => {
-          console.error('Authentication check error:', error.message);
-          if (error.message !== 'Token verification failed or session expired') {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              setIsAuthenticated(false);
-              setUser(null);
-              setUnreadCount(0);
-          }
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+          .then(res => {
+            console.log('🔐 Auth check response:', {
+              status: res.status,
+              ok: res.ok,
+              API_URL
+            });
+
+            if (res.ok) return res.json();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setIsAuthenticated(false);
+            setUser(null);
+            setUnreadCount(0);
+            throw new Error('Token verification failed or session expired');
+          })
+          .then(userData => {
+            setIsAuthenticated(true);
+            setUser(userData.user);
+            localStorage.setItem('user', JSON.stringify(userData.user));
+            fetchUnreadCount(token);
+          })
+          .catch(error => {
+            console.error('🚨 Authentication check error:', {
+              message: error.message,
+              API_URL
+            });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setIsAuthenticated(false);
+            setUser(null);
+            setUnreadCount(0);
+          })
+          .finally(() => setLoading(false));
       } else {
         setLoading(false);
         setIsAuthenticated(false);
@@ -157,7 +178,6 @@ const App = () => {
             </PublicRoute>
           } />
           <Route path="/verify-email" element={<VerifyEmail />} />
-          {/* Приватные маршруты с Sidebar и мобильной навигацией */}
           <Route path="/*" element={
             isAuthenticated ? (
               <div className="main-layout">
@@ -186,4 +206,4 @@ const App = () => {
   );
 };
 
-export default App; 
+export default App;

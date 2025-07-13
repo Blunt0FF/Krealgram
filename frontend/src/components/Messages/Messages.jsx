@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getImageUrl } from '../../utils/imageUtils';
 import { formatLastSeen, formatMessageTime } from '../../utils/timeUtils';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
@@ -878,11 +878,58 @@ const Messages = ({ currentUser }) => {
                         })()
                       )}
                       {message.media && message.media.type === 'image' && (
-                        <div className="message-image" onClick={() => openImageModal(message.media.url)}>
+                        <div 
+                          className="message-image" 
+                          onClick={() => {
+                            // Извлекаем URL с максимальным приоритетом
+                            const urlSources = [
+                              message.media.url,
+                              message.media.imageUrl,
+                              message.media.thumbnailUrl,
+                              message.media.image,
+                              '/default-post-placeholder.png'
+                            ].filter(Boolean);
+
+                            const processedUrl = getImageUrl(urlSources[0]);
+                            
+                            // Проверка доступности изображения
+                            const img = new Image();
+                            img.onload = () => {
+                              console.log('Image successfully loaded:', processedUrl);
+                              openImageModal(processedUrl);
+                            };
+                            img.onerror = () => {
+                              console.warn('Image load failed, using fallback:', processedUrl);
+                              openImageModal(urlSources[urlSources.length - 1]);
+                            };
+                            img.src = processedUrl;
+                          }}
+                        >
                           <img 
-                            src={message.media.url} 
+                            src={getImageUrl(message.media.url)} 
                             alt="Shared image" 
                             className="responsive-message-img"
+                            onError={(e) => {
+                              const fallbackSources = [
+                                message.media.imageUrl,
+                                message.media.thumbnailUrl,
+                                message.media.image,
+                                '/default-post-placeholder.png'
+                              ].filter(Boolean);
+
+                              // Пытаемся загрузить альтернативные источники
+                              for (const source of fallbackSources) {
+                                try {
+                                  e.target.src = getImageUrl(source);
+                                  break;
+                                } catch (error) {
+                                  console.warn('Failed to load image source:', source);
+                                }
+                              }
+
+                              e.target.alt = 'Image failed to load';
+                              e.target.style.opacity = '0.5';
+                            }}
                             style={{ 
                               maxWidth: '400px', 
                               maxHeight: '400px',

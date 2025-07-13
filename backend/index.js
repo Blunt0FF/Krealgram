@@ -27,46 +27,83 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
+      "http://localhost:3000",
       "http://localhost:4000",
+      "http://127.0.0.1:3000",
       "http://127.0.0.1:4000",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com"
+      "https://www.krealgram.com",
+      "https://krealgram-backend.onrender.com",
+      /\.krealgram\.com$/,
+      /\.vercel\.app$/
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    credentials: true
+    credentials: true,
+    allowedHeaders: [
+      'Content-Type', 
+      'Authorization', 
+      'Origin', 
+      'X-Requested-With', 
+      'Accept', 
+      'Range'
+    ]
   }
 });
 
 app.set('io', io);
 
-const whitelist = [
-  "http://localhost:4000",
-  "http://127.0.0.1:4000",
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "https://krealgram.vercel.app",
-  "https://krealgram.com",
-  "https://www.krealgram.com"
-];
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || whitelist.includes(origin)) {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3000', 
+      'http://localhost:4000',
+      'https://krealgram.com', 
+      'https://www.krealgram.com', 
+      'http://krealgram.com',
+      'http://www.krealgram.com',
+      'https://krealgram.vercel.app',
+      'https://krealgram-backend.onrender.com',
+      /^https?:\/\/(www\.)?krealgram\.com$/,
+      /^https?:\/\/([\w-]+\.)?krealgram\.com$/,
+      /\.vercel\.app$/
+    ];
+
+    console.log('[CORS_DEBUG] Входящий origin:', origin);
+
+    if (!origin || allowedOrigins.some(allowed => 
+      typeof allowed === 'string' 
+        ? origin === allowed 
+        : allowed.test(origin)
+    )) {
+      console.log('[CORS_DEBUG] Origin разрешен:', origin);
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.log('[CORS_DEBUG] Origin запрещен:', origin);
+      callback(null, true); // Временно разрешаем все
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Origin', 
+    'X-Requested-With', 
+    'Accept', 
+    'Range',
+    'x-requested-with'
+  ],
+  exposedHeaders: [
+    'Content-Range', 
+    'X-Content-Range', 
+    'Authorization'
+  ],
   credentials: true,
-  maxAge: 86400
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
-app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
-
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -96,120 +133,55 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.get('/api/proxy-drive/:id', async (req, res) => {
-  const fileId = req.params.id;
-  const { google } = require('googleapis');
-  const drive = require('./config/googleDrive');
+  console.group('[PROXY-DRIVE] Request Processing');
+  console.log('[PROXY-DRIVE] Request details:', req.params.id);
 
-  console.group(`[PROXY-DRIVE] Incoming request for file ${fileId}`);
-  console.log('Request details:', {
-    fileId,
-    headers: req.headers,
-    method: req.method,
-    url: req.url,
-    isInitialized: drive.isInitialized
-  });
+  const origin = req.headers.origin || req.headers.referer || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   try {
-    if (!drive.isInitialized) {
-      console.error('[PROXY-DRIVE] Google Drive not initialized');
-      console.groupEnd();
-      return res.status(500).send('Google Drive not initialized');
+    if (!googleDrive.isInitialized) {
+      return res.status(500).json({ message: 'Google Drive не инициализирован' });
     }
 
-    // Проверка доступности файла
-    try {
-      const fileMetadata = await drive.drive.files.get({
-        fileId,
-        fields: 'id, name, mimeType, size, permissions'
-      });
-
-      console.log('File metadata:', {
-        id: fileMetadata.data.id,
-        name: fileMetadata.data.name,
-        mimeType: fileMetadata.data.mimeType,
-        size: fileMetadata.data.size
-      });
-
-      // Проверка разрешений
-      const permissions = await drive.drive.permissions.list({
-        fileId,
-        fields: 'permissions(role, type)'
-      });
-
-      const hasPublicAccess = permissions.data.permissions.some(
-        perm => perm.role === 'reader' && perm.type === 'anyone'
-      );
-
-      console.log('File permissions:', {
-        hasPublicAccess,
-        permissionDetails: permissions.data.permissions
-      });
-
-      if (!hasPublicAccess) {
-        console.warn('[PROXY-DRIVE] File is not publicly accessible');
-        console.groupEnd();
-        return res.status(403).send('File is not publicly accessible');
-      }
-    } catch (metaError) {
-      console.error('[PROXY-DRIVE] Error fetching file metadata:', metaError);
-      console.groupEnd();
-      return res.status(404).send('File not found or inaccessible');
-    }
-
-    const fileRes = await drive.drive.files.get({
-      fileId,
+    const fileId = req.params.id;
+    const fileRes = await googleDrive.drive.files.get({
+      fileId: fileId,
       alt: 'media'
-    }, { responseType: 'stream' });
-
-    const mimeType = fileRes.headers['content-type'] || 'application/octet-stream';
-    const fileName = fileRes.headers['x-goog-stored-content-filename'] || 'file';
-    const fileSize = parseInt(fileRes.headers['content-length'], 10) || 0;
-
-    console.log('File streaming details:', {
-      mimeType,
-      fileName,
-      fileSize
     });
 
-    const range = req.headers.range;
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunksize = (end - start) + 1;
-
-      res.writeHead(206, {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
-        'Content-Type': mimeType
-      });
-    } else {
-      res.setHeader('Content-Length', fileSize);
-    }
+    const fileName = fileRes.data.name || `file_${fileId}`;
+    const mimeType = fileRes.headers['content-type'] || 'application/octet-stream';
 
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=31536000');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Content-Disposition');
 
     fileRes.data.on('error', (err) => {
-      console.error('[PROXY-DRIVE] Streaming error:', err);
-      res.status(500).send('Error streaming file');
+      res.status(500).send('Ошибка потоковой передачи файла');
     });
 
     fileRes.data.pipe(res);
     console.groupEnd();
-  } catch (err) {
-    console.error('[PROXY-DRIVE] Global error:', {
-      message: err.message,
-      stack: err.stack,
-      code: err.code,
-      details: err.response ? err.response.data : null
-    });
+  } catch (error) {
+    console.error('[PROXY-DRIVE] Unexpected error:', error);
     console.groupEnd();
-    res.status(500).send('Proxy error: ' + err.message);
+    res.status(500).send('Непредвиденная ошибка при проксировании файла');
   }
+});
+
+app.options('/api/proxy-drive/:id', cors(corsOptions), (req, res) => {
+  res.sendStatus(200);
 });
 
 io.on('connection', async (socket) => {
@@ -244,14 +216,47 @@ io.on('connection', async (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
-resetAllUsersToOffline().then(() => {
-}).catch((error) => {
+resetAllUsersToOffline().catch((error) => {
   console.error('Failed to reset user statuses:', error);
 });
 
 startUserStatusUpdater();
 
+const whitelist = [
+  'http://localhost:3000',
+  'https://krealgram.com',
+  'https://www.krealgram.com',
+  'https://krealgram.vercel.app'
+];
+
 server.listen(PORT, () => {
   console.log(`[SERVER] 🌐 CORS whitelist: ${whitelist.join(', ')}`);
   console.log(`[SERVER] 📡 Socket.IO ready`);
+});
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin || req.headers.referer || '*';
+
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+  res.setHeader('Access-Control-Allow-Headers',
+    'X-Requested-With,content-type,Authorization,Accept,Origin,x-requested-with,Range');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Expose-Headers', 'Authorization, Content-Range, X-Content-Range');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
+app.use((err, req, res, next) => {
+  if (err.name === 'CorsError') {
+    return res.status(403).json({
+      error: 'CORS не разрешен',
+      message: 'Доступ с вашего домена запрещен'
+    });
+  }
+  next(err);
 });

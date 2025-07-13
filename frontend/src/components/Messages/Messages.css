@@ -290,6 +290,19 @@
   align-items: center;
   justify-content: space-between;
 }
+@media (max-width: 900px) {
+  .image-preview-container {
+    position: relative;
+    bottom: 2vh;
+  }
+}
+@media (max-width: 680px) {
+  .image-preview-container {
+    position: relative;
+    bottom: 8vh;
+  }
+}
+
 
 .image-preview-thumb {
   max-height: 50px;

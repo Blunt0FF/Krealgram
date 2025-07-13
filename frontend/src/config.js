@@ -1,29 +1,34 @@
-// API Configuration
-export const REMOTE_URL = 'https://krealgram-backend.onrender.com';
+// config.js
+
+export const REMOTE_URL = import.meta.env.VITE_API_URL || 'https://krealgram-backend.onrender.com';
 export const LOCAL_URL = 'http://localhost:3000';
 
-export let API_URL = REMOTE_URL; // Default to remote
+export let API_URL = REMOTE_URL;
+export let SOCKET_URL = import.meta.env.VITE_SOCKET_URL || `wss://${REMOTE_URL.split('://')[1]}`;
 
-// WebSocket Configuration
-export let SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`; // Default to remote
+export function setApiUrl(url) {
+  console.log('[CONFIG] Setting API_URL:', url);
+  API_URL = url || REMOTE_URL;
+  window.API_URL = API_URL;
+}
 
 export async function checkAndSetApiUrl() {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
 
-    await fetch(LOCAL_URL, { 
-      method: 'HEAD',
+    await fetch(`${LOCAL_URL}/api/auth/ping`, {
+      method: 'GET',
       signal: controller.signal
     });
 
     clearTimeout(timeoutId);
-    API_URL = LOCAL_URL;
+    console.log('[CONFIG] Local server reachable, switching to LOCAL_URL');
+    setApiUrl(LOCAL_URL);
     SOCKET_URL = `ws://${LOCAL_URL.split('://')[1]}`;
   } catch (error) {
-    API_URL = REMOTE_URL;
+    console.warn('[CONFIG] Local server not available, using REMOTE_URL');
+    setApiUrl(REMOTE_URL);
     SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
   }
 }
-
-// Call this in App.jsx on mount 

@@ -2,6 +2,10 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "env": {
+    "VITE_API_URL": "https://krealgram-backend.onrender.com",
+    "VITE_SOCKET_URL": "wss://krealgram-backend.onrender.com"
+  },
   "routes": [
     {
       "src": "/assets/(.*)",

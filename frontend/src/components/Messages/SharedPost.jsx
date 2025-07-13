@@ -62,7 +62,6 @@ const SharedPost = ({ post, onPostClick }) => {
           <Link to={`/profile/${post.author.username}`} className="shared-post-username">
             {post.author.username}
           </Link>
-          {post.caption && <p className="shared-post-caption">{post.caption}</p>}
         </div>
       </div>
 
@@ -82,6 +81,12 @@ const SharedPost = ({ post, onPostClick }) => {
               <span className="play-icon">▶</span>
             </div>
           )}
+        </div>
+      )}
+
+      {post.caption && (
+        <div className="shared-post-caption-container">
+          <p className="shared-post-caption">{post.caption}</p>
         </div>
       )}
 

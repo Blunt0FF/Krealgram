@@ -305,7 +305,7 @@
   font-size: 14px;
   line-height: 18px;
   white-space: pre-wrap;
-  word-wrap: break-word;
+  /* word-wrap: break-word; */
 }
 
 .post-divider {

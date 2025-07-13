@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAvatarUrl } from '../../utils/imageUtils';
-// import { compressAvatar } from '../../utils/imageUtils'; // Сжатие будет либо удалено, либо изменено
+import { getAvatarUrl, compressAvatar, uploadAvatar } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import EmojiPicker from 'emoji-picker-react';
 import './EditProfile.css';
@@ -75,28 +74,29 @@ const EditProfile = ({ user, setUser }) => {
     }
   };
 
-  const handleAvatarChange = (e) => {
-      const file = e.target.files[0];
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
     e.target.value = null; // Сброс инпута
-      if (file) {
-      // Валидация файла (размер, тип)
-        const maxSize = 5 * 1024 * 1024; // 5MB
-        if (file.size > maxSize) {
-        setValidationErrors(prev => ({ ...prev, avatar: 'File size must not exceed 5MB' }));
-          return;
-        }
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) {
+    if (file) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
         setValidationErrors(prev => ({ ...prev, avatar: 'Supported formats: JPEG, PNG, GIF, WebP' }));
-          return;
-        }
+        return;
+      }
 
-      setAvatarFile(file);
-      setAvatarPreview(URL.createObjectURL(file));
-      setMarkAvatarForRemoval(false); // Если выбран новый файл, отменяем пометку на удаление
+      try {
+        // Сжимаем аватар перед установкой
+        const compressedAvatar = await compressAvatar(file);
+        setAvatarFile(compressedAvatar);
+        setAvatarPreview(compressedAvatar);
+        setMarkAvatarForRemoval(false);
         setValidationErrors(prev => ({ ...prev, avatar: null }));
+      } catch (error) {
+        console.error('Ошибка сжатия аватара:', error);
+        setValidationErrors(prev => ({ ...prev, avatar: 'Не удалось обработать изображение' }));
+      }
     }
-  };
+};
 
   const handleRemoveAvatar = () => {
     setAvatarFile(null);
@@ -131,57 +131,36 @@ const EditProfile = ({ user, setUser }) => {
     setLoading(true);
     setError(null);
 
-    const token = localStorage.getItem('token');
-    const formDataToSend = new FormData();
-
-    formDataToSend.append('bio', userData.bio);
-
-    if (avatarFile) {
-      console.log('Uploading avatar file:', {
-        name: avatarFile.name,
-        type: avatarFile.type,
-        size: avatarFile.size
-      });
-      
-      // Используем только поле 'image', которое ожидает сервер
-      formDataToSend.append('avatar', avatarFile);
-
-      // Проверяем содержимое FormData
-      console.log('FormData contents:');
-      for (let pair of formDataToSend.entries()) {
-        console.log(pair[0], pair[1]);
-        if (pair[1] instanceof File) {
-          console.log('File details:', {
-            name: pair[1].name,
-            type: pair[1].type,
-            size: pair[1].size
-          });
-        }
-      }
-    } else if (markAvatarForRemoval && initialAvatarUrl) {
-      console.log('Removing avatar');
-      formDataToSend.append('removeAvatar', 'true');
-    }
-
     try {
-      console.log('Sending request to:', `${API_URL}/api/users/profile`);
-      
-      // Добавим явные заголовки для multipart/form-data
+      let updatedUser = { ...userData };
+
+      // Обработка аватара
+      if (avatarFile) {
+        console.log('Uploading avatar file:', {
+          type: 'base64',
+          size: avatarFile.length
+        });
+        
+        const uploadedAvatar = await uploadAvatar(avatarFile);
+        
+        if (uploadedAvatar && uploadedAvatar.avatar) {
+          updatedUser.avatar = uploadedAvatar.avatar;
+        }
+      } else if (markAvatarForRemoval && initialAvatarUrl) {
+        console.log('Removing avatar');
+        updatedUser.removeAvatar = 'true';
+      }
+
+      // Обновление профиля
+      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/users/profile`, {
         method: 'PUT',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
-          // Не указываем Content-Type, браузер сам добавит с boundary
         },
-        credentials: 'include',
-        body: formDataToSend
-      });
-
-      // Добавим проверку заголовков ответа
-      console.log('Response headers:', {
-        contentType: response.headers.get('content-type'),
-        contentLength: response.headers.get('content-length')
+        body: JSON.stringify(updatedUser)
       });
 
       console.log('Response status:', response.status);
@@ -199,38 +178,49 @@ const EditProfile = ({ user, setUser }) => {
         throw new Error(errorData.message || `Server error: ${response.status}`);
       }
 
-      const updatedUser = JSON.parse(responseText);
-      console.log('Profile update success:', updatedUser);
+      const finalUpdatedUser = JSON.parse(responseText);
+      setUser(finalUpdatedUser);
       
-      // Обновляем данные в localStorage и глобальное состояние
-      const storedUser = JSON.parse(localStorage.getItem('user'));
-      if (storedUser) {
-        const newUserData = { ...storedUser, bio: updatedUser.bio, avatar: updatedUser.avatar };
-        console.log('Updating user data:', newUserData);
-        localStorage.setItem('user', JSON.stringify(newUserData));
-        setUser(newUserData);
+      // Обновляем локальное хранилище
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({
+        ...storedUser,
+        ...finalUpdatedUser
+      }));
+
+      // Показываем успешное обновление
+      setLoading(false);
+      navigate('/profile/' + finalUpdatedUser.username);
+
+    } catch (error) {
+      console.error('Ошибка обновления профиля:', error);
+      
+      // Более детальная обработка ошибок
+      let userFriendlyMessage = 'Не удалось обновить профиль';
+      
+      if (error.message) {
+        switch (error.message) {
+          case 'Требуется повторная авторизация':
+            userFriendlyMessage = 'Ваша сессия истекла. Пожалуйста, войдите снова.';
+            // Можно добавить выход из системы
+            localStorage.removeItem('token');
+            navigate('/login');
+            break;
+          case 'Некорректные данные':
+            userFriendlyMessage = 'Проверьте правильность введенных данных.';
+            break;
+          case 'Размер файла превышает 5 МБ':
+            userFriendlyMessage = 'Размер аватара слишком большой. Максимальный размер - 5 МБ.';
+            break;
+          case 'Некорректный формат изображения':
+            userFriendlyMessage = 'Пожалуйста, выберите изображение в формате PNG, JPEG, WebP или GIF.';
+            break;
+          default:
+            userFriendlyMessage = error.message;
+        }
       }
-
-      // Обновляем состояние для превью и начального аватара после успешного обновления
-      if (updatedUser.avatar) {
-        const newAvatarUrl = getAvatarUrl(updatedUser.avatar);
-        console.log('New avatar URL:', newAvatarUrl);
-        setAvatarPreview(newAvatarUrl);
-        setInitialAvatarUrl(newAvatarUrl);
-      } else {
-        console.log('No avatar in response, using default');
-        setAvatarPreview('/default-avatar.png');
-        setInitialAvatarUrl(null);
-      }
-      setAvatarFile(null);
-      setMarkAvatarForRemoval(false);
-
-      navigate(`/profile/${updatedUser.username}`);
-
-    } catch (err) {
-      console.error('Profile update error details:', err);
-      setError(err.message || 'Failed to update profile');
-    } finally {
+      
+      setError(userFriendlyMessage);
       setLoading(false);
     }
   };

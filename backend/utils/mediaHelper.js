@@ -54,13 +54,21 @@ const processYouTubeUrl = (url) => {
   };
 };
 
-// Функция для получения URL медиа файла (локальный или Cloudinary)
-const getMediaUrl = (filename, type = 'post') => {
+// Функция для получения URL медиа файла с расширенной поддержкой GIF
+const getMediaUrl = (filename, type = 'post', isGif = false) => {
   const config = getMediaConfig();
+  
+  // Специальная обработка для GIF
+  if (isGif) {
+    console.log('[MEDIA_URL_DEBUG] Обработка URL для GIF:', {
+      filename,
+      type,
+      cloudinaryConfig: config.cloudinaryConfig.useCloudinary
+    });
+  }
   
   if (config.cloudinaryConfig.useCloudinary) {
     // В продакшене с Cloudinary будем возвращать Cloudinary URL
-    // TODO: Реализовать логику для Google Drive
     return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
   } else {
     // В разработке используем локальные файлы
@@ -78,12 +86,12 @@ const deleteLocalFile = async (filePath) => {
   }
 };
 
-// Функция для создания структуры ответа медиа
+// Обновляем функцию создания медиа-ответа с поддержкой GIF
 const createMediaResponse = (file, youtubeData = null) => {
   if (youtubeData) {
     return {
       type: 'video',
-      youtubeId: youtubeData.videoId, // Поддерживаем и youtubeId для совместимости с фронтендом
+      youtubeId: youtubeData.videoId,
       videoId: youtubeData.videoId,
       url: youtubeData.watchUrl,
       embedUrl: youtubeData.embedUrl,
@@ -92,12 +100,15 @@ const createMediaResponse = (file, youtubeData = null) => {
   }
   
   if (file) {
+    const isGif = file.mimetype === 'image/gif';
+    
     return {
-      type: file.mimetype.startsWith('image/') ? 'image' : 'video',
-      url: getMediaUrl(file.filename, 'message'),
+      type: isGif ? 'gif' : (file.mimetype.startsWith('image/') ? 'image' : 'video'),
+      url: getMediaUrl(file.filename, 'message', isGif),
       filename: file.filename,
       originalName: file.originalname,
-      size: file.size
+      size: file.size,
+      ...(isGif ? { gifPreviewUrl: file.gifPreviewUrl } : {})
     };
   }
   

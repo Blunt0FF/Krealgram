@@ -37,10 +37,16 @@
   text-decoration: underline;
 }
 
+.shared-post-caption-container {
+  padding: 10px;
+  background-color: white;
+}
+
 .shared-post-caption {
-  margin-top: 4px;
-  font-size: 13px;
-  color: #666;
+  margin: 0;
+  font-size: 14px;
+  color: #262626;
+  word-wrap: break-word;
 }
 
 .shared-post-media {
