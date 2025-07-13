@@ -20,27 +20,11 @@
   },
   "dependencies": {
     "cheerio": "^1.1.0",
-    "express": "^5.1.0",
     "fluent-ffmpeg": "^2.1.3",
     "heic2any": "^0.0.4",
-    "path-to-regexp": "6.2.1",
     "yt-dlp-wrap": "^2.3.12"
   },
   "overrides": {
     "esbuild": "^0.25.0"
-  },
-  "description": "",
-  "main": "create-test-user.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Blunt0FF/Krealgram.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "bugs": {
-    "url": "https://github.com/Blunt0FF/Krealgram/issues"
-  },
-  "homepage": "https://github.com/Blunt0FF/Krealgram#readme"
+  }
 }

@@ -1,41 +1,87 @@
 const express = require('express');
 const router = express.Router();
-const { migrateCloudinaryToDriveOnRender } = require('../migrate-render');
+const { updateInactiveUsers } = require('../utils/userStatusUpdater');
+const User = require('../models/userModel');
 
-// Middleware для логирования запросов
-router.use((req, res, next) => {
-  console.log(`[ADMIN_ROUTES] Входящий запрос: ${req.method} ${req.path}`);
-  next();
-});
-
-// Обработчик миграции с расширенной обработкой ошибок
-router.post('/migrate-media', async (req, res, next) => {
+// @route   POST /api/admin/reset-user-statuses
+// @desc    Reset all users to offline status
+// @access  Private (Admin only)
+router.post('/reset-user-statuses', async (req, res) => {
   try {
-    console.log('[ADMIN_ROUTES] Начало миграции медиафайлов');
-    
-    const result = await migrateCloudinaryToDriveOnRender();
-    
-    console.log('[ADMIN_ROUTES] Миграция завершена:', result);
-    
-    res.status(200).json({ 
-      message: 'Миграция медиафайлов выполнена',
-      status: 'completed',
-      result 
+    // Reset all users to offline
+    const result = await User.updateMany({}, { 
+      isOnline: false, 
+      lastActive: new Date() 
+    });
+
+    res.json({
+      success: true,
+      message: `Reset ${result.modifiedCount} users to offline status`,
+      modifiedCount: result.modifiedCount
     });
   } catch (error) {
-    console.error('[ADMIN_ROUTES] Ошибка миграции:', error);
-    
-    // Передаем ошибку в глобальный обработчик ошибок
-    next(error);
+    console.error('Error resetting user statuses:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to reset user statuses',
+      error: error.message 
+    });
   }
 });
 
-// Обработчик неизвестных маршрутов
-router.use((req, res, next) => {
-  console.warn(`[ADMIN_ROUTES] Неизвестный маршрут: ${req.method} ${req.path}`);
-  res.status(404).json({ 
-    message: 'Маршрут не найден',
-    path: req.path 
+// @route   POST /api/admin/update-inactive-users
+// @desc    Update inactive users status
+// @access  Private (Admin only)
+router.post('/update-inactive-users', async (req, res) => {
+  try {
+    const updatedCount = await updateInactiveUsers();
+    
+    res.json({
+      success: true,
+      message: `Updated ${updatedCount} inactive users`,
+      updatedCount: updatedCount
+    });
+  } catch (error) {
+    console.error('Error updating inactive users:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update inactive users',
+      error: error.message 
+    });
+  }
+});
+
+// @route   POST /api/admin/migrate-to-drive
+// @desc    Migrate all Cloudinary files to Google Drive
+// @access  Private (Admin only)
+router.post('/migrate-to-drive', async (req, res) => {
+  try {
+    console.log('🚀 Запуск миграции через API...');
+    
+    // Импортируем функцию миграции
+    const { migrateCloudinaryToDriveOnRender } = require('../migrate-on-render');
+    
+    // Запускаем миграцию
+    const result = await migrateCloudinaryToDriveOnRender();
+    
+    res.json(result);
+  } catch (error) {
+    console.error('❌ Ошибка миграции:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// @route   GET /api/admin/migration-status
+// @desc    Check migration status
+// @access  Private (Admin only)
+router.get('/migration-status', (req, res) => {
+  res.json({ 
+    status: 'ready',
+    message: 'Миграция готова к запуску',
+    endpoint: '/api/admin/migrate-to-drive'
   });
 });
 

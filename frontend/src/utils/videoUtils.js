@@ -1,130 +1,25 @@
 // Утилиты для работы с видео
 
-import { API_URL } from '../config';
-import { getBaseUrl } from '../config';
+// Получение thumbnail для Cloudinary видео
+export const getCloudinaryVideoThumbnail = (videoUrl, options = {}) => {
+  if (!videoUrl || !videoUrl.includes('cloudinary.com')) {
+    return videoUrl;
+  }
 
-export const getVideoUrl = (videoPath, options = {}) => {
-  console.group('🎥 getVideoUrl Debugging');
+  const { width = 400, height = 'auto', quality = 'auto' } = options;
   
-  // Если передан объект, пытаемся извлечь путь
-  if (typeof videoPath === 'object' && videoPath !== null) {
-    videoPath = 
-      videoPath.videoUrl || 
-      videoPath.imageUrl || 
-      videoPath.image || 
-      videoPath.url || 
-      '/video-placeholder.png';
+  // Создаем thumbnail с сохранением пропорций (без c_fill)
+  if (height === 'auto') {
+    return videoUrl.replace(
+      '/video/upload/',
+      `/video/upload/w_${width},c_scale,q_${quality},f_jpg,so_0/`
+    );
+  } else {
+    return videoUrl.replace(
+      '/video/upload/',
+      `/video/upload/w_${width},h_${height},c_fit,q_${quality},f_jpg,so_0/`
+    );
   }
-
-  console.log('Input:', { 
-    videoPath, 
-    type: typeof videoPath, 
-    options 
-  });
-
-  try {
-    if (!videoPath) {
-      console.warn('❌ Empty video path, returning default');
-      console.groupEnd();
-      return '/video-placeholder.png';
-    }
-
-    const baseUrl = getBaseUrl();
-
-    // Обработка локальных путей
-    if (videoPath.startsWith('/Users/') || videoPath.startsWith('/home/')) {
-      const fileName = videoPath.split('/').pop();
-      const proxyUrl = `${baseUrl}/uploads/${fileName}`;
-      console.log('📁 Constructed local video URL:', proxyUrl);
-      console.groupEnd();
-      return proxyUrl;
-    }
-  
-    // Улучшенная обработка Google Drive URL
-    if (videoPath.includes('drive.google.com')) {
-      console.log('🔍 Detected Google Drive URL');
-      try {
-        const url = new URL(videoPath);
-        console.log('URL Object:', {
-          href: url.href,
-          origin: url.origin,
-          pathname: url.pathname,
-          search: url.search
-        });
-
-        const fileId = 
-          url.searchParams.get('id') || 
-          url.pathname.split('/').pop() ||
-          videoPath.match(/\/file\/d\/([^/]+)/)?.[1];
-        
-        console.log('Google Drive URL parsing:', { 
-          url: videoPath, 
-          extractedId: fileId 
-        });
-        
-        if (fileId) {
-          const proxyUrl = `${baseUrl}/api/proxy-drive/${fileId}`;
-          console.log('✅ Constructed proxy video URL:', proxyUrl);
-          console.groupEnd();
-          return proxyUrl;
-        }
-      } catch (e) {
-        console.error('❌ Google Drive URL parsing error:', e);
-      }
-    }
-
-    // Если уже полный URL - возвращаем как есть
-    if (videoPath.startsWith('http')) {
-      console.log('🌐 Returning full video URL:', videoPath);
-      console.groupEnd();
-      return videoPath;
-    }
-
-    // Локальные пути в uploads
-    const localUrl = `${baseUrl}/uploads/${videoPath}`;
-    console.log('📂 Constructed uploads video URL:', localUrl);
-    console.groupEnd();
-    return localUrl;
-  } catch (error) {
-    console.error('❌ getVideoUrl error:', error);
-    console.groupEnd();
-    return '/video-placeholder.png';
-  }
-};
-
-export const getVideoThumbnail = (post, options = {}) => {
-  if (!post) return '/video-placeholder.png';
-
-  const { 
-    width = 300, 
-    height = 300, 
-    crop = 'pad', 
-    quality = 'auto' 
-  } = options;
-
-  // Приоритет: thumbnailUrl, gifPreview, статический плейсхолдер
-  if (post.thumbnailUrl) return post.thumbnailUrl;
-  if (post.gifPreview) return post.gifPreview;
-
-  return '/video-placeholder.png';
-};
-
-export const generateVideoPreview = (videoUrl, options = {}) => {
-  if (!videoUrl) return null;
-
-  const { 
-    width = 300, 
-    height = 300, 
-    format = 'gif' 
-  } = options;
-
-  // Для Google Drive видео
-  if (videoUrl.includes('drive.google.com')) {
-    // Логика генерации превью для Google Drive
-    return null;
-  }
-
-  return null;
 };
 
 // Получение статичного превью для fallback

@@ -12,7 +12,6 @@ import '../Post/ShareModal.css';
 import { API_URL } from '../../config';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import axios from 'axios';
-import { getImageUrl, getVideoUrl } from '../../utils/imageUtils';
 
 const Messages = ({ currentUser }) => {
   const location = useLocation();
@@ -880,13 +879,8 @@ const Messages = ({ currentUser }) => {
                       )}
                       {message.media && message.media.type === 'image' && (
                         <div className="message-image" onClick={() => openImageModal(message.media.url)}>
-                          {console.log('🖼️ Rendering image message:', { 
-                            mediaUrl: message.media.url, 
-                            mediaType: message.media.type,
-                            fullMessage: message
-                          })}
                           <img 
-                            src={getImageUrl(message.media.url)} 
+                            src={message.media.url} 
                             alt="Shared image" 
                             className="responsive-message-img"
                             style={{ 
@@ -894,16 +888,7 @@ const Messages = ({ currentUser }) => {
                               maxHeight: '400px',
                               borderRadius: '8px',
                               marginTop: '4px',
-                              cursor: 'pointer',
-                              objectFit: 'cover'
-                            }}
-                            onError={(e) => {
-                              console.error('❌ Image load error:', { 
-                                src: e.target.src, 
-                                message: message.media,
-                                fullMessage: message
-                              });
-                              e.target.src = '/default-post-placeholder.png';
+                              cursor: 'pointer'
                             }}
                           />
                         </div>
@@ -911,7 +896,7 @@ const Messages = ({ currentUser }) => {
                       {message.media && message.media.type === 'video' && (
                         <div className="message-video" style={{ marginTop: '4px' }}>
                           <video 
-                            src={getVideoUrl(message.media.url)} 
+                            src={message.media.url} 
                             controls
                             poster={(() => {
                               // Создаем превью для Cloudinary видео
@@ -928,9 +913,6 @@ const Messages = ({ currentUser }) => {
                               maxHeight: '400px',
                               borderRadius: '8px',
                               width: '100%'
-                            }}
-                            onError={(e) => {
-                              e.target.src = '/video-placeholder.svg';
                             }}
                           />
                         </div>
@@ -1056,16 +1038,13 @@ const Messages = ({ currentUser }) => {
                   <img 
                     src={(() => {
                       // Определяем является ли пост видео
-                      const isVideo = 
-                        sharedPost.mediaType === 'video' || 
-                        sharedPost.videoUrl || 
-                        sharedPost.youtubeData ||
-                        (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
+                      const isVideo = sharedPost.mediaType === 'video' || 
+                                      sharedPost.videoUrl || 
+                                      sharedPost.youtubeData ||
+                                      (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
                       
                       // Для видео используем превью, для изображений - обычное изображение
-                      return isVideo 
-                        ? getMediaThumbnail(sharedPost) 
-                        : getImageUrl(sharedPost.imageUrl || sharedPost.image);
+                      return isVideo ? getMediaThumbnail(sharedPost) : (sharedPost.imageUrl || sharedPost.image);
                     })()} 
                     alt="Post preview" 
                     style={{ 
@@ -1076,7 +1055,9 @@ const Messages = ({ currentUser }) => {
                     }}
                     onError={(e) => {
                       // Fallback на заглушку видео если превью не загрузилось
-                      e.target.src = '/video-placeholder.svg';
+                      if (e.target.src !== '/video-placeholder.svg') {
+                        e.target.src = '/video-placeholder.svg';
+                      }
                     }}
                   />
                   {/* Показываем иконку плеера для видео */}

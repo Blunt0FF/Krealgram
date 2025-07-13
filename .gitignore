@@ -104,12 +104,7 @@ Thumbs.db
 
 # Local uploads (not needed in production with Cloudinary)
 uploads/
-
-# Cloudinary configuration
-.cloudinary.json
-
-# Cloudinary environment variables
-.env.cloudinary
+*/uploads/
 
 # Backup files
 *.bak
