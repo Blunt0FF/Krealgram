@@ -55,49 +55,21 @@ const whitelist = [
 ];
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Разрешаем запросы без origin (например, мобильные приложения)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    // Нормализуем origin для точного сравнения
-    const normalizedOrigin = origin
-      .replace(/^https?:\/\//, '')  // Удаляем протокол
-      .replace(/^www\./, '')        // Удаляем www
-      .replace(/\/$/, '');          // Удаляем trailing slash
-
-    const isAllowed = whitelist.some(allowedOrigin => 
-      allowedOrigin
-        .replace(/^https?:\/\//, '')
-        .replace(/^www\./, '')
-        .replace(/\/$/, '') === normalizedOrigin
-    );
-
-    if (isAllowed) {
-      console.log(`[CORS] Разрешен домен: ${origin}`);
-      callback(null, true);
-    } else {
-      console.warn(`[CORS] Заблокирован домен: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'Accept', 
-    'Origin', 
-    'Cache-Control'
+  origin: [
+    'http://localhost:3000', 
+    'https://krealgram.vercel.app', 
+    'https://krealgram.com',  // Добавить этот домен
+    'http://localhost:4000'
   ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
-  credentials: true,
-  maxAge: 86400
+  credentials: true
 };
 
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  console.log(`[CORS Debug] Origin: ${req.get('origin')}, Host: ${req.get('host')}`);
+  next();
+});
 
 // Глобальный middleware для CORS
 app.use((req, res, next) => {
