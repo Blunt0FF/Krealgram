@@ -17,6 +17,24 @@ export async function checkAndSetApiUrl() {
   const hostname = window.location.hostname;
   const isLocalhost = ['localhost', '127.0.0.1'].includes(hostname);
   
+  // Список разрешенных доменов
+  const allowedDomains = [
+    'krealgram.com', 
+    'www.krealgram.com', 
+    'krealgram.vercel.app', 
+    'localhost', 
+    '127.0.0.1'
+  ];
+
+  // Проверяем, что текущий домен разрешен
+  const isDomainAllowed = allowedDomains.some(domain => hostname.includes(domain));
+
+  if (!isDomainAllowed) {
+    console.warn(`[CONFIG] Домен ${hostname} не разрешен. Используем удаленный URL.`);
+    setApiUrl(REMOTE_URL);
+    return;
+  }
+  
   // Если локальная разработка - пытаемся использовать локальный бэкенд
   if (isLocalhost) {
     try {
@@ -43,4 +61,18 @@ export async function checkAndSetApiUrl() {
   console.log('[CONFIG] Using REMOTE_URL');
   setApiUrl(REMOTE_URL);
   SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
+}
+
+// Добавляем функцию для проверки текущего домена
+export function getCurrentDomain() {
+  const hostname = window.location.hostname;
+  const allowedDomains = {
+    'krealgram.com': 'krealgram.com',
+    'www.krealgram.com': 'krealgram.com',
+    'krealgram.vercel.app': 'krealgram.vercel.app',
+    'localhost': 'localhost',
+    '127.0.0.1': 'localhost'
+  };
+
+  return allowedDomains[hostname] || hostname;
 }

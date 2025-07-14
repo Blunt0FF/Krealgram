@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
-import { getMediaThumbnail } from '../../utils/videoUtils';
+import { getImageUrl, getAvatarUrl } from '../../utils/mediaUrlResolver';
 import './SharedPost.css';
 
 const SharedPost = ({ post, onPostClick }) => {
@@ -20,15 +19,17 @@ const SharedPost = ({ post, onPostClick }) => {
     let finalImageUrl = null;
     let finalThumbnailUrl = null;
 
-    if (post.videoUrl) {
-      // Для видео используем превью или thumbnail
-      finalImageUrl = getImageUrl(post.thumbnailUrl || post.gifPreview);
-      finalThumbnailUrl = getImageUrl(post.thumbnailUrl);
-    } else if (post.image) {
-      // Для изображений используем основное изображение
-      finalImageUrl = getImageUrl(post.image);
-      finalThumbnailUrl = getImageUrl(post.thumbnailUrl);
-    }
+    // Список приоритетных источников изображения
+    const imageSources = [
+      post.imageUrl,
+      post.image,
+      post.thumbnailUrl,
+      post.gifPreview,
+      '/default-post-placeholder.png'
+    ].filter(Boolean);
+
+    finalImageUrl = getImageUrl(imageSources[0]);
+    finalThumbnailUrl = getImageUrl(imageSources[1] || imageSources[0]);
 
     setImageUrl(finalImageUrl);
     setThumbnailUrl(finalThumbnailUrl);
@@ -55,7 +56,11 @@ const SharedPost = ({ post, onPostClick }) => {
           <img 
             src={getAvatarUrl(post.author.avatar)} 
             alt={`${post.author.username}'s avatar`} 
-            className="shared-post-avatar" 
+            className="shared-post-avatar"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/default-avatar.png';
+            }}
           />
         </Link>
         <div className="shared-post-info">
@@ -75,6 +80,10 @@ const SharedPost = ({ post, onPostClick }) => {
             alt={`${post.author.username}'s post`} 
             className="shared-post-image" 
             loading="lazy"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/default-post-placeholder.png';
+            }}
           />
           {isVideo && (
             <div className="video-overlay">

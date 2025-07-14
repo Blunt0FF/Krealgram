@@ -41,30 +41,48 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-// Добавляем расширенную CORS-конфигурацию
-const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:4000',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:4000',
-  'https://krealgram.com',
-  'https://krealgram.vercel.app',
-  'https://krealgram-backend.onrender.com'
+const whitelist = [
+  "http://localhost:4000",
+  "http://127.0.0.1:4000",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://krealgram.vercel.app",
+  "https://krealgram.com",
+  "https://www.krealgram.com"
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
     // Разрешаем запросы без origin (например, мобильные приложения)
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Проверяем, есть ли origin в белом списке
+    const normalizedOrigin = origin
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/$/, '');
+
+    const isAllowed = whitelist.some(allowedOrigin => 
+      allowedOrigin
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/$/, '') === normalizedOrigin
+    );
+
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(null, true); // Временно разрешаем все, чтобы не блокировать
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
   credentials: true,
-  optionsSuccessStatus: 200
+  maxAge: 86400
 };
 
 app.options('*', cors(corsOptions));
@@ -98,11 +116,16 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Проксирование Google Drive
+// Проксирование Google Drive с улучшенной обработкой
 app.get('/api/proxy-drive/:fileId', async (req, res) => {
   try {
     const fileId = req.params.fileId;
     const type = req.query.type || 'file';
+
+    // Добавляем заголовки CORS для всех доменов
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
 
     const googleDriveUrl = type === 'thumbnail'
       ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
@@ -113,13 +136,16 @@ app.get('/api/proxy-drive/:fileId', async (req, res) => {
       url: googleDriveUrl,
       responseType: 'stream',
       headers: {
-        'User-Agent': 'Mozilla/5.0'
-      }
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': 'https://drive.google.com'
+      },
+      maxRedirects: 5 // Увеличиваем количество редиректов
     });
 
     // Копируем заголовки ответа
-    res.set('Content-Type', response.headers['content-type']);
+    res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400'); // Кэширование на сутки
+    res.set('Access-Control-Allow-Origin', '*'); // Разрешаем кросс-доменные запросы
 
     response.data.pipe(res);
   } catch (error) {

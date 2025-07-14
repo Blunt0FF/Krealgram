@@ -60,8 +60,69 @@ export const getProfileGifThumbnail = (post) => {
 
 // Получение превью для любого типа медиа (для модалки и фоновых изображений)
 export const getMediaThumbnail = (post) => {
-  // Используем processMediaUrl для получения превью
-  return processMediaUrl(post, 'video');
+  if (!post) return '/video-placeholder.svg';
+
+  // Приоритет: новые поля с backend для мобильных превью
+  if (post.mobileThumbnailUrl) {
+    return post.mobileThumbnailUrl;
+  }
+  
+  if (post.thumbnailUrl) {
+    return post.thumbnailUrl;
+  }
+
+  // YouTube видео - возвращаем статичный thumbnail
+  if (post.youtubeData && post.youtubeData.thumbnailUrl) {
+    return post.youtubeData.thumbnailUrl;
+  }
+
+  // Проверяем YouTube URL
+  let youtubeId = null;
+  
+  if (post.videoUrl) {
+    // Стандартный YouTube URL
+    if (post.videoUrl.includes('youtube.com/watch?v=')) {
+      const match = post.videoUrl.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+      youtubeId = match ? match[1] : null;
+    }
+    // Короткий YouTube URL
+    else if (post.videoUrl.includes('youtu.be/')) {
+      const match = post.videoUrl.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+      youtubeId = match ? match[1] : null;
+    }
+    // Embed URL
+    else if (post.videoUrl.includes('youtube.com/embed/')) {
+      const match = post.videoUrl.match(/embed\/([a-zA-Z0-9_-]{11})/);
+      youtubeId = match ? match[1] : null;
+    }
+  }
+
+  if (youtubeId) {
+    return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+  }
+
+  // Для Google Drive видео
+  if (post.videoUrl && post.videoUrl.includes('drive.google.com')) {
+    try {
+      const url = new URL(post.videoUrl);
+      const fileId = url.searchParams.get('id') || 
+                     post.videoUrl.split('/').pop() || 
+                     post.videoUrl.match(/\/file\/d\/([^/]+)/)?.[1];
+      
+      if (fileId) {
+        const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
+        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
+      }
+    } catch (e) {
+      console.error("Invalid Google Drive URL", {
+        videoUrl: post.videoUrl,
+        error: e.message
+      });
+    }
+  }
+
+  // Для изображений
+  return post.imageUrl || post.image || '/video-placeholder.svg';
 };
 
 // Получение GIF превью для VideoPreview в ленте

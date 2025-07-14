@@ -1,7 +1,8 @@
-import { API_URL } from '../config';
+import { API_URL, getCurrentDomain } from '../config';
 
 const ALLOWED_DOMAINS = [
   'krealgram.com',
+  'www.krealgram.com',
   'krealgram.vercel.app',
   'localhost',
   'krealgram-backend.onrender.com',
@@ -9,6 +10,9 @@ const ALLOWED_DOMAINS = [
 ];
 
 export const resolveMediaUrl = (url, type = 'image') => {
+  console.group(`🔗 resolveMediaUrl [${type}]`);
+  console.log('Input URL:', url);
+
   // Если URL пустой - возвращаем дефолтное изображение
   if (!url) {
     const defaultMap = {
@@ -24,13 +28,18 @@ export const resolveMediaUrl = (url, type = 'image') => {
     // Google Drive обработка
     if (url.includes('drive.google.com')) {
       try {
-        const fileId = new URL(url).searchParams.get('id') || 
-                       url.split('/').pop() || 
-                       url.match(/\/file\/d\/([^/]+)/)?.[1];
+        const fileId = 
+          new URL(url).searchParams.get('id') || 
+          url.split('/').pop() || 
+          url.match(/\/file\/d\/([^/]+)/)?.[1] ||
+          url.match(/\/uc\?id=([^&]+)/)?.[1];
         
         if (fileId) {
+          console.log('Google Drive FileID:', fileId);
           // Используем текущий домен для проксирования
-          return `${API_URL}/api/proxy-drive/${fileId}`;
+          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
+          console.log('Proxy URL:', proxyUrl);
+          return proxyUrl;
         }
       } catch (error) {
         console.error('Google Drive URL parsing error:', error);
@@ -50,6 +59,25 @@ export const resolveMediaUrl = (url, type = 'image') => {
         const youtubeId = match[1];
         return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
       }
+    }
+
+    // Если это уже полный URL с проксированием
+    if (url.includes('/api/proxy-drive/')) {
+      return url;
+    }
+
+    // Проверяем, что URL с разрешенного домена
+    try {
+      const parsedUrl = new URL(url);
+      const currentDomain = getCurrentDomain();
+      
+      // Если текущий домен не совпадает с доменом URL, используем проксирование
+      if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
+        console.log(`[MediaUrlResolver] Проксируем URL с домена ${parsedUrl.hostname}`);
+        return `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}`;
+      }
+    } catch {
+      // Если не удалось распарсить URL, возвращаем как есть
     }
 
     return url;

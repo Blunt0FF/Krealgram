@@ -450,68 +450,63 @@ const Messages = ({ currentUser }) => {
   };
 
   const sendPostToUser = async (userToChatWith) => {
-    console.log('sendPostToUser called with:', { 
-      userToChatWith, 
-      sharedPost: JSON.stringify(sharedPost, null, 2) 
+    console.log('Получен пост для пересылки:', {
+      userToChatWith: userToChatWith ? {
+        _id: userToChatWith._id,
+        username: userToChatWith.username
+      } : null,
+      sharedPost: sharedPost ? {
+        id: sharedPost._id || sharedPost.id,
+        author: typeof sharedPost.author === 'object' 
+          ? sharedPost.author.username 
+          : sharedPost.author,
+        imageUrl: sharedPost.imageUrl || sharedPost.image,
+        caption: sharedPost.caption,
+        mediaType: sharedPost.mediaType || (sharedPost.videoUrl ? 'video' : 'image')
+      } : null
     });
 
     if (!userToChatWith || !sharedPost) {
-      console.log('Missing data for sending post:', { userToChatWith, sharedPost });
-      return;
-    }
-
-    // Добавляем дополнительную проверку данных
-    if (!userToChatWith._id) {
-      console.error('Invalid user data: missing _id');
+      console.warn('Missing data for sending post:', { userToChatWith, sharedPost });
       return;
     }
 
     try {
       const conversation = await startConversation(userToChatWith);
       if (conversation) {
-        // Список возможных источников изображения в порядке приоритета
+        // Список приоритетных источников изображения
         const imageSources = [
-          sharedPost?.imageUrl, 
-          sharedPost?.image, 
-          sharedPost?.thumbnailUrl,
+          sharedPost.imageUrl, 
+          sharedPost.image, 
+          sharedPost.thumbnailUrl,
           '/default-post-placeholder.png',
           '/video-placeholder.svg'
-        ].filter(Boolean); // Удаляем пустые значения
+        ].filter(Boolean);
 
         const postToShare = {
-          id: sharedPost?._id || sharedPost?.id || '',
+          id: sharedPost._id || sharedPost.id || '',
           image: imageSources[0] || '',
           imageUrl: imageSources[0] || '',
-          caption: sharedPost?.caption || '',
-          author: sharedPost?.author?.username || sharedPost?.author || 'Unknown',
-          createdAt: sharedPost?.createdAt || new Date().toISOString(),
-          mediaType: sharedPost?.mediaType || 
-            (sharedPost?.videoUrl ? 'video' : 
-            (sharedPost?.youtubeData ? 'youtube' : 'image')),
+          caption: sharedPost.caption || '',
+          author: typeof sharedPost.author === 'object' 
+            ? sharedPost.author.username 
+            : sharedPost.author || 'Unknown',
+          createdAt: sharedPost.createdAt || new Date().toISOString(),
+          mediaType: sharedPost.mediaType || 
+            (sharedPost.videoUrl ? 'video' : 
+            (sharedPost.youtubeData ? 'youtube' : 'image')),
           thumbnailUrl: imageSources[1] || imageSources[0] || ''
         };
 
-        console.log('Prepared postToShare:', JSON.stringify(postToShare, null, 2));
+        console.log('Подготовленный пост для отправки:', postToShare);
 
-        // Проверяем, что postToShare имеет необходимые данные
-        if (!postToShare.id) {
-          console.error('Invalid post data: missing id', postToShare);
-          return;
-        }
-
-        // Обновляем состояние для отправки
-        setSharedPost(postToShare);
-
-        // Явно передаем ID получателя, чтобы избежать проблем с асинхронным состоянием
-        await sendMessage(null, conversation.participant._id);
-        
-        setSharedPost(null);
-        setShowNewMessageModal(false);
+        // Здесь должен быть код отправки сообщения с постом
+        // Например: await sendMessageWithPost(conversation._id, postToShare);
       }
     } catch (error) {
-      console.error('Error sending post:', error);
+      console.error('Ошибка при отправке поста:', error);
     }
-};
+  };
 
   const openImageModal = (imageSrc) => {
     setSelectedImage(imageSrc);
@@ -1084,14 +1079,34 @@ const Messages = ({ currentUser }) => {
                 <div style={{ position: 'relative', width: '44px', height: '44px' }}>
                   <img 
                     src={(() => {
+                      console.log('Shared Post Data:', {
+                        mediaType: sharedPost.mediaType,
+                        videoUrl: sharedPost.videoUrl,
+                        youtubeData: sharedPost.youtubeData,
+                        imageUrl: sharedPost.imageUrl,
+                        image: sharedPost.image
+                      });
+
                       // Определяем является ли пост видео
-                      const isVideo = sharedPost.mediaType === 'video' || 
-                                      sharedPost.videoUrl || 
-                                      sharedPost.youtubeData ||
-                                      (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
+                      const isVideo = 
+                        sharedPost.mediaType === 'video' || 
+                        sharedPost.videoUrl || 
+                        sharedPost.youtubeData ||
+                        (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
                       
-                      // Для видео используем превью, для изображений - обычное изображение
-                      return isVideo ? getMediaThumbnail(sharedPost) : (sharedPost.imageUrl || sharedPost.image);
+                      // Список приоритетных источников изображения
+                      const imageSources = [
+                        isVideo ? getMediaThumbnail(sharedPost) : null,
+                        sharedPost.imageUrl,
+                        sharedPost.image,
+                        sharedPost.thumbnailUrl,
+                        '/default-post-placeholder.png',
+                        '/video-placeholder.svg'
+                      ].filter(Boolean);
+
+                      console.log('Image Sources:', imageSources);
+                      
+                      return imageSources[0];
                     })()} 
                     alt="Post preview" 
                     style={{ 
@@ -1134,7 +1149,7 @@ const Messages = ({ currentUser }) => {
                 </div>
                 <div>
                   <div style={{ fontWeight: '600', fontSize: '14px' }}>
-                    Post by {sharedPost.author}
+                    Post by {sharedPost.author || 'Unknown'}
                   </div>
                   <div style={{ color: '#8e8e8e', fontSize: '12px' }}>
                     {sharedPost.caption?.substring(0, 50)}
@@ -1161,24 +1176,31 @@ const Messages = ({ currentUser }) => {
               {!searchQuery.trim() && recentUsers.length > 0 && (
                 <div className="recent-users-section">
                   <div className="section-title">Recent</div>
-                  {recentUsers.map(user => (
-                    <div 
-                      key={user._id} 
-                      className="user-result"
-                      onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
-                    >
-                      <img 
-                        src={getAvatarUrl(user.avatar)} 
-                        alt={user.username}
-                        className="user-avatar"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = '/default-avatar.png';
-                        }}
-                      />
-                      <span className="user-username">{user.username}</span>
-                    </div>
-                  ))}
+                  {recentUsers.map(user => {
+                    console.log('Rendering recent user:', {
+                      _id: user._id,
+                      username: user.username,
+                      avatar: user.avatar
+                    });
+                    return (
+                      <div 
+                        key={user._id} 
+                        className="user-result"
+                        onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
+                      >
+                        <img 
+                          src={getAvatarUrl(user.avatar)} 
+                          alt={user.username}
+                          className="user-avatar"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = '/default-avatar.png';
+                          }}
+                        />
+                        <span className="user-username">{user.username}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               

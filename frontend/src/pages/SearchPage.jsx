@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getRecentUsers, addRecentUser } from '../utils/recentUsers';
-import { getAvatarUrl } from '../utils/imageUtils';
+import { getAvatarUrl } from '../utils/mediaUrlResolver';
 import { API_URL } from '../config';
 import './SearchPage.css';
 
@@ -25,12 +25,10 @@ const SearchPage = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        const processedUsers = data.users || []
+        const processedUsers = (data.users || [])
           .map(user => ({
             ...user,
-            avatarUrl: user.avatar && !user.avatar.includes('krealgram/posts/') 
-              ? getAvatarUrl(user.avatar) 
-              : '/default-avatar.png'
+            avatarUrl: getAvatarUrl(user.avatar)
           }));
         setSearchResults(processedUsers);
       }
@@ -50,10 +48,8 @@ const SearchPage = () => {
   }, [searchQuery]);
 
   useEffect(() => {
-    // Прокручиваем в верх при переходе на страницу поиска
     window.scrollTo(0, 0);
     
-    // Проверяем существование недавних пользователей
     const validateRecentUsers = async () => {
       const recent = getRecentUsers();
       if (recent.length === 0) {
@@ -74,16 +70,17 @@ const SearchPage = () => {
             if (res.ok) {
               const data = await res.json();
               if (data.user) {
-                validUsers.push(user);
+                validUsers.push({
+                  ...user,
+                  avatarUrl: getAvatarUrl(data.user.avatar)
+                });
               }
             }
           } catch (e) {
-            // Пользователь не существует, пропускаем
             console.log(`User ${user.username} no longer exists`);
           }
         }
         
-        // Обновляем localStorage только валидными пользователями
         if (validUsers.length !== recent.length) {
           localStorage.setItem('recentUsers', JSON.stringify(validUsers));
         }
@@ -91,7 +88,7 @@ const SearchPage = () => {
         setRecentUsers(validUsers);
       } catch (error) {
         console.error('Error validating recent users:', error);
-        setRecentUsers(recent); // Fallback к оригинальному списку
+        setRecentUsers(recent);
       }
     };
     
