@@ -299,7 +299,7 @@
 @media (max-width: 680px) {
   .image-preview-container {
     position: relative;
-    bottom: 8vh;
+    bottom: 10vh;
   }
 }
 
@@ -1204,7 +1204,7 @@
 
 .responsive-message-img {
   max-width: 370px;
-  max-height: 400px;
+  max-height: 500px;
   border-radius: 8px;
   margin-top: 4px;
   cursor: pointer;

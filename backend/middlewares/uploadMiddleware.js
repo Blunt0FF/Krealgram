@@ -67,6 +67,9 @@ const uploadProcessedToGoogleDrive = async (fileBuffer, finalFilename, fileMimet
         const safeUsername = req.user.username.replace(/[^a-zA-Z0-9]/g, '_');
         driveFilename = `avatar_${safeUsername}${ext}`;
         console.log(`[UPLOAD_BUFFER] Сгенерировано имя файла для аватара: ${driveFilename}`);
+    } else if (context === 'message') {
+        // Для сообщений используем оригинальное имя файла
+        driveFilename = finalFilename;
     } else {
         const timestamp = Date.now();
         const randomString = Math.random().toString(36).substring(2, 15);
@@ -247,6 +250,13 @@ const uploadToGoogleDrive = async (req, res, next) => {
     if (context === 'avatar' && req.user && req.user.username) {
         const safeUsername = req.user.username.replace(/[^a-zA-Z0-9]/g, '_');
         driveFilename = `avatar_${safeUsername}${ext}`;
+    } else if (context === 'message') {
+        // Для сообщений используем оригинальное имя файла
+        driveFilename = finalFilename;
+        console.log(`[UPLOAD_MIDDLEWARE] Файл сообщения: 
+        Оригинальное имя: ${req.file.originalname}
+        Финальное имя: ${finalFilename}
+        Mime-тип: ${fileMimetype}`);
     } else {
         const timestamp = Date.now();
         const randomString = Math.random().toString(36).substring(2, 15);

@@ -2,26 +2,10 @@ import { processMediaUrl } from './urlUtils';
 
 // Утилиты для работы с видео
 
-// Получение thumbnail для Cloudinary видео
-export const getCloudinaryVideoThumbnail = (videoUrl, options = {}) => {
-  if (!videoUrl || !videoUrl.includes('cloudinary.com')) {
-    return videoUrl;
-  }
-
-  const { width = 400, height = 'auto', quality = 'auto' } = options;
-  
-  // Создаем thumbnail с сохранением пропорций (без c_fill)
-  if (height === 'auto') {
-    return videoUrl.replace(
-      '/video/upload/',
-      `/video/upload/w_${width},c_scale,q_${quality},f_jpg,so_0/`
-    );
-  } else {
-    return videoUrl.replace(
-      '/video/upload/',
-      `/video/upload/w_${width},h_${height},c_fit,q_${quality},f_jpg,so_0/`
-    );
-  }
+// Получение thumbnail для видео
+export const getVideoThumbnail = (videoUrl, options = {}) => {
+  // Возвращаем оригинальный URL, если нет специальной обработки
+  return videoUrl;
 };
 
 // Получение статичного превью для fallback

@@ -6,10 +6,7 @@ const getMediaConfig = () => {
   return {
     isDevelopment: process.env.NODE_ENV !== 'production',
     cloudinaryConfig: {
-      useCloudinary: process.env.USE_CLOUDINARY === 'true',
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET
+      useCloudinary: false
     },
     localUploadPath: 'uploads/',
     maxFileSize: 50 * 1024 * 1024, // 50MB
@@ -54,18 +51,15 @@ const processYouTubeUrl = (url) => {
   };
 };
 
-// Функция для получения URL медиа файла (локальный или Cloudinary)
-const getMediaUrl = (filename, type = 'post') => {
-  const config = getMediaConfig();
-  
-  if (config.cloudinaryConfig.useCloudinary) {
-    // В продакшене с Cloudinary будем возвращать Cloudinary URL
-    // TODO: Реализовать логику для Google Drive
-    return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
-  } else {
-    // В разработке используем локальные файлы
-    return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
+const mediaConfig = {
+  cloudinaryConfig: {
+    useCloudinary: false
   }
+};
+
+// Функция для получения URL медиа файла (только Google Drive)
+const getMediaUrl = (url, config = mediaConfig) => {
+  return url; // Просто возвращаем URL без дополнительной обработки
 };
 
 // Функция для удаления локального файла

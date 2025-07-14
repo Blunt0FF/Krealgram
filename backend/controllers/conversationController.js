@@ -223,18 +223,15 @@ exports.sendMessage = async (req, res) => {
         console.log('Имя файла:', req.file.filename);
         console.log('Размер файла:', req.file.size);
         console.log('MIME-тип:', req.file.mimetype);
-        console.log('Cloudinary URL:', req.file.secure_url);
-        console.log('Cloudinary Public ID:', req.file.public_id);
+        console.log('Google Drive Upload Result:', req.uploadResult);
         
-        // Создаем ответ для медиа - поддерживаем как Cloudinary, так и локальные файлы
+        // Создаем ответ для медиа - используем только Google Drive
         const mediaResponse = {
           type: fileType,
-          url: req.file.secure_url || req.file.path || `/uploads/messages/${req.file.filename}`, // Приоритет Cloudinary
+          url: req.uploadResult.secure_url,
           filename: req.file.originalname,
           size: req.file.size,
-          mimetype: req.file.mimetype,
-          cloudinaryPublicId: req.file.public_id || null,
-          cloudinarySecureUrl: req.file.secure_url || null
+          mimetype: req.file.mimetype
         };
         
         console.log('Медиа ответ:', JSON.stringify(mediaResponse, null, 2));
@@ -333,8 +330,8 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
-// @desc    Удаление сообщения в диалоге
-// @route   DELETE /api/conversations/delete-message/:messageId
+// @desc    Удаление сообщения
+// @route   DELETE /api/conversations/messages/:messageId
 // @access  Private
 exports.deleteMessage = async (req, res) => {
   const session = await mongoose.startSession();
@@ -344,7 +341,7 @@ exports.deleteMessage = async (req, res) => {
     const messageId = req.params.messageId;
     const userId = req.user._id;
 
-    // Находим диалог, содержащий это сообщение
+    // Находим сообщение и проверяем права на удаление
     const conversation = await Conversation.findOne({
       'messages._id': messageId,
       participants: userId
@@ -353,26 +350,49 @@ exports.deleteMessage = async (req, res) => {
     if (!conversation) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: 'Conversation not found or message does not exist.' });
+      return res.status(404).json({ message: 'Message not found or you do not have permission to delete it.' });
     }
 
-    // Проверяем, что сообщение принадлежит текущему пользователю
-    const messageToDelete = conversation.messages.find(msg => 
-      msg._id.toString() === messageId && msg.sender.toString() === userId.toString()
-    );
+    // Находим конкретное сообщение
+    const messageToDelete = conversation.messages.id(messageId);
 
     if (!messageToDelete) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(403).json({ message: 'You are not authorized to delete this message.' });
+      return res.status(404).json({ message: 'Message not found.' });
     }
 
-    // Удаляем сообщение
-    conversation.messages = conversation.messages.filter(msg => 
-      msg._id.toString() !== messageId
-    );
+    // Проверяем, что удаляющий пользователь является отправителем сообщения
+    if (messageToDelete.sender.toString() !== userId.toString()) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({ message: 'You can only delete your own messages.' });
+    }
 
-    // Обновляем последнее сообщение, если нужно
+    // Удаление файла с Google Drive, если есть медиа
+    if (messageToDelete.media && messageToDelete.media.url) {
+      try {
+        const googleDrive = require('../config/googleDrive');
+        const url = messageToDelete.media.url;
+        
+        if (url.includes('drive.google.com')) {
+          const fileId = url.split('id=')[1] || url.split('/').pop();
+          
+          if (fileId) {
+            await googleDrive.deleteFile(fileId);
+            console.log(`[DELETE_MESSAGE] ✅ Successfully deleted media file: ${fileId}`);
+          }
+        }
+      } catch (driveError) {
+        console.error('[DELETE_MESSAGE] Error deleting file from Google Drive:', driveError);
+        // Не прерываем выполнение, если не удалось удалить файл
+      }
+    }
+
+    // Удаляем сообщение из массива сообщений
+    conversation.messages.pull(messageId);
+
+    // Обновляем lastMessageAt, если это было последнее сообщение
     if (conversation.messages.length > 0) {
       conversation.lastMessageAt = conversation.messages[conversation.messages.length - 1].createdAt;
     } else {
@@ -385,16 +405,13 @@ exports.deleteMessage = async (req, res) => {
 
     res.status(200).json({ 
       message: 'Message deleted successfully',
-      conversationId: conversation._id
+      deletedMedia: messageToDelete.media ? messageToDelete.media.url : null
     });
 
   } catch (error) {
+    console.error('Error deleting message:', error);
     await session.abortTransaction();
     session.endSession();
-    console.error('Error deleting message:', error);
-    res.status(500).json({ 
-      message: 'Server error while deleting message', 
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Server error while deleting message.', error: error.message });
   }
 };

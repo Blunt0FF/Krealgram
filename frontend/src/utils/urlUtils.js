@@ -8,8 +8,14 @@ import { API_URL } from '../config';
  * @returns {string} Обработанный URL
  */
 export const processMediaUrl = (url, type = 'image') => {
-  console.group(`🔗 processMediaUrl [${type}]`);
-  console.log('Input:', { url, type });
+  // Добавляем более подробное логирование только для сообщений
+  const shouldLog = type === 'message';
+  
+  if (shouldLog) {
+    console.group('🖼️ Медиа в сообщении');
+    console.log('Входной URL (полный путь):', url);
+    console.log('Тип:', type);
+  }
 
   // Если передан объект, извлекаем URL
   if (typeof url === 'object' && url !== null) {
@@ -17,15 +23,33 @@ export const processMediaUrl = (url, type = 'image') => {
       url.imageUrl || 
       url.image || 
       url.thumbnailUrl || 
-      url.videoUrl || 
-      url.avatarUrl || 
       url.url || 
       null;
   }
 
+  // Для сообщений извлекаем только имя файла
+  if (type === 'message' && typeof url === 'string') {
+    const filename = url.split('/').pop();
+    
+    if (shouldLog) {
+      console.log('Извлеченное имя файла:', filename);
+    }
+    
+    const proxyUrl = `${API_URL}/api/proxy-drive/${process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID}/${filename}?type=${type}`;
+    
+    if (shouldLog) {
+      console.log('Proxy URL для сообщения:', proxyUrl);
+    }
+    
+    return proxyUrl;
+  }
+
   const resolvedUrl = resolveMediaUrl(url, type);
-  console.log('✅ Resolved URL:', resolvedUrl);
-  console.groupEnd();
+
+  if (shouldLog) {
+    console.log('Обработанный URL:', resolvedUrl);
+    console.groupEnd();
+  }
 
   return resolvedUrl;
 };

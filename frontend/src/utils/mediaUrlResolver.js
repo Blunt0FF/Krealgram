@@ -10,18 +10,28 @@ const ALLOWED_DOMAINS = [
 ];
 
 export const resolveMediaUrl = (url, type = 'image') => {
-  console.group(`🔗 resolveMediaUrl [${type}]`);
-  console.log('Input URL:', url);
+  // Уменьшаем количество логов
+  const shouldLog = type === 'message' || type === 'avatar';
+  
+  if (shouldLog) {
+    console.group(`🔗 resolveMediaUrl [${type}]`);
+    console.log('Input URL:', url);
+  }
 
   try {
-    // Если URL пустой - возвращаем дефолтное изображение
+    // Если URL пустой - возвращаем дефолтное изображение только для определенных типов
     if (!url) {
       const defaultMap = {
         'image': '/default-post-placeholder.png',
         'video': '/video-placeholder.svg',
-        'avatar': '/default-avatar.png'
+        'avatar': '/default-avatar.png',
+        'message': null  // Для сообщений возвращаем null
       };
-      console.log('🚫 Empty URL, returning default', defaultMap[type]);
+      
+      if (shouldLog) {
+        console.log('🚫 Empty URL, returning default', defaultMap[type]);
+      }
+      
       return defaultMap[type] || '/default-avatar.png';
     }
 
@@ -35,22 +45,54 @@ export const resolveMediaUrl = (url, type = 'image') => {
 
       for (const key of urlKeys) {
         if (url[key]) {
-          console.log(`🔍 Extracted URL from key '${key}':`, url[key]);
+          if (shouldLog) {
+            console.log(`🔍 Extracted URL from key '${key}':`, url[key]);
+          }
           url = url[key];
           break;
         }
       }
       
       if (typeof url === 'object') {
-        console.warn('⚠️ Could not extract URL from object:', url);
-        return '/default-avatar.png';
+        if (shouldLog) {
+          console.warn('⚠️ Could not extract URL from object:', url);
+        }
+        return type === 'message' ? null : '/default-avatar.png';
       }
     }
 
     // Если URL все еще пустой после извлечения
     if (!url) {
-      console.warn('⚠️ Could not extract URL');
-      return '/default-avatar.png';
+      if (shouldLog) {
+        console.warn('⚠️ Could not extract URL');
+      }
+      return type === 'message' ? null : '/default-avatar.png';
+    }
+
+    // Обработка локальных путей для сообщений
+    if (url.startsWith('/opt/render/') || url.startsWith('/tmp/') || url.startsWith('/var/')) {
+      // Извлекаем только имя файла, убирая все лишние пути
+      const filename = url.split('/').pop();
+      
+      // Проверяем, что имя файла корректное
+      if (!filename || filename === url) {
+        if (shouldLog) {
+          console.warn('⚠️ Некорректное имя файла:', filename);
+        }
+        return type === 'message' ? null : '/default-avatar.png';
+      }
+      
+      const proxyUrl = `${API_URL}/api/proxy-drive/${process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID}/${filename}?type=${type}`;
+      
+      if (shouldLog) {
+        console.log('📁 Message file path detected:', {
+          originalPath: url,
+          extractedFilename: filename,
+          proxyUrl
+        });
+      }
+      
+      return proxyUrl;
     }
 
     // Если уже полный HTTP/HTTPS URL
@@ -65,30 +107,21 @@ export const resolveMediaUrl = (url, type = 'image') => {
             url.match(/\/uc\?id=([^&]+)/)?.[1];
           
           if (fileId) {
-            console.log('🔑 Google Drive FileID:', fileId);
+            if (shouldLog) {
+              console.log('🔑 Google Drive FileID:', fileId);
+            }
             const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
-            console.log('🌐 Proxy URL:', proxyUrl);
+            
+            if (shouldLog) {
+              console.log('🌐 Proxy URL:', proxyUrl);
+            }
+            
             return proxyUrl;
           }
         } catch (error) {
-          console.error('❌ Google Drive URL parsing error:', error);
-        }
-      }
-
-      // YouTube превью с расширенной отладкой
-      const youtubeMatchers = [
-        /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
-        /youtu\.be\/([a-zA-Z0-9_-]{11})/,
-        /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
-      ];
-
-      for (const matcher of youtubeMatchers) {
-        const match = url.match(matcher);
-        if (match) {
-          const youtubeId = match[1];
-          const youtubePreviewUrl = `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
-          console.log('📺 YouTube Preview URL:', youtubePreviewUrl);
-          return youtubePreviewUrl;
+          if (shouldLog) {
+            console.error('❌ Google Drive URL parsing error:', error);
+          }
         }
       }
 
@@ -99,16 +132,27 @@ export const resolveMediaUrl = (url, type = 'image') => {
         
         // Если текущий домен не совпадает с доменом URL, используем проксирование
         if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
-          console.log(`🌍 Proxying URL from domain: ${parsedUrl.hostname}`);
+          if (shouldLog) {
+            console.log(`🌍 Proxying URL from domain: ${parsedUrl.hostname}`);
+          }
           const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}?type=${type}`;
-          console.log('🔀 Proxy URL:', proxyUrl);
+          
+          if (shouldLog) {
+            console.log('🔀 Proxy URL:', proxyUrl);
+          }
+          
           return proxyUrl;
         }
       } catch (error) {
-        console.warn('⚠️ URL parsing error:', error);
+        if (shouldLog) {
+          console.warn('⚠️ URL parsing error:', error);
+        }
       }
 
-      console.log('✅ Returning original URL:', url);
+      if (shouldLog) {
+        console.log('✅ Returning original URL:', url);
+      }
+      
       return url;
     }
 
@@ -116,18 +160,27 @@ export const resolveMediaUrl = (url, type = 'image') => {
     const localUrlMap = {
       'image': `${API_URL}/uploads/${url}`,
       'video': `${API_URL}/uploads/${url}`,
-      'avatar': `${API_URL}/uploads/avatars/${url}`
+      'avatar': `${API_URL}/uploads/avatars/${url}`,
+      'message': `${API_URL}/uploads/${url}`
     };
 
     const localUrl = localUrlMap[type];
-    console.log('📁 Local URL:', localUrl);
+    
+    if (shouldLog) {
+      console.log('📁 Local URL:', localUrl);
+    }
+    
     return localUrl;
 
   } catch (error) {
-    console.error('❌ Critical error in resolveMediaUrl:', error);
-    return '/default-avatar.png';
+    if (shouldLog) {
+      console.error('❌ Critical error in resolveMediaUrl:', error);
+    }
+    return type === 'message' ? null : '/default-avatar.png';
   } finally {
-    console.groupEnd();
+    if (shouldLog) {
+      console.groupEnd();
+    }
   }
 };
 

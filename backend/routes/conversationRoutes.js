@@ -19,9 +19,9 @@ router.get('/:conversationId/messages', authMiddleware, conversationController.g
 // @access  Private
 router.post('/:recipientId/messages', authMiddleware, upload.single('media'), uploadToGoogleDrive, conversationController.sendMessage);
 
-// @route   DELETE /api/conversations/delete-message/:messageId
-// @desc    Удаление сообщения по его ID
+// @route   DELETE /api/conversations/messages/:messageId 
+// @desc    Удаление сообщения пользователем
 // @access  Private
-router.delete('/delete-message/:messageId', authMiddleware, conversationController.deleteMessage);
+router.delete('/messages/:messageId', authMiddleware, conversationController.deleteMessage);
 
 module.exports = router; 
