@@ -147,7 +147,15 @@ export const uploadAvatar = async (file) => {
 };
 
 // Алиасы для обратной совместимости
-export const getImageUrl = processMediaUrl;
+export const getImageUrl = (imagePath, options = {}) => {
+  if (!imagePath) return '/default-post-placeholder.png';
+  
+  if (imagePath.startsWith('http')) {
+    return `${API_URL}/api/proxy-drive/${imagePath.split('id=')[1]}`;
+  }
+  
+  return imagePath;
+};
 export const getAvatarUrl = (avatarPath) => {
   return resolveAvatarUrl(avatarPath);
 };
