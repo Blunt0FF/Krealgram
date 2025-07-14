@@ -53,29 +53,44 @@ const whitelist = [
   "https://krealgram.vercel.app",
   "https://krealgram.com",
   "https://www.krealgram.com",
-  "http://localhost:5173",  // Добавлен Vite dev server
-  "http://127.0.0.1:5173"   // Локальный Vite
 ];
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
       'http://localhost:4000', 
+      'http://127.0.0.1:4000',
       'http://localhost:3000', 
-      'http://localhost:5173',  // Добавлен Vite
+      'http://127.0.0.1:3000',
       'https://krealgram-backend.onrender.com',
-      'https://krealgram.vercel.app'
+      'https://krealgram.vercel.app',
+      'https://krealgram.com',
+      'https://www.krealgram.com'
     ];
 
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Разрешаем все локальные источники и список доменов
+    if (!origin || 
+        origin.includes('localhost') || 
+        origin.includes('127.0.0.1') || 
+        allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error(`Origin ${origin} not allowed`));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Origin', 
+    'X-Requested-With', 
+    'Accept',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Origin'
+  ],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
 // Сначала обрабатываем OPTIONS-запросы для всех маршрутов.

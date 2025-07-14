@@ -7,8 +7,16 @@ export let API_URL = REMOTE_URL; // Default to remote
 export const SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
 
 export async function checkAndSetApiUrl() {
-  // Всегда возвращаем Render URL
-  return REMOTE_URL;
+  // Для локальной разработки используем локальный URL
+  const isDevelopment = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1';
+  
+  if (isDevelopment) {
+    API_URL = LOCAL_URL;
+    console.warn('[DEV] Using local backend URL:', LOCAL_URL);
+  }
+  
+  return API_URL;
 }
 
 export function getApiUrl() {

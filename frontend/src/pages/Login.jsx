@@ -87,8 +87,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Origin': window.location.origin,
-          'Access-Control-Allow-Origin': '*'
+          'Origin': window.location.origin
         },
         credentials: 'include',
         body: JSON.stringify(formData)
@@ -142,13 +141,15 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
 
       // Расширенная обработка ошибок
       if (error.message.includes('Failed to fetch')) {
-        setError('Не удалось подключиться к серверу. Проверьте интернет-соединение.');
+        setError('Unable to connect to the server. Please check your internet connection.');
       } else if (error.message.includes('CORS')) {
-        setError('Ошибка CORS. Проверьте настройки сервера.');
+        setError('CORS error. Please check your server settings.');
       } else if (error.message.includes('Not allowed by CORS')) {
-        setError('Домен не разрешен. Проверьте настройки CORS.');
+        setError('Domain not allowed. Please check your CORS settings.');
+      } else if (error.message.includes('NetworkError')) {
+        setError('Network error. Please check your connection and server status.');
       } else {
-        setError(error.message || 'Произошла ошибка при входе. Пожалуйста, попробуйте снова.');
+        setError(error.message || 'An error occurred while logging in. Please try again.');
       }
     } finally {
       setIsLoading(false);
