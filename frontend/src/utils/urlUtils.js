@@ -55,3 +55,35 @@ export const sanitizeUrl = (url) => {
     return null;
   }
 }; 
+
+// Функция для тестирования обработки URL
+export const testMediaUrlResolution = (urls, type = 'image') => {
+  console.group('🔍 URL Resolution Test');
+  console.log('Test URLs:', urls);
+  console.log('Media Type:', type);
+
+  const results = urls.map(url => {
+    try {
+      const resolvedUrl = processMediaUrl(url, type);
+      console.log(`URL: ${url} → Resolved: ${resolvedUrl}`);
+      return { 
+        original: url, 
+        resolved: resolvedUrl,
+        success: true 
+      };
+    } catch (error) {
+      console.error(`Error resolving URL: ${url}`, error);
+      return { 
+        original: url, 
+        resolved: null,
+        success: false,
+        error: error.message 
+      };
+    }
+  });
+
+  console.log('Resolution Results:', results);
+  console.groupEnd();
+
+  return results;
+}; 

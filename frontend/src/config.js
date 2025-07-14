@@ -58,7 +58,7 @@ export async function checkAndSetApiUrl() {
   if (isLocalhost) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
 
       console.log('Attempting to reach local server:', LOCAL_URL);
 
@@ -66,7 +66,8 @@ export async function checkAndSetApiUrl() {
         method: 'GET',
         signal: controller.signal,
         headers: {
-          'Origin': window.location.origin
+          'Origin': window.location.origin,
+          'Accept': 'application/json'
         }
       });
 
@@ -76,6 +77,9 @@ export async function checkAndSetApiUrl() {
         headers: Object.fromEntries(response.headers.entries())
       });
 
+      const responseBody = await response.json();
+      console.log('Ping response body:', responseBody);
+
       if (response.ok) {
         console.log('[CONFIG] Local server reachable, using LOCAL_URL');
         setApiUrl(LOCAL_URL);
@@ -84,7 +88,11 @@ export async function checkAndSetApiUrl() {
         return;
       }
     } catch (error) {
-      console.warn('[CONFIG] Local server not available', error);
+      console.warn('[CONFIG] Local server not available', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
     }
   }
 

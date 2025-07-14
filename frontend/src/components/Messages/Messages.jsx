@@ -666,6 +666,64 @@ const Messages = ({ currentUser }) => {
     return <div className="messages-loading">Loading user data...</div>;
   }
 
+  const renderMessageMedia = (message) => {
+    if (!message.media || !message.media.url) {
+      console.warn('🚫 Сообщение без медиа:', message);
+      return null;
+    }
+
+    console.group('📸 Медиа в сообщении');
+    console.log('Полный объект сообщения:', message);
+    console.log('URL медиа:', message.media.url);
+    console.log('Тип медиа:', message.media.type);
+
+    try {
+      // Список всех возможных источников URL
+      const urlSources = [
+        message.media.url,
+        message.media.imageUrl,
+        message.media.thumbnailUrl,
+        message.media.image,
+        '/default-post-placeholder.png'
+      ].filter(Boolean);
+
+      console.log('Источники URL:', urlSources);
+
+      const processedUrl = getImageUrl(urlSources[0], 'image');
+      console.log('Обработанный URL:', processedUrl);
+
+      const handleImageError = (e) => {
+        console.error('❌ Ошибка загрузки изображения:', {
+          src: e.target.src,
+          message: e.type,
+          fullMessage: message,
+          urlSources: urlSources
+        });
+        e.target.src = urlSources[urlSources.length - 1];
+      };
+
+      return (
+        <img 
+          src={processedUrl} 
+          alt="Медиа в сообщении" 
+          onClick={() => openImageModal(processedUrl)}
+          onError={handleImageError}
+          style={{ 
+            maxWidth: '300px', 
+            maxHeight: '300px', 
+            objectFit: 'contain', 
+            cursor: 'pointer' 
+          }}
+        />
+      );
+    } catch (error) {
+      console.error('🔥 Критическая ошибка рендеринга медиа:', error);
+      return null;
+    } finally {
+      console.groupEnd();
+    }
+  };
+
   return (
     <div className="messages-container">
       <div className={`messages-sidebar ${isChatOpen ? 'hidden-mobile' : ''}`}>
@@ -900,39 +958,7 @@ const Messages = ({ currentUser }) => {
                             img.src = processedUrl;
                           }}
                         >
-                          <img 
-                            src={getImageUrl(message.media.url)} 
-                            alt="Shared image" 
-                            className="responsive-message-img"
-                            onError={(e) => {
-                              const fallbackSources = [
-                                message.media.imageUrl,
-                                message.media.thumbnailUrl,
-                                message.media.image,
-                                '/default-post-placeholder.png'
-                              ].filter(Boolean);
-
-                              // Пытаемся загрузить альтернативные источники
-                              for (const source of fallbackSources) {
-                                try {
-                                  e.target.src = getImageUrl(source);
-                                  break;
-                                } catch (error) {
-                                  console.warn('Failed to load image source:', source);
-                                }
-                              }
-
-                              e.target.alt = 'Image failed to load';
-                              e.target.style.opacity = '0.5';
-                            }}
-                            style={{ 
-                              maxWidth: '400px', 
-                              maxHeight: '400px',
-                              borderRadius: '8px',
-                              marginTop: '4px',
-                              cursor: 'pointer'
-                            }}
-                          />
+                          {renderMessageMedia(message)}
                         </div>
                       )}
                       {message.media && message.media.type === 'video' && (

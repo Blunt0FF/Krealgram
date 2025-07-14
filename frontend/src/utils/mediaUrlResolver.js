@@ -25,29 +25,37 @@ export const resolveMediaUrl = (url, type = 'image') => {
       return defaultMap[type] || '/default-avatar.png';
     }
 
-    // Если передан объект, извлекаем URL
+    // Если передан объект, извлекаем URL с расширенной отладкой
     if (typeof url === 'object' && url !== null) {
-      url = 
-        url.imageUrl || 
-        url.image || 
-        url.thumbnailUrl || 
-        url.videoUrl || 
-        url.avatarUrl || 
-        url.url || 
-        null;
+      const urlKeys = [
+        'imageUrl', 'image', 'thumbnailUrl', 
+        'videoUrl', 'avatarUrl', 'url', 
+        'secure_url', 'path'
+      ];
+
+      for (const key of urlKeys) {
+        if (url[key]) {
+          console.log(`🔍 Extracted URL from key '${key}':`, url[key]);
+          url = url[key];
+          break;
+        }
+      }
       
-      console.log('🔍 Extracted URL from object:', url);
+      if (typeof url === 'object') {
+        console.warn('⚠️ Could not extract URL from object:', url);
+        return '/default-avatar.png';
+      }
     }
 
     // Если URL все еще пустой после извлечения
     if (!url) {
-      console.warn('⚠️ Could not extract URL from object');
+      console.warn('⚠️ Could not extract URL');
       return '/default-avatar.png';
     }
 
     // Если уже полный HTTP/HTTPS URL
     if (url.startsWith('http')) {
-      // Google Drive обработка
+      // Google Drive обработка с расширенной отладкой
       if (url.includes('drive.google.com')) {
         try {
           const fileId = 
@@ -67,7 +75,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
         }
       }
 
-      // YouTube превью
+      // YouTube превью с расширенной отладкой
       const youtubeMatchers = [
         /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
         /youtu\.be\/([a-zA-Z0-9_-]{11})/,
@@ -104,7 +112,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
       return url;
     }
 
-    // Локальные пути
+    // Локальные пути с расширенной отладкой
     const localUrlMap = {
       'image': `${API_URL}/uploads/${url}`,
       'video': `${API_URL}/uploads/${url}`,
