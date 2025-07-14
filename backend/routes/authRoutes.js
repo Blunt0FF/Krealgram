@@ -43,13 +43,12 @@ router.get('/me', authMiddleware, authController.getCurrentUser);
 // @access  Private (защищено authMiddleware)
 router.post('/logout', authMiddleware, authController.logout);
 
-// @route   GET api/auth/ping
-// @desc    Проверка доступности сервера
-// @access  Public
+// Новый эндпоинт для пинга
 router.get('/ping', (req, res) => {
-  res.status(200).json({ 
-    message: 'Сервер работает', 
-    timestamp: new Date().toISOString() 
+  res.status(200).json({
+    status: 'ok',
+    message: 'Backend is alive and ready!',
+    timestamp: new Date().toISOString()
   });
 });
 

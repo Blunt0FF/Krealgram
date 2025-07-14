@@ -56,7 +56,7 @@ const SharedPost = ({ post, onPostClick }) => {
           <img 
             src={getAvatarUrl(post.author.avatar)} 
             alt={`${post.author.username}'s avatar`} 
-            className="shared-post-avatar"
+            className="shared-post-avatar" 
             onError={(e) => {
               e.target.onerror = null;
               e.target.src = '/default-avatar.png';

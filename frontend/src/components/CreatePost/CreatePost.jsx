@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import heic2any from 'heic2any';
-import { compressPostImage, getImageUrl } from '../../utils/imageUtils'; // Импортируем getImageUrl
+import ImageProcessor from '../../utils/imageProcessor';
 import { API_URL } from '../../config';
 import ExternalVideoUpload from '../ExternalVideoUpload/ExternalVideoUpload';
 import './CreatePost.css';
@@ -20,35 +20,35 @@ const CreatePost = () => {
   const [parsedVideoData, setParsedVideoData] = useState(null);
   const [showExternalVideoModal, setShowExternalVideoModal] = useState(false);
 
+  const fileInputRef = useRef(null);
+
   useEffect(() => {
-    // Scroll to top when the component mounts
     window.scrollTo(0, 0);
   }, []);
 
-  const handleImageChange = async (e) => {
+  const handleImageChange = useCallback(async (e) => {
     let file = e.target.files[0];
     if (!file) return;
 
     try {
-      setCompressing(true); // Показываем индикатор загрузки
+      setCompressing(true);
       setError('');
       setParsedVideoData(null);
       setVideoUrl('');
 
-      // Конвертируем HEIC/HEIF в JPEG
-      if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
-        console.log('HEIC/HEIF detected, converting to JPEG...');
+      // HEIC конвертация
+      if (file.type === 'image/heic' || file.type === 'image/heif' || 
+          file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
         try {
           const convertedBlob = await heic2any({
             blob: file,
             toType: 'image/jpeg',
-            quality: 0.9, // Качество сжатия
+            quality: 0.9,
           });
           const fileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
           file = new File([convertedBlob], fileName, { type: 'image/jpeg' });
-          console.log('✅ Conversion successful!');
         } catch (conversionError) {
-          console.error('❌ HEIC conversion failed:', conversionError);
+          console.error('HEIC conversion failed:', conversionError);
           setError('Failed to convert HEIC image.');
           setCompressing(false);
           return;
@@ -57,54 +57,31 @@ const CreatePost = () => {
 
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       setMediaType(fileType);
-      setPreviewUrl(URL.createObjectURL(file));
+
+      // Создаем превью с мемоизацией
+      const previewDataUrl = await ImageProcessor.createTemporaryPreview(file);
+      setPreviewUrl(previewDataUrl);
       setOriginalFileName(file.name);
       
-      if (fileType === 'image') {
-        const originalFile = await compressPostImage(file);
-        setCompressedFile(originalFile);
-      } else {
-        setCompressedFile(file);
-      }
+      // Сжатие с мемоизацией
+      const compressedFile = fileType === 'image' 
+        ? await ImageProcessor.compressImage(file) 
+        : file;
+      
+      setCompressedFile(compressedFile);
     } catch (err) {
       console.error('File processing error:', err);
       setError('Error processing file');
     } finally {
       setCompressing(false);
     }
-  };
+  }, []);
 
-  const handleCaptionChange = (e) => {
+  const handleCaptionChange = useCallback((e) => {
     setCaption(e.target.value);
-  };
+  }, []);
 
-  const handleExternalVideoSelect = (videoData) => {
-    console.log('🎬 External video selected:', videoData);
-    
-    // Clear file data when selecting external video
-    setCompressedFile(null);
-    setOriginalFileName('');
-    
-    // Set video data
-    setParsedVideoData(videoData);
-    setVideoUrl(videoData.originalUrl || videoData.videoUrl);
-    setMediaType('video');
-    
-    // Set preview, using proxy for Google Drive thumbnails
-    if (videoData.thumbnailUrl) {
-      setPreviewUrl(getImageUrl(videoData.thumbnailUrl));
-    } else if (videoData.platform === 'youtube' && videoData.videoId) {
-      setPreviewUrl(`https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`);
-    } else {
-      // For other platforms
-      setPreviewUrl(`https://via.placeholder.com/300x300/000000/FFFFFF?text=${videoData.platform?.toUpperCase()}+Video`);
-    }
-    
-    setError('');
-    setShowExternalVideoModal(false);
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
     if (!compressedFile && !parsedVideoData) {
@@ -119,15 +96,12 @@ const CreatePost = () => {
       const token = localStorage.getItem('token');
       const formData = new FormData();
       
-      // Добавляем подпись в любом случае
       formData.append('caption', caption);
 
       if (parsedVideoData) {
-        // Для внешних видео (скачанных или по ссылке) отправляем URL и метаданные
         formData.append('videoUrl', parsedVideoData.videoUrl || parsedVideoData.originalUrl);
         formData.append('videoData', JSON.stringify(parsedVideoData.videoData || parsedVideoData));
       } else if (compressedFile) {
-        // Для локально загруженного файла отправляем сам файл
         formData.append('image', compressedFile, originalFileName);
       }
 
@@ -144,22 +118,50 @@ const CreatePost = () => {
         throw new Error(data.message || 'Error creating post');
       }
 
-      // Используем sessionStorage для сохранения toast-сообщения
-      sessionStorage.setItem('toastMessage', 'Post created successfully!');
+      // Сбрасываем состояние после успешной загрузки
+      setPreviewUrl(null);
+      setCompressedFile(null);
+      setOriginalFileName('');
+      setCaption('');
+      setMediaType('image');
+      setParsedVideoData(null);
 
-      // Используем replace для предотвращения возврата назад
-      navigate('/feed', { replace: true });
-    
+      navigate('/');
     } catch (error) {
-      console.error('Error creating post:', error);
-      setError(error.message || 'An error occurred while creating the post');
+      console.error('Post creation error:', error);
+      setError(error.message || 'Failed to create post');
     } finally {
       setLoading(false);
     }
-  };
+  }, [compressedFile, parsedVideoData, caption, originalFileName, navigate]);
+
+  const handleExternalVideoSelect = useCallback((videoData) => {
+    console.log('🎬 External video selected:', videoData);
+    
+    // Clear file data when selecting external video
+    setCompressedFile(null);
+    setOriginalFileName('');
+    
+    // Set video data
+    setParsedVideoData(videoData);
+    setVideoUrl(videoData.originalUrl || videoData.videoUrl);
+    setMediaType('video');
+    
+    // Set preview, using proxy for Google Drive thumbnails
+    if (videoData.thumbnailUrl) {
+      setPreviewUrl(videoData.thumbnailUrl);
+    } else if (videoData.platform === 'youtube' && videoData.videoId) {
+      setPreviewUrl(`https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`);
+    } else {
+      // For other platforms
+      setPreviewUrl(`https://via.placeholder.com/300x300/000000/FFFFFF?text=${videoData.platform?.toUpperCase()}+Video`);
+    }
+    
+    setError('');
+    setShowExternalVideoModal(false);
+  }, []);
 
   return (
-    <div className="create-post-container">
       <div className="create-post-box">
         <h2 style={{
           textAlign: 'center',
@@ -381,7 +383,6 @@ const CreatePost = () => {
               {loading ? 'Publishing...' : 'Share'}
             </button>
           </form>
-      </div>
 
       {/* External video upload modal */}
       <ExternalVideoUpload

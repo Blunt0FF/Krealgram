@@ -71,6 +71,8 @@ export async function checkAndSetApiUrl() {
         }
       });
 
+      clearTimeout(timeoutId);
+
       console.log('Local server ping response:', {
         status: response.status,
         ok: response.ok,
@@ -80,7 +82,7 @@ export async function checkAndSetApiUrl() {
       const responseBody = await response.json();
       console.log('Ping response body:', responseBody);
 
-      if (response.ok) {
+      if (response.ok && responseBody.status === 'ok') {
         console.log('[CONFIG] Local server reachable, using LOCAL_URL');
         setApiUrl(LOCAL_URL);
         SOCKET_URL = `ws://${LOCAL_URL.split('://')[1]}`;
@@ -93,6 +95,13 @@ export async function checkAndSetApiUrl() {
         message: error.message,
         stack: error.stack
       });
+      
+      // Если локальный бэкенд недоступен, явно переключаемся на удаленный
+      console.log('[CONFIG] Switching to REMOTE_URL due to local server unavailability');
+      setApiUrl(REMOTE_URL);
+      SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
+      console.groupEnd();
+      return;
     }
   }
 

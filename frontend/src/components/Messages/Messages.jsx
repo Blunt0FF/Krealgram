@@ -506,7 +506,7 @@ const Messages = ({ currentUser }) => {
     } catch (error) {
       console.error('Ошибка при отправке поста:', error);
     }
-  };
+};
 
   const openImageModal = (imageSrc) => {
     setSelectedImage(imageSrc);
@@ -1116,9 +1116,9 @@ const Messages = ({ currentUser }) => {
                       // Определяем является ли пост видео
                       const isVideo = 
                         sharedPost.mediaType === 'video' || 
-                        sharedPost.videoUrl || 
-                        sharedPost.youtubeData ||
-                        (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
+                                      sharedPost.videoUrl || 
+                                      sharedPost.youtubeData ||
+                                      (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
                       
                       // Список приоритетных источников изображения
                       const imageSources = [
@@ -1209,22 +1209,22 @@ const Messages = ({ currentUser }) => {
                       avatar: user.avatar
                     });
                     return (
-                      <div 
-                        key={user._id} 
-                        className="user-result"
-                        onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
-                      >
-                        <img 
-                          src={getAvatarUrl(user.avatar)} 
-                          alt={user.username}
-                          className="user-avatar"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = '/default-avatar.png';
-                          }}
-                        />
-                        <span className="user-username">{user.username}</span>
-                      </div>
+                    <div 
+                      key={user._id} 
+                      className="user-result"
+                      onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
+                    >
+                      <img 
+                        src={getAvatarUrl(user.avatar)} 
+                        alt={user.username}
+                        className="user-avatar"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = '/default-avatar.png';
+                        }}
+                      />
+                      <span className="user-username">{user.username}</span>
+                    </div>
                     );
                   })}
                 </div>

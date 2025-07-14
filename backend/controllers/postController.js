@@ -117,7 +117,7 @@ exports.createPost = async (req, res) => {
       console.log('Processing uploaded file via Google Drive:', req.uploadResult);
       
       imagePath = req.uploadResult.secure_url;
-      thumbnailUrl = req.uploadResult.thumbnailUrl; // <--- Получаем превью
+      // Убираем сохранение thumbnailUrl
       console.log('Google Drive file uploaded:', imagePath);
       
       mediaType = req.uploadResult.resource_type;
@@ -170,7 +170,6 @@ exports.createPost = async (req, res) => {
       caption: caption,
       image: imagePath, // Путь к основному медиа (картинка или видео на GDrive)
       mediaType: mediaType,
-      thumbnailUrl: thumbnailUrl, // Прямой URL на превью (для видео)
       videoUrl: videoUrl, // URL для встраивания (если применимо, н-р, YouTube)
       youtubeData: youtubeData,
       gifPreview: req.uploadResult?.gifPreviewUrl || null, // Добавляем GIF-превью

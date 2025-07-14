@@ -107,6 +107,14 @@ const Feed = ({ user }) => {
     setSelectedPost(post);
     document.body.style.overflow = 'hidden';
 
+    // Если пост уже есть в кэше, не делаем запрос
+    const cachedPost = window.postCache?.get(post._id);
+    if (cachedPost) {
+      setSelectedPost(cachedPost);
+      setIsModalLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/posts/${post._id}`, {
@@ -114,14 +122,23 @@ const Feed = ({ user }) => {
           'Authorization': `Bearer ${token}`
         }
       });
+      
       if (!response.ok) {
         throw new Error('Failed to fetch full post data');
       }
+      
       const data = await response.json();
+      
+      // Кэшируем пост
+      if (!window.postCache) {
+        window.postCache = new Map();
+      }
+      window.postCache.set(post._id, data.post);
+      
       setSelectedPost(data.post);
     } catch (error) {
       console.error("Error fetching full post:", error);
-      closeModal();
+      // Используем initialPost если не удалось загрузить
     } finally {
       setIsModalLoading(false);
     }

@@ -10,14 +10,8 @@ const ALLOWED_DOMAINS = [
 ];
 
 export const resolveMediaUrl = (url, type = 'image') => {
-  // Уменьшаем количество логов
-  const shouldLog = type === 'message' || type === 'avatar';
+  const startTime = performance.now();
   
-  if (shouldLog) {
-    console.group(`🔗 resolveMediaUrl [${type}]`);
-    console.log('Input URL:', url);
-  }
-
   try {
     // Если URL пустой - возвращаем дефолтное изображение только для определенных типов
     if (!url) {
@@ -28,14 +22,10 @@ export const resolveMediaUrl = (url, type = 'image') => {
         'message': null  // Для сообщений возвращаем null
       };
       
-      if (shouldLog) {
-        console.log('🚫 Empty URL, returning default', defaultMap[type]);
-      }
-      
       return defaultMap[type] || '/default-avatar.png';
     }
 
-    // Если передан объект, извлекаем URL с расширенной отладкой
+    // Если передан объект, извлекаем URL с минимальными проверками
     if (typeof url === 'object' && url !== null) {
       const urlKeys = [
         'imageUrl', 'image', 'thumbnailUrl', 
@@ -45,27 +35,18 @@ export const resolveMediaUrl = (url, type = 'image') => {
 
       for (const key of urlKeys) {
         if (url[key]) {
-          if (shouldLog) {
-            console.log(`🔍 Extracted URL from key '${key}':`, url[key]);
-          }
           url = url[key];
           break;
         }
       }
       
       if (typeof url === 'object') {
-        if (shouldLog) {
-          console.warn('⚠️ Could not extract URL from object:', url);
-        }
         return type === 'message' ? null : '/default-avatar.png';
       }
     }
 
     // Если URL все еще пустой после извлечения
     if (!url) {
-      if (shouldLog) {
-        console.warn('⚠️ Could not extract URL');
-      }
       return type === 'message' ? null : '/default-avatar.png';
     }
 
@@ -76,28 +57,17 @@ export const resolveMediaUrl = (url, type = 'image') => {
       
       // Проверяем, что имя файла корректное
       if (!filename || filename === url) {
-        if (shouldLog) {
-          console.warn('⚠️ Некорректное имя файла:', filename);
-        }
         return type === 'message' ? null : '/default-avatar.png';
       }
       
       const proxyUrl = `${API_URL}/api/proxy-drive/${process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID}/${filename}?type=${type}`;
-      
-      if (shouldLog) {
-        console.log('📁 Message file path detected:', {
-          originalPath: url,
-          extractedFilename: filename,
-          proxyUrl
-        });
-      }
       
       return proxyUrl;
     }
 
     // Если уже полный HTTP/HTTPS URL
     if (url.startsWith('http')) {
-      // Google Drive обработка с расширенной отладкой
+      // Google Drive обработка
       if (url.includes('drive.google.com')) {
         try {
           const fileId = 
@@ -107,21 +77,11 @@ export const resolveMediaUrl = (url, type = 'image') => {
             url.match(/\/uc\?id=([^&]+)/)?.[1];
           
           if (fileId) {
-            if (shouldLog) {
-              console.log('🔑 Google Drive FileID:', fileId);
-            }
             const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
-            
-            if (shouldLog) {
-              console.log('🌐 Proxy URL:', proxyUrl);
-            }
-            
             return proxyUrl;
           }
         } catch (error) {
-          if (shouldLog) {
-            console.error('❌ Google Drive URL parsing error:', error);
-          }
+          // Тихо обрабатываем ошибку
         }
       }
 
@@ -132,31 +92,17 @@ export const resolveMediaUrl = (url, type = 'image') => {
         
         // Если текущий домен не совпадает с доменом URL, используем проксирование
         if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
-          if (shouldLog) {
-            console.log(`🌍 Proxying URL from domain: ${parsedUrl.hostname}`);
-          }
           const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}?type=${type}`;
-          
-          if (shouldLog) {
-            console.log('🔀 Proxy URL:', proxyUrl);
-          }
-          
           return proxyUrl;
         }
       } catch (error) {
-        if (shouldLog) {
-          console.warn('⚠️ URL parsing error:', error);
-        }
-      }
-
-      if (shouldLog) {
-        console.log('✅ Returning original URL:', url);
+        // Тихо обрабатываем ошибку
       }
       
       return url;
     }
 
-    // Локальные пути с расширенной отладкой
+    // Локальные пути
     const localUrlMap = {
       'image': `${API_URL}/uploads/${url}`,
       'video': `${API_URL}/uploads/${url}`,
@@ -164,23 +110,15 @@ export const resolveMediaUrl = (url, type = 'image') => {
       'message': `${API_URL}/uploads/${url}`
     };
 
-    const localUrl = localUrlMap[type];
-    
-    if (shouldLog) {
-      console.log('📁 Local URL:', localUrl);
-    }
-    
-    return localUrl;
+    return localUrlMap[type] || `${API_URL}/uploads/${url}`;
 
   } catch (error) {
-    if (shouldLog) {
-      console.error('❌ Critical error in resolveMediaUrl:', error);
-    }
+    console.error('Ошибка в resolveMediaUrl:', error);
     return type === 'message' ? null : '/default-avatar.png';
   } finally {
-    if (shouldLog) {
-      console.groupEnd();
-    }
+    const endTime = performance.now();
+    // Убираем лишний лог
+    // console.log(`resolveMediaUrl: ${endTime - startTime}ms`, { url, type });
   }
 };
 
@@ -198,4 +136,31 @@ export const isUrlAllowed = (url) => {
   } catch {
     return false;
   }
+}; 
+
+// Отладочная функция для тестирования
+export const testMediaUrlResolver = () => {
+  const testCases = [
+    { input: null, type: 'avatar', description: 'Null значение' },
+    { input: '', type: 'avatar', description: 'Пустая строка' },
+    { input: 'test.jpg', type: 'avatar', description: 'Локальный файл' },
+    { input: '/uploads/avatars/test.jpg', type: 'avatar', description: 'Путь с uploads' },
+    { input: 'https://drive.google.com/uc?id=123', type: 'avatar', description: 'Google Drive URL' },
+    { input: { avatarUrl: 'test.jpg' }, type: 'avatar', description: 'Объект с avatarUrl' }
+  ];
+
+  console.group('🔍 MediaUrlResolver Test');
+  testCases.forEach(({ input, type, description }) => {
+    try {
+      const result = resolveMediaUrl(input, type);
+      console.log(`📸 ${description}:`, {
+        input,
+        type,
+        result
+      });
+    } catch (error) {
+      console.error(`❌ Ошибка для ${description}:`, error);
+    }
+  });
+  console.groupEnd();
 }; 

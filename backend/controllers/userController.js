@@ -4,6 +4,7 @@ const { addNotification, removeNotification } = require('./notificationControlle
 const mongoose = require('mongoose');
 const sharp = require('sharp'); // Импортируем sharp
 const googleDrive = require('../config/googleDrive');
+const path = require('path'); // Импортируем path для получения расширения файла
 
 // @desc    Получение профиля пользователя по ID или username
 // @route   GET /api/users/:identifier
@@ -196,49 +197,47 @@ exports.updateUserProfile = async (req, res) => {
 exports.updateUserAvatar = async (req, res) => {
   try {
     const userId = req.user.id;
-    let { avatar: base64AvatarInput } = req.body;
-
-    if (typeof base64AvatarInput !== 'string') {
-      return res.status(400).json({ message: 'Поле avatar должно быть строкой.' });
-    }
-
     let avatarUrl = '';
 
-    if (base64AvatarInput.trim() === '') {
-      // Пользователь хочет удалить аватар
-      avatarUrl = '';
-    } else {
-      let base64Data = base64AvatarInput;
+    // Приоритет: сначала файл из multipart, потом base64
+    if (req.file) {
+      // Используем результат из uploadToGoogleDrive middleware
+      avatarUrl = req.uploadResult.secure_url;
+    } else if (req.body.avatar) {
+      let base64Data = req.body.avatar;
+      
       // Удаляем префикс data URI, если он есть
       if (base64Data.startsWith('data:image')) {
         const parts = base64Data.split(',');
         if (parts.length > 1) {
           base64Data = parts[1];
         } else {
-          return res.status(400).json({ message: 'Некорректный формат Data URI для аватара.' });
+          return res.status(400).json({ message: 'Invalid Data URI format for avatar.' });
         }
       }
 
       if (!base64Data) {
-        return res.status(400).json({ message: 'Некорректный формат base64 для аватара.' });
+        return res.status(400).json({ message: 'Invalid base64 format for avatar.' });
       }
 
       const imageBuffer = Buffer.from(base64Data, 'base64');
 
-      // Обрабатываем изображение
+      // Обрабатываем изображение с поддержкой разных форматов
       const processedImageBuffer = await sharp(imageBuffer)
-        .webp({ quality: 80 })
-        .toBuffer();
+        .toBuffer(); // Не конвертируем, сохраняем оригинальный формат
 
-      // Загружаем в Google Drive
+      // Загружаем в Google Drive с динамическим именем файла
       const uploadResult = await googleDrive.uploadFile(
-        processedImageBuffer,
-        `avatar-${userId}-${Date.now()}.webp`,
-        'image/webp',
+        imageBuffer,
+        `avatar_${req.user.username}${path.extname(req.file?.originalname || '')}`,
+        req.file?.mimetype || 'image/jpeg',
         process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
       );
 
-      avatarUrl = uploadResult.directUrl;
+      avatarUrl = uploadResult.secure_url;
+    } else {
+      // Если нет ни файла, ни base64 - удаляем аватар
+      avatarUrl = null;
     }
 
     // Получаем текущего пользователя чтобы удалить старый аватар
@@ -257,23 +256,20 @@ exports.updateUserAvatar = async (req, res) => {
     ).select('-password');
 
     if (!updatedUser) {
-      return res.status(404).json({ message: 'Пользователь не найден.' });
+      return res.status(404).json({ message: 'User not found.' });
     }
 
     res.status(200).json({
-      message: avatarUrl === '' ? 'Аватар успешно удален' : 'Аватар успешно обновлен',
+      message: avatarUrl === null ? 'Avatar successfully removed' : 'Avatar successfully updated',
       user: updatedUser
     });
 
   } catch (error) {
-    console.error('Ошибка обновления аватара:', error);
+    console.error('Avatar update error:', error);
     if (error.message.includes('Input buffer contains unsupported image format') || error.message.includes('Input buffer is invalid')) {
-      return res.status(400).json({ message: 'Неподдерживаемый или поврежденный формат изображения для аватара.' });
+      return res.status(400).json({ message: 'Unsupported or corrupted image format for avatar.' });
     }
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: 'Ошибка валидации: ' + error.message });
-    }
-    res.status(500).json({ message: 'На сервере произошла ошибка при обновлении аватара.', error: error.message });
+    res.status(500).json({ message: 'Server error during avatar update.', error: error.message });
   }
 };
 

@@ -33,31 +33,74 @@ class ImageCompressor {
       
       console.log(`[IMAGE_COMPRESSOR] Обрабатываем изображение: ${originalName}`);
       
-      const pipeline = sharp(inputPath, { failOnError: false }).rotate(); // failOnError: false для обработки некорректных изображений
+      const pipeline = sharp(inputPath, { 
+        failOnError: false, 
+        limitInputPixels: 2 * 1024 * 1024 * 1024 
+      }).rotate(); 
 
       let outputFormat = ext.substring(1);
 
+      // Список HEIC форматов
+      const heicFormats = ['heic', 'heif', 'x-heic', 'x-heif'];
+
+      // Определяем формат вывода с учётом исходного формата
       switch (outputFormat) {
         case 'jpg':
         case 'jpeg':
-          pipeline.jpeg({ quality: 80, progressive: true, mozjpeg: true });
+          pipeline.jpeg({ 
+            quality: 80, 
+            progressive: true, 
+            mozjpeg: true,
+            chromaSubsampling: '4:4:4'
+          });
           break;
         case 'png':
-          pipeline.png({ compressionLevel: 9, quality: 85, effort: 8 });
+          pipeline.png({ 
+            compressionLevel: 9, 
+            quality: 85, 
+            effort: 8,
+            adaptiveFiltering: true
+          });
           break;
         case 'webp':
-          pipeline.webp({ quality: 80, effort: 6 });
+          pipeline.webp({ 
+            quality: 80, 
+            effort: 6,
+            nearLossless: true
+          });
+          break;
+        case 'gif':
+          pipeline.gif({
+            reductionEffort: 5,
+            colors: 256
+          });
           break;
         default:
-          pipeline.jpeg({ quality: 80, progressive: true, mozjpeg: true });
+          // Для HEIC и неизвестных форматов конвертируем в JPEG
+          if (heicFormats.includes(outputFormat)) {
+            console.log(`[IMAGE_COMPRESSOR] Конвертируем HEIC/HEIF в JPEG`);
+            pipeline.jpeg({ 
+              quality: 80, 
+              progressive: true, 
+              mozjpeg: true 
+            });
+            outputFormat = 'jpg';
+          } else {
+            pipeline.jpeg({ 
+              quality: 80, 
+              progressive: true, 
+              mozjpeg: true 
+            });
           outputFormat = 'jpg';
+          }
           break;
       }
 
       const info = await pipeline.toFile(tempOutputPath);
+
       const outputBuffer = await fs.readFile(tempOutputPath);
 
-      console.log(`[IMAGE_COMPRESSOR] ✅ Обработка завершена. Info:`, info);
+      console.log(`[IMAGE_COMPRESSOR] ✅ Обработка завершена. Исходный размер: ${info.size} байт`, info);
 
       return {
         buffer: outputBuffer,
@@ -66,9 +109,16 @@ class ImageCompressor {
           filename: `${filename}.${outputFormat}`
         }
       };
+    } catch (error) {
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка обработки изображения:`, error);
+      throw error;
     } finally {
       // Очистка временного файла
-      await fs.unlink(tempOutputPath).catch(err => console.error(`Failed to clean up temp file: ${tempOutputPath}`, err));
+      await fs.unlink(tempOutputPath).catch(err => {
+        if (err.code !== 'ENOENT') {
+          console.error(`Failed to clean up temp file: ${tempOutputPath}`, err);
+        }
+      });
     }
   }
 

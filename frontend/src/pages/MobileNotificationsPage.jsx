@@ -25,20 +25,17 @@ const timeAgo = (date) => {
 // Обновленная логика получения превью
 const getPostPreviewUrl = (post) => {
   // Для видео постов используем статичное превью
-  if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
+  if (post.mediaType === 'video' || post.videoUrl) {
     // Используем thumbnailUrl если есть
     if (post.thumbnailUrl) return post.thumbnailUrl;
     if (post.mobileThumbnailUrl) return post.mobileThumbnailUrl;
 
     // Создаем статичное превью для Cloudinary видео
     const videoUrl = post.imageUrl || post.image;
-    if (videoUrl && videoUrl.includes('cloudinary.com')) {
-      return videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_50,h_50,c_fill,f_jpg,so_0,q_auto/`
-      );
-    }
-    return '/video-placeholder.svg';
+    return videoUrl.replace(
+      '/video/upload/',
+      `/video/upload/w_50,h_50,c_fill,f_jpg,so_0,q_auto/`
+    );
   }
 
   // Для обычных изображений

@@ -21,128 +21,79 @@ export const compressPostImage = (file) => {
   return Promise.resolve(file);
 };
 
-export const compressAvatar = (file) => {
-  return new Promise((resolve, reject) => {
+export const compressAvatar = async (file) => {
+  try {
+    // Проверяем, что файл является изображением
     if (!isImageFile(file)) {
-      return reject(new Error('Файл не является изображением.'));
+      throw new Error('Файл не является изображением.');
     }
 
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const targetSize = 500; // Увеличенный размер для лучшего качества
+    // Создаем canvas для сжатия
+    const img = await createImageBitmap(file);
 
-      canvas.width = targetSize;
-      canvas.height = targetSize;
+    // Максимальный размер аватара
+    const MAX_SIZE = 500;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
-      // Обрезка и масштабирование изображения до квадрата
-      let sourceX = 0;
-      let sourceY = 0;
-      let sourceWidth = img.width;
-      let sourceHeight = img.height;
+    // Вычисляем новые размеры с сохранением пропорций
+    const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
+    canvas.width = img.width * ratio;
+    canvas.height = img.height * ratio;
 
-      if (img.width > img.height) { // Горизонтальное изображение
-        sourceX = (img.width - img.height) / 2;
-        sourceWidth = img.height;
-      } else if (img.height > img.width) { // Вертикальное изображение
-        sourceY = (img.height - img.width) / 2;
-        sourceHeight = img.width;
-      }
+    // Рисуем изображение с новым размером
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-      ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, targetSize, targetSize);
-
-      // Сжатие с несколькими попытками
-      const compressImage = (quality, type) => {
-        try {
-          const dataUrl = canvas.toDataURL(type, quality);
-          const sizeKB = getFileSizeKB(dataUrl);
-          
-          console.log(`Аватар сжат: ${type}, качество ${quality}, размер ${sizeKB} КБ`);
-          
-          return { dataUrl, sizeKB };
-        } catch (error) {
-          console.error(`Ошибка сжатия ${type}:`, error);
-          return null;
-        }
-      };
-
-      // Пытаемся сжать в WebP, затем в JPEG
-      const webpResult = compressImage(0.8, 'image/webp');
-      const jpegResult = webpResult && webpResult.sizeKB > 200 
-        ? compressImage(0.6, 'image/jpeg') 
-        : null;
-
-      if (webpResult && webpResult.sizeKB <= 200) {
-        console.log('Выбран WebP формат');
-        resolve(webpResult.dataUrl);
-      } else if (jpegResult) {
-        console.log('Выбран JPEG формат');
-        resolve(jpegResult.dataUrl);
-      } else {
-        // Последняя попытка с минимальным качеством
-        const fallbackResult = compressImage(0.4, 'image/jpeg');
-        if (fallbackResult) {
-          console.log('Выбран fallback JPEG формат');
-          resolve(fallbackResult.dataUrl);
-        } else {
-          reject(new Error('Не удалось сжать изображение'));
-        }
-      }
-    };
-
-    img.onerror = () => {
-      reject(new Error('Не удалось загрузить изображение для сжатия аватара.'));
-    };
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target && typeof e.target.result === 'string') {
-        console.log('Тип загруженного изображения:', e.target.result.substring(0, 50));
-        img.src = e.target.result;
-      } else {
-        reject(new Error('Ошибка чтения файла аватара.'));
-      }
-    };
-    reader.onerror = () => {
-      reject(new Error('Ошибка FileReader при чтении файла аватара.'));
-    };
-    reader.readAsDataURL(file);
-  });
+    // Конвертируем в Blob с сохранением оригинального формата
+    return await new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        resolve(new File([blob], file.name, { type: file.type }));
+      }, file.type, 0.8);
+    });
+  } catch (error) {
+    console.error('Ошибка сжатия аватара:', error);
+    return file; // Возвращаем оригинальный файл в случае ошибки
+  }
 };
 
 export const uploadAvatar = async (file) => {
   try {
-    const formData = new FormData();
-    formData.append('avatar', file);
+    // Если передан base64, конвертируем в File
+    if (typeof file === 'string') {
+      const response = await fetch(file);
+      const blob = await response.blob();
+      const mimeType = response.headers.get('content-type') || 'image/jpeg';
+      file = new File([blob], `avatar.${mimeType.split('/')[1]}`, { type: mimeType });
+    }
 
+    // Проверяем, что файл является изображением
+    if (!isImageFile(file)) {
+      throw new Error('Файл не является изображением.');
+    }
+
+    // Сжимаем аватар перед загрузкой
+    const compressedFile = await compressAvatar(file);
+
+    // Создаем FormData для загрузки
+    const formData = new FormData();
+    formData.append('avatar', compressedFile);
+
+    const token = localStorage.getItem('token');
     const response = await axios.put(
       `${API_URL}/api/users/profile`,
       formData,
       {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        withCredentials: true,
-        timeout: 30000
+          'Authorization': `Bearer ${token}`
+        }
       }
     );
 
     return response.data;
   } catch (error) {
-    if (error.response) {
-      const errorMessage = error.response.data.message ||
-        (error.response.status === 401 ? 'Требуется повторная авторизация' :
-        error.response.status === 400 ? 'Некорректные данные' :
-        'Не удалось загрузить аватар');
-
-      throw new Error(errorMessage);
-    } else if (error.request) {
-      throw new Error('Нет ответа от сервера. Проверьте подключение.');
-    } else {
-      throw new Error(error.message || 'Ошибка при настройке запроса');
-    }
+    console.error('Ошибка загрузки аватара:', error);
+    throw error;
   }
 };
 

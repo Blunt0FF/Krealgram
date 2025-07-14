@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import React, { 
+  useState, 
+  useEffect, 
+  useRef, 
+  useMemo, 
+  useCallback, 
+  memo 
+} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
@@ -13,7 +20,7 @@ import './PostModal.css';
 
 const MAX_CAPTION_LENGTH_EDIT = 500; // Максимальная длина описания при редактировании
 
-const PostModal = ({
+const PostModal = memo(({
   post: initialPost,
   isOpen,
   onClose,
@@ -57,6 +64,19 @@ const PostModal = ({
 
   const token = localStorage.getItem('token');
 
+  // Мемоизируем сложные вычисления
+  const needsMoreButton = useMemo(() => {
+    const caption = postData?.caption;
+    if (!caption) return false;
+    return caption.length > 50 || caption.includes('\n') || caption.includes('<br');
+  }, [postData?.caption]);
+
+  // Кэшируем автора поста
+  const postAuthor = useMemo(() => {
+    return postData?.author || postData?.user || {};
+  }, [postData]);
+
+  // Обновляем состояние только при изменении initialPost
   useEffect(() => {
     if (!initialPost) return;
     
@@ -143,7 +163,7 @@ const PostModal = ({
     };
   }, [isOpen, showEditModal]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (topCommentId && commentsContainerRef.current) {
         const topElement = commentsContainerRef.current.querySelector(`#comment-${topCommentId}`);
         if (topElement) {
@@ -232,15 +252,6 @@ const PostModal = ({
   if (!isOpen || !postData) return null;
 
   const { _id: postId, author, caption } = postData;
-  
-  // Fallback для author если не определен
-  const postAuthor = author || postData.user || postData.author;
-
-  // Логика для "more/less" кнопки
-  const needsMoreButton = useMemo(() => {
-    if (!caption) return false;
-    return caption.length > 50 || caption.includes('\n') || caption.includes('<br');
-  }, [caption]);
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
@@ -941,6 +952,13 @@ const PostModal = ({
       )}
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Кастомное сравнение пропсов для предотвращения лишних рендеров
+  return (
+    prevProps.isOpen === nextProps.isOpen &&
+    prevProps.post?._id === nextProps.post?._id &&
+    prevProps.currentUser?._id === nextProps.currentUser?._id
+  );
+});
 
 export default PostModal;

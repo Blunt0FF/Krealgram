@@ -5,13 +5,19 @@ const fs = require('fs').promises;
 const getMediaConfig = () => {
   return {
     isDevelopment: process.env.NODE_ENV !== 'production',
-    cloudinaryConfig: {
-      useCloudinary: false
-    },
     localUploadPath: 'uploads/',
-    maxFileSize: 50 * 1024 * 1024, // 50MB
+    maxFileSize: 10 * 1024 * 1024, // 10MB
     allowedTypes: {
-      image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+      image: [
+        'image/jpeg', 
+        'image/png', 
+        'image/gif', 
+        'image/webp', 
+        'image/heic',     // Добавляем HEIC
+        'image/heif',     // Добавляем HEIF
+        'image/x-heic',   // Альтернативный MIME для HEIC
+        'image/x-heif'    // Альтернативный MIME для HEIF
+      ],
       video: ['video/mp4', 'video/webm', 'video/ogg']
     }
   };

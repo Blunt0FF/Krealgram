@@ -85,12 +85,15 @@ const EditProfile = ({ user, setUser }) => {
       }
 
       try {
-        // Сжимаем аватар перед установкой
-        const compressedAvatar = await compressAvatar(file);
-        setAvatarFile(compressedAvatar);
-        setAvatarPreview(compressedAvatar);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          // Устанавливаем превью напрямую из FileReader
+          setAvatarPreview(reader.result);
+          setAvatarFile(file);
         setMarkAvatarForRemoval(false);
         setValidationErrors(prev => ({ ...prev, avatar: null }));
+        };
+        reader.readAsDataURL(file);
       } catch (error) {
         console.error('Ошибка сжатия аватара:', error);
         setValidationErrors(prev => ({ ...prev, avatar: 'Не удалось обработать изображение' }));

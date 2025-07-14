@@ -71,7 +71,8 @@ const corsOptions = {
     const isAllowed = whitelist.some(
       allowedOrigin => 
         allowedOrigin === origin || 
-        allowedOrigin === normalizedOrigin
+        allowedOrigin === normalizedOrigin ||
+        origin.includes(allowedOrigin)
     );
 
     if (isAllowed) {
@@ -79,7 +80,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.warn('[CORS_DEBUG] Origin blocked:', origin);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);  // Мягкое блокирование вместо ошибки
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -141,9 +142,9 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     }
 
     const meta = await drive.drive.files.get({
-      fileId,
+        fileId,
       fields: 'name, mimeType, size'
-    });
+      });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
     const fileName = meta.data.name || 'file';
     const fileSize = meta.data.size || 0;
@@ -160,6 +161,20 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     }, { responseType: 'stream' });
 
     const range = req.headers.range;
+    let headersSent = false;
+    
+    const sendHeaders = (statusCode, headers) => {
+      if (!headersSent) {
+        res.writeHead(statusCode, {
+          ...headers,
+          'Content-Disposition': `inline; filename="${fileName}"`,
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=31536000'
+        });
+        headersSent = true;
+      }
+    };
+
     if (range) {
       console.log(`[PROXY-DRIVE_FULL_DEBUG] Range request:`, range);
       const parts = range.replace(/bytes=/, "").split("-");
@@ -167,20 +182,18 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = (end - start) + 1;
 
-      res.writeHead(206, {
+      sendHeaders(206, {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunksize,
         'Content-Type': mimeType
       });
     } else {
-      res.setHeader('Content-Length', fileSize);
+      sendHeaders(200, {
+        'Content-Length': fileSize,
+        'Content-Type': mimeType
+      });
     }
-
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=31536000');
 
     fileRes.data.on('data', (chunk) => {
       console.log(`[PROXY-DRIVE_FULL_DEBUG] Chunk received: ${chunk.length} bytes`);
@@ -192,7 +205,9 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
     fileRes.data.on('error', (err) => {
       console.error('[PROXY-DRIVE_FULL_DEBUG] Ошибка при отправке файла:', err);
-      res.status(500).send('Error streaming file');
+      if (!headersSent) {
+        res.status(500).send('Error streaming file');
+      }
     });
 
     fileRes.data.pipe(res);

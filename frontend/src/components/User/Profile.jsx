@@ -233,6 +233,7 @@ const Profile = ({ user: currentUserProp }) => {
   const [modalTitle, setModalTitle] = useState('');
   const [modalUsers, setModalUsers] = useState([]);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const handlePostClick = (post) => {
     // Останавливаем все остальные видео на странице
@@ -559,6 +560,14 @@ const Profile = ({ user: currentUserProp }) => {
     }
   };
 
+  const openAvatarModal = () => {
+    // Проверяем, что аватар существует и не является дефолтным
+    if (profile.user.avatar && !profile.user.avatar.includes('/default-avatar.png')) {
+      setSelectedImage(getAvatarUrl(profile.user.avatar));
+      setShowAvatarModal(true);
+    }
+  };
+
   useEffect(() => {
     // Scroll to top when navigating to profile
     window.scrollTo(0, 0);
@@ -667,6 +676,19 @@ const Profile = ({ user: currentUserProp }) => {
       });
   }, [username, currentUserProp]);
 
+  useEffect(() => {
+    // Добавляем отладку URL аватара
+    console.group('🕵️ Avatar Debug');
+    console.log('Profile User:', profile?.user);
+    console.log('Avatar Raw:', profile?.user?.avatar);
+    const avatarUrl = getAvatarUrl(profile?.user?.avatar);
+    console.log('Resolved Avatar URL:', avatarUrl);
+    console.groupEnd();
+
+    // Вызываем тест резолвера URL
+    // testMediaUrlResolver(); // This line was commented out in the original file, so it's commented out here.
+  }, [profile]);
+
   if (loadingProfile) {
     return <div className="profile-loading">Loading profile...</div>;
   }
@@ -679,26 +701,10 @@ const Profile = ({ user: currentUserProp }) => {
     <>
       <div className="profile-container">
         <div className="profile-header">
-          <div className="profile-avatar">
+          <div className="profile-avatar" onClick={openAvatarModal}>
             <img
               src={getAvatarUrl(profile.user.avatar)}
-              alt={profile.user.username}
-              loading="lazy"
-              onClick={() => {
-                const avatarUrl = getAvatarUrl(profile.user.avatar);
-                if (profile.user.avatar && avatarUrl && avatarUrl !== '/default-avatar.png' && !avatarUrl.includes('default-avatar.png')) {
-                  setShowAvatarModal(true);
-                }
-              }}
-              style={{ 
-                cursor: profile.user.avatar && 
-                        getAvatarUrl(profile.user.avatar) !== '/default-avatar.png' && 
-                        !getAvatarUrl(profile.user.avatar).includes('default-avatar.png') ? 'pointer' : 'default' 
-              }}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/default-avatar.png';
-              }}
+              alt={`${profile.user.username}'s avatar`} 
             />
           </div>
 
@@ -830,10 +836,11 @@ const Profile = ({ user: currentUserProp }) => {
         />
 
         <ImageModal
-          src={getAvatarUrl(profile.user.avatar)}
-          alt={`${profile.user.username}'s avatar`}
+          src={selectedImage || profile.user.avatar} 
+          alt="Profile Image" 
           isOpen={showAvatarModal}
           onClose={() => setShowAvatarModal(false)}
+          disableSwipe={profile.user.avatar && getAvatarUrl(profile.user.avatar) === '/default-avatar.png'}  // Блокируем свайп для аватара
         />
       </div>
 

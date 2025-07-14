@@ -1,12 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
 import './ImageModal.css';
 
-const ImageModal = ({ src, alt, isOpen, onClose }) => {
+const ImageModal = ({ 
+  src, 
+  alt, 
+  isOpen, 
+  onClose, 
+  disableSwipe = false  // Новый проп для блокировки свайпа
+}) => {
   const [touchStartY, setTouchStartY] = useState(null);
   const [touchDeltaY, setTouchDeltaY] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [isMultiTouch, setIsMultiTouch] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
   const overlayRef = useRef(null);
   const contentRef = useRef(null);
+  const imageRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,14 +41,61 @@ const ImageModal = ({ src, alt, isOpen, onClose }) => {
     }
   }, [isOpen]);
 
+  const handleImageZoom = (e) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.hypot(
+        touch1.pageX - touch2.pageX,
+        touch1.pageY - touch2.pageY
+      );
+
+      if (!isZoomed) {
+        setIsZoomed(true);
+        imageRef.current.style.transform = 'scale(2)';
+      } else {
+        setIsZoomed(false);
+        imageRef.current.style.transform = 'scale(1)';
+      }
+    }
+  };
+
   const handleTouchStart = (e) => {
+    if (disableSwipe) return;
+
+    // Проверяем количество пальцев - если больше одного, это зум
+    if (e.targetTouches.length > 1) {
+      setIsMultiTouch(true);
+      handleImageZoom(e);
+      return;
+    }
+    
+    // Проверяем, не находимся ли мы в режиме зума
+    if (isZoomed) {
+      setIsMultiTouch(true);
+      return;
+    }
+    
+    setIsMultiTouch(false);
     setTouchStartY(e.targetTouches[0].clientY);
     setIsSwiping(true);
     setTouchDeltaY(0);
   };
 
   const handleTouchMove = (e) => {
-    if (touchStartY === null || !isSwiping) return;
+    // Если мультитач (зум), не обрабатываем свайп
+    if (isMultiTouch || e.targetTouches.length > 1) {
+      setIsMultiTouch(true);
+      return;
+    }
+    
+    // Проверяем, не находимся ли мы в режиме зума
+    if (isZoomed) {
+      setIsMultiTouch(true);
+      return;
+    }
+    
+    if (disableSwipe || touchStartY === null || !isSwiping) return;
     
     const deltaY = e.targetTouches[0].clientY - touchStartY;
     setTouchDeltaY(deltaY);
@@ -49,10 +105,32 @@ const ImageModal = ({ src, alt, isOpen, onClose }) => {
       const opacity = Math.max(0.3, 0.9 - Math.abs(deltaY) / 300);
       overlayRef.current.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
     }
+    
+    if (contentRef.current) {
+      contentRef.current.style.transform = `translateY(${deltaY}px)`;
+    }
   };
 
   const handleTouchEnd = () => {
-    if (touchStartY === null) return;
+    // Если был мультитач, не закрываем модал
+    if (isMultiTouch) {
+      setIsMultiTouch(false);
+      setIsSwiping(false);
+      setTouchStartY(null);
+      setTouchDeltaY(0);
+      return;
+    }
+    
+    // Проверяем, не находимся ли мы в режиме зума
+    if (isZoomed) {
+      setIsMultiTouch(false);
+      setIsSwiping(false);
+      setTouchStartY(null);
+      setTouchDeltaY(0);
+      return;
+    }
+    
+    if (disableSwipe || touchStartY === null) return;
     
     const closeThreshold = 100;
     
@@ -71,6 +149,7 @@ const ImageModal = ({ src, alt, isOpen, onClose }) => {
     setTouchDeltaY(0);
     setTouchStartY(null);
     setIsSwiping(false);
+    setIsMultiTouch(false);
   };
 
   if (!isOpen) return null;
@@ -88,10 +167,6 @@ const ImageModal = ({ src, alt, isOpen, onClose }) => {
         ref={contentRef}
         className="image-modal-content" 
         onClick={(e) => e.stopPropagation()}
-        style={{
-          transform: touchDeltaY !== 0 ? `translateY(${touchDeltaY}px)` : '',
-          transition: isSwiping ? 'none' : 'transform 0.3s ease-out'
-        }}
       >
         <button 
           className="image-modal-close" 
@@ -100,7 +175,15 @@ const ImageModal = ({ src, alt, isOpen, onClose }) => {
         >
           ✕
         </button>
-        <img src={src} alt={alt} className="image-modal-img" />
+        <img 
+          ref={imageRef}
+          src={src} 
+          alt={alt} 
+          className="image-modal-img" 
+          style={{
+            transition: isSwiping || isZoomed ? 'none' : 'transform 0.3s ease-out'
+          }}
+        />
       </div>
     </div>
   );

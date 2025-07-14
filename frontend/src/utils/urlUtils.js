@@ -1,6 +1,9 @@
 import { resolveMediaUrl, isUrlAllowed } from './mediaUrlResolver';
 import { API_URL } from '../config';
 
+// Простой кэш для URL
+const URL_CACHE = new Map();
+
 /**
  * Универсальная функция для обработки URL с различных источников
  * @param {string|object} url - URL или объект с URL
@@ -8,13 +11,12 @@ import { API_URL } from '../config';
  * @returns {string} Обработанный URL
  */
 export const processMediaUrl = (url, type = 'image') => {
-  // Добавляем более подробное логирование только для сообщений
-  const shouldLog = type === 'message';
+  // Создаем уникальный ключ кэша
+  const cacheKey = JSON.stringify({ url, type });
   
-  if (shouldLog) {
-    console.group('🖼️ Медиа в сообщении');
-    console.log('Входной URL (полный путь):', url);
-    console.log('Тип:', type);
+  // Проверяем кэш перед обработкой
+  if (URL_CACHE.has(cacheKey)) {
+    return URL_CACHE.get(cacheKey);
   }
 
   // Если передан объект, извлекаем URL
@@ -30,29 +32,19 @@ export const processMediaUrl = (url, type = 'image') => {
   // Для сообщений извлекаем только имя файла
   if (type === 'message' && typeof url === 'string') {
     const filename = url.split('/').pop();
-    
-    if (shouldLog) {
-      console.log('Извлеченное имя файла:', filename);
-    }
-    
     const proxyUrl = `${API_URL}/api/proxy-drive/${process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID}/${filename}?type=${type}`;
     
-    if (shouldLog) {
-      console.log('Proxy URL для сообщения:', proxyUrl);
-    }
-    
+    URL_CACHE.set(cacheKey, proxyUrl);
     return proxyUrl;
   }
 
   const resolvedUrl = resolveMediaUrl(url, type);
 
-  if (shouldLog) {
-    console.log('Обработанный URL:', resolvedUrl);
-    console.groupEnd();
-  }
+  // Кэшируем результат
+  URL_CACHE.set(cacheKey, resolvedUrl);
 
   return resolvedUrl;
-};
+  };
 
 // Алиасы для обратной совместимости
 export const getImageUrl = processMediaUrl;
@@ -63,11 +55,11 @@ export const getAvatarUrl = processMediaUrl;
 export const isValidUrl = (url) => {
   try {
     new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-};
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
 export const sanitizeUrl = (url) => {
   if (!url) return null;
@@ -77,26 +69,20 @@ export const sanitizeUrl = (url) => {
     return isUrlAllowed(url) ? url : null;
   } catch {
     return null;
-  }
+      }
 }; 
 
 // Функция для тестирования обработки URL
 export const testMediaUrlResolution = (urls, type = 'image') => {
-  console.group('🔍 URL Resolution Test');
-  console.log('Test URLs:', urls);
-  console.log('Media Type:', type);
-
-  const results = urls.map(url => {
+  return urls.map(url => {
     try {
       const resolvedUrl = processMediaUrl(url, type);
-      console.log(`URL: ${url} → Resolved: ${resolvedUrl}`);
       return { 
         original: url, 
         resolved: resolvedUrl,
         success: true 
       };
     } catch (error) {
-      console.error(`Error resolving URL: ${url}`, error);
       return { 
         original: url, 
         resolved: null,
@@ -105,9 +91,4 @@ export const testMediaUrlResolution = (urls, type = 'image') => {
       };
     }
   });
-
-  console.log('Resolution Results:', results);
-  console.groupEnd();
-
-  return results;
 }; 

@@ -5,7 +5,7 @@ import { processMediaUrl } from './urlUtils';
 // Получение thumbnail для видео
 export const getVideoThumbnail = (videoUrl, options = {}) => {
   // Возвращаем оригинальный URL, если нет специальной обработки
-  return videoUrl;
+    return videoUrl;
 };
 
 // Получение статичного превью для fallback
@@ -19,18 +19,6 @@ export const getStaticThumbnail = (post) => {
   
   if (post.thumbnailUrl) {
     return post.thumbnailUrl;
-  }
-  
-  // Cloudinary видео - создаем статичное превью
-  if (post.mediaType === 'video' || (post.imageUrl && post.imageUrl.includes('cloudinary.com') && post.imageUrl.includes('/video/'))) {
-    const videoUrl = post.imageUrl || post.image;
-    if (videoUrl && videoUrl.includes('cloudinary.com')) {
-      const thumbnail = videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_400,c_scale,f_jpg,so_0,q_auto/`
-      );
-      return thumbnail;
-    }
   }
   
   return '/video-placeholder.svg';
@@ -154,7 +142,7 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
 
   // Для загруженных видео создаем GIF превью для ленты
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
-  if (videoUrl && videoUrl.includes('cloudinary.com')) {
+  
     // Проверяем тип файла
     const isWebm = videoUrl.includes('.webm');
     
@@ -195,7 +183,6 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
           `/video/upload/w_400,c_scale,f_gif,q_80/`
         );
         return gifUrl;
-      }
     }
   }
 
