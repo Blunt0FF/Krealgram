@@ -64,6 +64,8 @@ const corsOptions = {
       'http://www.krealgram.com',
       'https://krealgram.vercel.app',
       'https://krealgram-backend.onrender.com',
+      'https://krealgram.com:4000',
+      'https://krealgram.vercel.app:4000',
       /^https?:\/\/(www\.)?krealgram\.com$/,
       /^https?:\/\/([\w-]+\.)?krealgram\.com$/,
       /\.vercel\.app$/
@@ -134,10 +136,33 @@ app.use('/api/admin', adminRoutes);
 
 app.get('/api/proxy-drive/:id', async (req, res) => {
   console.group('[PROXY-DRIVE] Request Processing');
-  console.log('[PROXY-DRIVE] Request details:', req.params.id);
+  console.log('[PROXY-DRIVE] Request details:', {
+    fileId: req.params.id,
+    origin: req.headers.origin,
+    referer: req.headers.referer,
+    userAgent: req.headers['user-agent']
+  });
 
   const origin = req.headers.origin || req.headers.referer || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+  const allowedOrigins = [
+    'https://krealgram.com',
+    'https://www.krealgram.com',
+    'https://krealgram.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:4000'
+  ];
+
+  console.log('[PROXY-DRIVE] Checking origin:', {
+    origin,
+    isAllowed: allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)
+  });
+
+  if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -149,10 +174,13 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
   try {
     if (!googleDrive.isInitialized) {
+      console.error('[PROXY-DRIVE] Google Drive not initialized');
       return res.status(500).json({ message: 'Google Drive не инициализирован' });
     }
 
     const fileId = req.params.id;
+    console.log('[PROXY-DRIVE] Fetching file metadata:', fileId);
+
     const fileRes = await googleDrive.drive.files.get({
       fileId: fileId,
       alt: 'media'
@@ -161,6 +189,12 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     const fileName = fileRes.data.name || `file_${fileId}`;
     const mimeType = fileRes.headers['content-type'] || 'application/octet-stream';
 
+    console.log('[PROXY-DRIVE] File metadata:', {
+      fileName,
+      mimeType,
+      fileSize: fileRes.headers['content-length']
+    });
+
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.setHeader('Cache-Control', 'public, max-age=31536000');
@@ -168,10 +202,12 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     res.setHeader('Access-Control-Expose-Headers', 'Content-Type, Content-Disposition');
 
     fileRes.data.on('error', (err) => {
+      console.error('[PROXY-DRIVE] Stream error:', err);
       res.status(500).send('Ошибка потоковой передачи файла');
     });
 
     fileRes.data.pipe(res);
+    console.log('[PROXY-DRIVE] File streaming started');
     console.groupEnd();
   } catch (error) {
     console.error('[PROXY-DRIVE] Unexpected error:', error);
@@ -224,6 +260,7 @@ startUserStatusUpdater();
 
 const whitelist = [
   'http://localhost:3000',
+  'http://localhost:4000',
   'https://krealgram.com',
   'https://www.krealgram.com',
   'https://krealgram.vercel.app'
@@ -236,8 +273,20 @@ server.listen(PORT, () => {
 
 app.use((req, res, next) => {
   const origin = req.headers.origin || req.headers.referer || '*';
+  const allowedOrigins = [
+    'https://krealgram.com',
+    'https://www.krealgram.com',
+    'https://krealgram.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:4000'
+  ];
 
-  res.setHeader('Access-Control-Allow-Origin', origin);
+  if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
   res.setHeader('Access-Control-Allow-Headers',
     'X-Requested-With,content-type,Authorization,Accept,Origin,x-requested-with,Range');
@@ -247,7 +296,6 @@ app.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
-
   next();
 });
 

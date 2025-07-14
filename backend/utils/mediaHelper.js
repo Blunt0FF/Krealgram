@@ -5,12 +5,6 @@ const fs = require('fs').promises;
 const getMediaConfig = () => {
   return {
     isDevelopment: process.env.NODE_ENV !== 'production',
-    cloudinaryConfig: {
-      useCloudinary: process.env.USE_CLOUDINARY === 'true',
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET
-    },
     localUploadPath: 'uploads/',
     maxFileSize: 50 * 1024 * 1024, // 50MB
     allowedTypes: {
@@ -62,18 +56,11 @@ const getMediaUrl = (filename, type = 'post', isGif = false) => {
   if (isGif) {
     console.log('[MEDIA_URL_DEBUG] Обработка URL для GIF:', {
       filename,
-      type,
-      cloudinaryConfig: config.cloudinaryConfig.useCloudinary
+      type
     });
   }
   
-  if (config.cloudinaryConfig.useCloudinary) {
-    // В продакшене с Cloudinary будем возвращать Cloudinary URL
-    return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
-  } else {
-    // В разработке используем локальные файлы
-    return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
-  }
+  return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
 };
 
 // Функция для удаления локального файла
@@ -108,7 +95,7 @@ const createMediaResponse = (file, youtubeData = null) => {
       filename: file.filename,
       originalName: file.originalname,
       size: file.size,
-      ...(isGif ? { gifPreviewUrl: file.gifPreviewUrl } : {})
+      ...(isGif && file.gifPreviewUrl ? { gifPreviewUrl: file.gifPreviewUrl } : {})
     };
   }
   

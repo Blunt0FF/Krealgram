@@ -282,7 +282,7 @@ export const getImageUrl = (imagePath, options = {}) => {
       'src',
       'preview',
       'gifPreview',
-      'originalFilename'  // Добавляем поддержку оригинального имени файла
+      'originalFilename'
     ];
 
     for (const source of urlSources) {
@@ -298,9 +298,8 @@ export const getImageUrl = (imagePath, options = {}) => {
     return '/default-post-placeholder.png';
   }
 
-  // Если это уже полный URL, возвращаем как есть
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    // Специальная обработка Google Drive
+  // Обработка Google Drive URL
+  if (imagePath.includes('drive.google.com')) {
     const googleDrivePatterns = [
       /https:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
       /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/,
@@ -310,14 +309,19 @@ export const getImageUrl = (imagePath, options = {}) => {
     for (const pattern of googleDrivePatterns) {
       const match = imagePath.match(pattern);
       if (match && match[1]) {
-        return `https://krealgram-backend.onrender.com/api/proxy-drive/${match[1]}`;
+        const baseUrl = window.location.hostname.includes('krealgram.com') || window.location.hostname.includes('vercel.app')
+          ? 'https://krealgram-backend.onrender.com'
+          : 'http://localhost:3000';
+        return `${baseUrl}/api/proxy-drive/${match[1]}`;
       }
     }
+  }
 
+  // Если это уже полный URL, возвращаем как есть
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
     return imagePath;
   }
 
-  // Обработка локальных путей
   const hostname = window.location.hostname;
   const isProduction = 
     hostname === 'krealgram.com' ||
@@ -327,7 +331,7 @@ export const getImageUrl = (imagePath, options = {}) => {
 
   const baseUrl = isProduction 
     ? 'https://krealgram-backend.onrender.com' 
-    : 'https://krealgram-backend.onrender.com';
+    : 'http://localhost:3000';
 
   // Очистка пути от абсолютных путей файловой системы
   const cleanPath = imagePath.split('/').pop();
@@ -353,27 +357,42 @@ export const getImageUrl = (imagePath, options = {}) => {
 export const getAvatarUrl = (avatarPath) => {
   if (!avatarPath) return '/default-avatar.png';
 
+  // Если это уже полный URL с проксированием
+  if (avatarPath.includes('/api/proxy-drive/')) {
+    return avatarPath;
+  }
+
   const hostname = window.location.hostname;
   const isProduction =
     hostname === 'krealgram.com' ||
     hostname === 'www.krealgram.com' ||
-    hostname.endsWith('.krealgram.com');
+    hostname.endsWith('.krealgram.com') ||
+    hostname.endsWith('.vercel.app');
 
   const baseUrl = isProduction
     ? 'https://krealgram-backend.onrender.com'
     : 'http://localhost:3000';
 
+  // Обработка Google Drive URL
   if (avatarPath.includes('drive.google.com')) {
-    const fileId = avatarPath.split('id=')[1];
-    return `${baseUrl}/api/proxy-drive/${fileId}`;
+    const googleDrivePatterns = [
+      /https:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
+      /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/,
+      /https:\/\/drive\.google\.com\/open\?id=([^&]+)/
+    ];
+
+    for (const pattern of googleDrivePatterns) {
+      const match = avatarPath.match(pattern);
+      if (match && match[1]) {
+        return `${baseUrl}/api/proxy-drive/${match[1]}`;
+      }
+    }
   }
 
-  if (avatarPath.startsWith('krealgram/')) {
-    return `https://res.cloudinary.com/dibcwdwsd/image/upload/${avatarPath}`;
-  }
-
+  // Если уже полный URL, возвращаем как есть
   if (avatarPath.startsWith('http')) return avatarPath;
 
+  // Локальные пути
   return `${baseUrl}/uploads/${avatarPath}`;
 };
 
@@ -384,29 +403,33 @@ export const getVideoUrl = (videoPath) => {
   const isProduction =
     hostname === 'krealgram.com' ||
     hostname === 'www.krealgram.com' ||
-    hostname.endsWith('.krealgram.com');
+    hostname.endsWith('.krealgram.com') ||
+    hostname.endsWith('.vercel.app');
 
   const baseUrl = isProduction
     ? 'https://krealgram-backend.onrender.com'
     : 'http://localhost:3000';
 
+  // Обработка Google Drive URL
   if (videoPath.includes('drive.google.com')) {
-    try {
-      const url = new URL(videoPath);
-      const fileId = url.searchParams.get('id');
-      if (fileId) return `${baseUrl}/api/proxy-drive/${fileId}`;
-    } catch (e) {
-      console.error('Invalid Google Drive URL', videoPath);
-      return videoPath;
+    const googleDrivePatterns = [
+      /https:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
+      /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/,
+      /https:\/\/drive\.google\.com\/open\?id=([^&]+)/
+    ];
+
+    for (const pattern of googleDrivePatterns) {
+      const match = videoPath.match(pattern);
+      if (match && match[1]) {
+        return `${baseUrl}/api/proxy-drive/${match[1]}`;
+      }
     }
   }
 
+  // Если уже полный URL, возвращаем как есть
   if (videoPath.startsWith('http') || videoPath.startsWith('data:')) return videoPath;
 
-  if (videoPath.startsWith('krealgram/')) {
-    return `https://res.cloudinary.com/dibcwdwsd/video/upload/${videoPath}`;
-  }
-
+  // Локальные пути
   return `${baseUrl}/uploads/${videoPath}`;
 };
 

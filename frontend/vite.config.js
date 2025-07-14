@@ -10,6 +10,7 @@ export default defineConfig({
   },
   envPrefix: 'VITE_',
   server: {
+    port: 4000,
     proxy: {
       '/api': {
         target: 'https://krealgram-backend.onrender.com',
