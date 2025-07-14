@@ -164,6 +164,19 @@ exports.updateUserProfile = async (req, res) => {
       fieldsToUpdate.avatar = null;
     }
 
+    // Добавляем дефолтный аватар, если URL пустой
+    if (!fieldsToUpdate.avatar) {
+      console.warn(`[AVATAR_WARNING] Пустой URL аватара для пользователя ${userId}`);
+      fieldsToUpdate.avatar = '/default-avatar.png';
+    }
+
+    // Явно логируем все изменения аватара
+    console.log(`[AVATAR_UPDATE] Обновление аватара для пользователя ${userId}:`, {
+      oldAvatar: currentUser.avatar,
+      newAvatar: fieldsToUpdate.avatar,
+      removeRequested: removeAvatar
+    });
+
     if (Object.keys(fieldsToUpdate).length === 0) {
       // Если не было ни bio, ни файла, но был запрос, возвращаем текущие данные
       return res.status(200).json(currentUser);

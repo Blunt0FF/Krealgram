@@ -11,6 +11,15 @@ const ALLOWED_DOMAINS = [
 
 export const resolveMediaUrl = (url, type = 'image') => {
   console.group(`🔗 resolveMediaUrl [${type}]`);
+  
+  // Расширенное логирование
+  console.log('🌐 Current Environment:', {
+    hostname: window.location.hostname,
+    protocol: window.location.protocol,
+    API_URL: API_URL,
+    currentDomain: getCurrentDomain()
+  });
+
   console.log('Input URL:', url);
 
   // Если URL пустой - возвращаем дефолтное изображение
@@ -71,12 +80,20 @@ export const resolveMediaUrl = (url, type = 'image') => {
       const parsedUrl = new URL(url);
       const currentDomain = getCurrentDomain();
       
+      // Расширенное логирование для отладки
+      console.log('🔍 URL Domain Check:', {
+        parsedHostname: parsedUrl.hostname,
+        currentDomain: currentDomain,
+        allowedDomains: ALLOWED_DOMAINS
+      });
+
       // Если текущий домен не совпадает с доменом URL, используем проксирование
       if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
         console.log(`[MediaUrlResolver] Проксируем URL с домена ${parsedUrl.hostname}`);
         return `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}`;
       }
-    } catch {
+    } catch (error) {
+      console.error('URL parsing error:', error);
       // Если не удалось распарсить URL, возвращаем как есть
     }
 
