@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Feed from './components/Feed/Feed';
 import Login from './pages/Login';
@@ -16,17 +16,81 @@ import Sidebar from './components/Sidebar/Sidebar';
 import MobileNavigation from './components/Navigation/MobileNavigation';
 import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
-import { 
-  getApiUrl, 
-  setApiUrl, 
-  LOCAL_URL, 
-  REMOTE_URL 
-} from './config';
+import { API_URL } from './config';
 import './App.css';
+import smartFetch from './utils/apiUtils';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
   return !isAuthenticated ? children : <Navigate to="/feed" />;
 };
+
+// Компонент для отображения ошибок
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  resetErrorBoundary = () => {
+    this.setState({ hasError: false, error: null });
+    if (this.props.onReset) {
+      this.props.onReset();
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div role="alert" style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          textAlign: 'center',
+          padding: '20px',
+          backgroundColor: '#f8d7da',
+          color: '#721c24'
+        }}>
+          <h1>Упс! Что-то пошло не так</h1>
+          <pre style={{ 
+            backgroundColor: 'rgba(255,255,255,0.7)', 
+            padding: '10px', 
+            borderRadius: '5px',
+            maxWidth: '80%',
+            overflow: 'auto'
+          }}>
+            {this.state.error.message}
+          </pre>
+          <button 
+            onClick={this.resetErrorBoundary}
+            style={{
+              marginTop: '20px',
+              padding: '10px 20px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            Перезагрузить приложение
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -34,13 +98,11 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const initializedRef = useRef(false);
-
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        await fetch(`${getApiUrl()}/api/auth/logout`, {
+        await smartFetch(`api/auth/logout`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -58,7 +120,7 @@ const App = () => {
 
   const fetchUnreadCount = async (authToken) => {
     try {
-      const res = await fetch(`${getApiUrl()}/api/notifications?limit=1`, {
+      const res = await smartFetch(`api/notifications?limit=1`, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (res.ok) {
@@ -70,81 +132,46 @@ const App = () => {
     }
   };
 
-  const checkLocalServer = async () => {
-    // Всегда возвращаем false, чтобы использовать Render
-    return false;
-  };
-
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
-    const initializeApp = async () => {
-      console.log('🌐 Current environment:', {
-        hostname: window.location.hostname,
-        protocol: window.location.protocol,
-        API_URL: getApiUrl(),
-        LOCAL_URL,
-        REMOTE_URL
-      });
-
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-      if (isLocal) {
-        const localServerAvailable = await checkLocalServer();
-        if (!localServerAvailable) {
-          console.log('[CONFIG] Using REMOTE_URL');
-          setApiUrl(REMOTE_URL);
-        }
-      }
-
-      const token = localStorage.getItem('token');
-      if (token) {
-        fetch(`${getApiUrl()}/api/auth/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-          .then(res => {
-            console.log('🔐 Auth check response:', {
-              status: res.status,
-              ok: res.ok,
-              API_URL: getApiUrl()
-            });
-
-            if (res.ok) return res.json();
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setIsAuthenticated(false);
-            setUser(null);
-            setUnreadCount(0);
-            throw new Error('Token verification failed or session expired');
-          })
-          .then(userData => {
-            setIsAuthenticated(true);
-            setUser(userData.user);
-            localStorage.setItem('user', JSON.stringify(userData.user));
-            fetchUnreadCount(token);
-          })
-          .catch(error => {
-            console.error('🚨 Authentication check error:', {
-              message: error.message,
-              API_URL: getApiUrl()
-            });
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setIsAuthenticated(false);
-            setUser(null);
-            setUnreadCount(0);
-          })
-          .finally(() => setLoading(false));
-      } else {
-        setLoading(false);
+    const token = localStorage.getItem('token');
+    if (token) {
+      smartFetch(`api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => {
+        if (res.ok) return res.json();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setIsAuthenticated(false);
         setUser(null);
         setUnreadCount(0);
-      }
-    };
-
-    initializeApp();
+        throw new Error('Token verification failed or session expired');
+      })
+      .then(userData => {
+        setIsAuthenticated(true);
+        setUser(userData.user);
+        localStorage.setItem('user', JSON.stringify(userData.user));
+        fetchUnreadCount(token);
+      })
+      .catch(error => {
+        console.error('Authentication check error:', error.message);
+        if (error.message !== 'Token verification failed or session expired') {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setIsAuthenticated(false);
+            setUser(null);
+            setUnreadCount(0);
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+      setIsAuthenticated(false);
+      setUser(null);
+      setUnreadCount(0);
+    }
   }, []);
 
   if (loading) {
@@ -163,61 +190,70 @@ const App = () => {
   }
 
   return (
-    <Router
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
+    <ErrorBoundary 
+      onReset={() => {
+        // Можно добавить логику сброса состояния
+        localStorage.clear();
+        window.location.reload();
       }}
     >
-      <div className="app">
-        <Routes>
-          <Route path="/" element={
-            <PublicRoute isAuthenticated={isAuthenticated}>
-              <Login setIsAuthenticated={setIsAuthenticated} setUser={setUser} fetchUnreadCount={fetchUnreadCount} />
-            </PublicRoute>
-          } />
-          <Route path="/register" element={
-            <PublicRoute isAuthenticated={isAuthenticated}>
-              <Register setIsAuthenticated={setIsAuthenticated} setUser={setUser} />
-            </PublicRoute>
-          } />
-          <Route path="/forgot-password" element={
-            <PublicRoute isAuthenticated={isAuthenticated}>
-              <ForgotPassword />
-            </PublicRoute>
-          } />
-          <Route path="/reset-password" element={
-            <PublicRoute isAuthenticated={isAuthenticated}>
-              <ResetPassword />
-            </PublicRoute>
-          } />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/*" element={
-            isAuthenticated ? (
-              <div className="main-layout">
-                <Sidebar user={user} onLogout={handleLogout} unreadCount={unreadCount} setUnreadCount={setUnreadCount} />
-                <main className="main-content main-content-with-sidebar">
-                  <Routes>
-                    <Route path="feed" element={<Feed user={user} />} />
-                    <Route path="search" element={<SearchPage />} />
-                    <Route path="messages" element={<Messages currentUser={user} />} />
-                    <Route path="profile/:username" element={<Profile user={user} />} />
-                    <Route path="edit-profile" element={<EditProfile user={user} setUser={setUser} />} />
-                    <Route path="create-post" element={<CreatePost />} />
-                    <Route path="post/:id" element={<PostPage />} />
-                    <Route path="notifications_mobile" element={<MobileNotificationsPage setUnreadCountGlobal={setUnreadCount} />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
-                <MobileNavigation user={user} onLogout={handleLogout} unreadCount={unreadCount} />
-              </div>
-            ) : <Navigate to="/" replace />
-          } />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </div>
-    </Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
+        <div className="app">
+          <Routes>
+            <Route path="/" element={
+              <PublicRoute isAuthenticated={isAuthenticated}>
+                <Login setIsAuthenticated={setIsAuthenticated} setUser={setUser} fetchUnreadCount={fetchUnreadCount} />
+              </PublicRoute>
+            } />
+            <Route path="/register" element={
+              <PublicRoute isAuthenticated={isAuthenticated}>
+                <Register setIsAuthenticated={setIsAuthenticated} setUser={setUser} />
+              </PublicRoute>
+            } />
+            <Route path="/forgot-password" element={
+              <PublicRoute isAuthenticated={isAuthenticated}>
+                <ForgotPassword />
+              </PublicRoute>
+            } />
+            <Route path="/reset-password" element={
+              <PublicRoute isAuthenticated={isAuthenticated}>
+                <ResetPassword />
+              </PublicRoute>
+            } />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            {/* Приватные маршруты с Sidebar и мобильной навигацией */}
+            <Route path="/*" element={
+              isAuthenticated ? (
+                <div className="main-layout">
+                  <Sidebar user={user} onLogout={handleLogout} unreadCount={unreadCount} setUnreadCount={setUnreadCount} />
+                  <main className="main-content main-content-with-sidebar">
+                    <Routes>
+                      <Route path="feed" element={<Feed user={user} />} />
+                      <Route path="search" element={<SearchPage />} />
+                      <Route path="messages" element={<Messages currentUser={user} />} />
+                      <Route path="profile/:username" element={<Profile user={user} />} />
+                      <Route path="edit-profile" element={<EditProfile user={user} setUser={setUser} />} />
+                      <Route path="create-post" element={<CreatePost />} />
+                      <Route path="post/:id" element={<PostPage />} />
+                      <Route path="notifications_mobile" element={<MobileNotificationsPage setUnreadCountGlobal={setUnreadCount} />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                  <MobileNavigation user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+                </div>
+              ) : <Navigate to="/" replace />
+            } />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
+      </Router>
+    </ErrorBoundary>
   );
 };
 
-export default App;
+export default App; 

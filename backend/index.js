@@ -2,19 +2,22 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const path = require('path');
+const path = require('path'); // Добавим path для работы с путями к статическим файлам
 const http = require('http');
 const { Server } = require('socket.io');
-const connectDB = require('./config/db');
+const connectDB = require('./config/db'); // Мы создадим этот файл далее
 const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
 const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
-const axios = require('axios');
 
+// Загружаем переменные окружения
 dotenv.config();
+
 console.log('[SERVER] 🚀 Starting Krealgram backend...');
 
+// Подключаемся к MongoDB
 connectDB();
 
+// Инициализируем Google Drive асинхронно, но не блокируем запуск сервера
 const googleDrive = require('./config/googleDrive');
 googleDrive.initialize().then(() => {
   console.log('[SERVER] ✅ Google Drive initialization completed');
@@ -32,161 +35,109 @@ const io = new Server(server, {
       "http://127.0.0.1:4000",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com",
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://127.0.0.1:3000"
+      "https://www.krealgram.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
   }
 });
 
-app.set('io', io);
-
-const whitelist = [
-  // Основные домены
-  "https://krealgram.com",
-  "https://www.krealgram.com",
-  "https://krealgram.vercel.app",
-  
-  // Локальная разработка
-  "http://localhost:3000",
-  "http://localhost:4000",
-  "http://127.0.0.1:3000",
-  "http://127.0.0.1:4000",
-  "http://localhost",
-  "http://localhost:4000"  
-];
+app.set('io', io); // Сделаем io доступным в контроллерах
 
 // Настройки CORS для Express
+const whitelist = [
+  "http://localhost:4000",
+  "http://127.0.0.1:4000",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://krealgram.vercel.app",
+  "https://krealgram.com",
+  "https://www.krealgram.com",
+  "http://localhost:5173",  // Добавлен Vite dev server
+  "http://127.0.0.1:5173"   // Локальный Vite
+];
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     const allowedOrigins = [
-      'https://krealgram.vercel.app', 
-      'https://krealgram.com',
+      'http://localhost:4000', 
+      'http://localhost:3000', 
+      'http://localhost:5173',  // Добавлен Vite
       'https://krealgram-backend.onrender.com',
-      'http://localhost:3000',
-      'http://localhost:4000',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:4000',
-      'http://localhost',
-      null // Разрешаем null для внутренних запросов
+      'https://krealgram.vercel.app'
     ];
 
-    console.log(`[CORS] Checking origin: ${origin}`);
-
-    // Проверяем точное совпадение или вхождение домена
-    const isAllowed = allowedOrigins.some(allowed => 
-      allowed === origin || 
-      (origin && origin.includes(allowed))
-    );
-
-    if (isAllowed) {
-      console.log(`[CORS] Allowed origin: ${origin}`);
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.warn(`[CORS] Blocked origin: ${origin}`);
-      // Мягкий возврат с разрешением
-      callback(null, true);
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'Accept', 
-    'Origin', 
-    'Cache-Control',
-    'X-Forwarded-For',
-    'X-Real-IP',
-    'Access-Control-Allow-Origin'
-  ],
-  exposedHeaders: [
-    'Content-Range', 
-    'X-Content-Range', 
-    'Cache-Control', 
-    'X-Proxy-Origin',
-    'Access-Control-Allow-Origin'
-  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
   credentials: true,
-  maxAge: 86400,
-  preflightContinue: false,
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 200
 };
 
-// Глобальный middleware для CORS с расширенной логикой
-app.use((req, res, next) => {
-  const origin = req.get('origin') || req.get('referer') || '*';
-  const requestMethod = req.method;
-  const requestPath = req.path;
-
-  console.log(`[CORS Debug] Full Request Details:`, {
-    origin,
-    host: req.get('host'),
-    referer: req.get('referer'),
-    method: requestMethod,
-    path: requestPath,
-    headers: req.headers
-  });
-
-  // Список разрешенных доменов с поддержкой поддоменов
-  const allowedOrigins = [
-    'https://krealgram.vercel.app', 
-    'https://krealgram.com',
-    'https://krealgram-backend.onrender.com',
-    'http://localhost:3000',
-    'http://localhost:4000',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:4000',
-    'http://localhost'
-  ];
-
-  // Проверка и установка заголовков CORS с максимальной гибкостью
-  const normalizedOrigin = origin.replace(/\/+$/, '');
-  const isAllowedOrigin = allowedOrigins.some(allowed => 
-    normalizedOrigin === allowed || 
-    normalizedOrigin.includes(allowed)
-  );
-
-  // Устанавливаем заголовки CORS
-  res.header('Access-Control-Allow-Origin', isAllowedOrigin ? origin : '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH,HEAD');
-  res.header('Access-Control-Allow-Headers', 
-    'Content-Type, Authorization, Content-Length, X-Requested-With, Origin, Accept, Access-Control-Allow-Origin'
-  );
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Обработка preflight-запросов
-  if (requestMethod === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  
-  next();
-});
-
-// Применение CORS
+// Сначала обрабатываем OPTIONS-запросы для всех маршрутов.
+// Это критически важно для "непростых" запросов (POST, PUT, DELETE с кастомными заголовками),
+// которые требуют preflight-запроса от браузера.
 app.options('*', cors(corsOptions));
+
 app.use(cors(corsOptions));
 
-app.use(express.json({ limit: '50mb' }));
+// Важно: middleware для парсинга JSON должен идти после CORS
+app.use(express.json({ limit: '50mb' })); // Увеличим лимит для base64 аватаров и других данных
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Раздача статических файлов из папки 'uploads'
+// __dirname в ES Modules не работает так, как в CommonJS, но так как package.json указывает "type": "commonjs" (по умолчанию для npm init -y)
+// то __dirname будет работать корректно.
+// Если бы мы использовали "type": "module", пришлось бы использовать import.meta.url
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Базовый маршрут для проверки
 app.get('/', (req, res) => {
   res.send('Krealgram API is working!');
 });
 
+// Эндпоинт для проверки доступности бэкенда
+app.get('/health', (req, res) => {
+  try {
+    // Проверяем подключение к MongoDB
+    const mongoStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
+    
+    // Проверяем статус Google Drive
+    const googleDriveStatus = require('./config/googleDrive').isInitialized ? 'Initialized' : 'Not Initialized';
+
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      services: {
+        mongodb: mongoStatus,
+        googleDrive: googleDriveStatus
+      },
+      version: process.env.npm_package_version || 'unknown'
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error during health check'
+    });
+  }
+});
+
+// TODO: Подключить маршруты (routes)
 const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');
 const userRoutes = require('./routes/userRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const likeRoutes = require('./routes/likeRoutes');
-const conversationRoutes = require('./routes/conversationRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+const conversationRoutes = require('./routes/conversationRoutes'); // Добавляем маршруты для диалогов
+const notificationRoutes = require('./routes/notificationRoutes'); // Импортируем маршруты уведомлений
+const adminRoutes = require('./routes/adminRoutes'); // Админские маршруты
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
@@ -249,10 +200,14 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
   }
 });
 
+// Настройка Socket.IO
 io.on('connection', async (socket) => {
+  // Присоединение к комнате по userId
   const userId = socket.handshake.query.userId;
   if (userId) {
     socket.join(userId);
+
+    // Устанавливаем пользователя как онлайн
     try {
       const User = require('./models/userModel');
       await User.findByIdAndUpdate(userId, {
@@ -265,6 +220,7 @@ io.on('connection', async (socket) => {
   }
 
   socket.on('disconnect', async () => {
+    // Устанавливаем пользователя как оффлайн при отключении
     if (userId) {
       try {
         const User = require('./models/userModel');
@@ -281,37 +237,22 @@ io.on('connection', async (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
+// Сбрасываем всех пользователей в offline при запуске сервера
 resetAllUsersToOffline().then(() => {
+  // console.log('All users set to offline on server start');
 }).catch((error) => {
   console.error('Failed to reset user statuses:', error);
 });
 
+// Запускаем сервис обновления статуса пользователей
 startUserStatusUpdater();
 
 server.listen(PORT, () => {
-  console.log(`[SERVER] 📡 Socket.IO ready`);
-});
-
-// Глобальный обработчик ошибок
-app.use((err, req, res, next) => {
-  console.error('[GLOBAL_ERROR_HANDLER]', {
-    message: err.message,
-    stack: err.stack,
-    origin: req.get('origin'),
-    method: req.method,
-    path: req.path
-  });
-
-  if (err.name === 'CorsError') {
-    return res.status(403).json({
-      error: 'CORS Error',
-      message: 'Origin not allowed',
-      origin: req.get('origin')
-    });
+  console.log(`[SERVER] ✅ Server running on port ${PORT}`);
+  if (Array.isArray(corsOptions.origin)) {
+    console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin.join(', ')}`);
+  } else {
+    console.log(`[SERVER] 🌐 CORS origins: ${corsOptions.origin}`);
   }
-
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: err.message
-  });
-});
+  console.log(`[SERVER] 📡 Socket.IO ready`);
+}); 
