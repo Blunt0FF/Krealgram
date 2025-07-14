@@ -2,11 +2,9 @@ import { API_URL, getCurrentDomain } from '../config';
 
 const ALLOWED_DOMAINS = [
   'krealgram.com',
-  'www.krealgram.com',
   'krealgram.vercel.app',
-  'localhost',
   'krealgram-backend.onrender.com',
-  '127.0.0.1'
+  'drive.google.com'
 ];
 
 export const resolveMediaUrl = (url, type = 'image') => {
@@ -34,28 +32,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
 
   // Если уже полный HTTP/HTTPS URL
   if (url.startsWith('http')) {
-    // Google Drive обработка
-    if (url.includes('drive.google.com')) {
-      try {
-        const fileId = 
-          new URL(url).searchParams.get('id') || 
-          url.split('/').pop() || 
-          url.match(/\/file\/d\/([^/]+)/)?.[1] ||
-          url.match(/\/uc\?id=([^&]+)/)?.[1];
-        
-        if (fileId) {
-          console.log('Google Drive FileID:', fileId);
-          // Используем текущий домен для проксирования
-          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
-          console.log('Proxy URL:', proxyUrl);
-          return proxyUrl;
-        }
-      } catch (error) {
-        console.error('Google Drive URL parsing error:', error);
-      }
-    }
-
-    // YouTube превью
+    // ВСЕГДА проксируем, кроме YouTube
     const youtubeMatchers = [
       /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
       /youtu\.be\/([a-zA-Z0-9_-]{11})/,
@@ -78,33 +55,26 @@ export const resolveMediaUrl = (url, type = 'image') => {
     // Проверяем, что URL с разрешенного домена
     try {
       const parsedUrl = new URL(url);
-      const currentDomain = getCurrentDomain();
       
-      // Расширенное логирование для отладки
-      console.log('🔍 URL Domain Check:', {
-        parsedHostname: parsedUrl.hostname,
-        currentDomain: currentDomain,
-        allowedDomains: ALLOWED_DOMAINS
-      });
-
-      // Если текущий домен не совпадает с доменом URL, используем проксирование
+      // Если домен не в списке разрешенных - проксируем
       if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
         console.log(`[MediaUrlResolver] Проксируем URL с домена ${parsedUrl.hostname}`);
         return `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}`;
       }
     } catch (error) {
       console.error('URL parsing error:', error);
-      // Если не удалось распарсить URL, возвращаем как есть
+      // Если не удалось распарсить URL, проксируем
+      return `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}`;
     }
 
     return url;
   }
 
-  // Локальные пути
+  // Локальные пути - ВСЕГДА через прокси
   const localUrlMap = {
-    'image': `${API_URL}/uploads/${url}`,
-    'video': `${API_URL}/uploads/${url}`,
-    'avatar': `${API_URL}/uploads/avatars/${url}`
+    'image': `${API_URL}/api/proxy-drive/${url}`,
+    'video': `${API_URL}/api/proxy-drive/${url}`,
+    'avatar': `${API_URL}/api/proxy-drive/avatars/${url}`
   };
 
   return localUrlMap[type];

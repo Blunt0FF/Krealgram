@@ -55,19 +55,46 @@ const whitelist = [
 ];
 
 const corsOptions = {
-  origin: [
-    'http://localhost:3000', 
-    'https://krealgram.vercel.app', 
-    'https://krealgram.com',  // Добавить этот домен
-    'http://localhost:4000'
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'https://krealgram.vercel.app', 
+      'https://krealgram.com',
+      'https://krealgram-backend.onrender.com'
+    ];
+
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      console.log(`[CORS] Allowed origin: ${origin}`);
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin', 
+    'Cache-Control'
   ],
-  credentials: true
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
+  credentials: true,
+  maxAge: 86400,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 app.use((req, res, next) => {
-  console.log(`[CORS Debug] Origin: ${req.get('origin')}, Host: ${req.get('host')}`);
+  console.log(`[CORS Debug] Full Request Details:`);
+  console.log(`Origin: ${req.get('origin')}`);
+  console.log(`Host: ${req.get('host')}`);
+  console.log(`Referer: ${req.get('referer')}`);
+  console.log(`Method: ${req.method}`);
+  console.log(`Path: ${req.path}`);
   next();
 });
 
@@ -238,4 +265,28 @@ startUserStatusUpdater();
 
 server.listen(PORT, () => {
   console.log(`[SERVER] 📡 Socket.IO ready`);
+});
+
+// Глобальный обработчик ошибок
+app.use((err, req, res, next) => {
+  console.error('[GLOBAL_ERROR_HANDLER]', {
+    message: err.message,
+    stack: err.stack,
+    origin: req.get('origin'),
+    method: req.method,
+    path: req.path
+  });
+
+  if (err.name === 'CorsError') {
+    return res.status(403).json({
+      error: 'CORS Error',
+      message: 'Origin not allowed',
+      origin: req.get('origin')
+    });
+  }
+
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: err.message
+  });
 });

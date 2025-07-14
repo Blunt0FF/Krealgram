@@ -20,10 +20,7 @@ export async function checkAndSetApiUrl() {
   // Список разрешенных доменов
   const allowedDomains = [
     'krealgram.com', 
-    'www.krealgram.com', 
-    'krealgram.vercel.app', 
-    'localhost', 
-    '127.0.0.1'
+    'krealgram.vercel.app'
   ];
 
   // Расширенное логирование
@@ -89,10 +86,7 @@ export function getCurrentDomain() {
   const hostname = window.location.hostname;
   const allowedDomains = {
     'krealgram.com': 'krealgram.com',
-    'www.krealgram.com': 'krealgram.com',
-    'krealgram.vercel.app': 'krealgram.vercel.app',
-    'localhost': 'localhost',
-    '127.0.0.1': 'localhost'
+    'krealgram.vercel.app': 'krealgram.vercel.app'
   };
 
   return allowedDomains[hostname] || hostname;

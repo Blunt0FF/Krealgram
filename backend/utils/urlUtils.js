@@ -10,8 +10,8 @@ const getMediaUrl = (imagePath, type = 'image') => {
   
   // Проверяем используется ли Google Drive
   if (process.env.USE_GOOGLE_DRIVE === 'true') {
-    // Для Google Drive используем прямую ссылку
-    return `https://drive.google.com/uc?id=${imagePath}`;
+    // Для Google Drive используем прокси
+    return `https://krealgram-backend.onrender.com/api/proxy-drive/${imagePath}`;
   }
   
   // Для локальной разработки используем статические файлы
