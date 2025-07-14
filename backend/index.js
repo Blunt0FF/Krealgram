@@ -59,6 +59,7 @@ const whitelist = [
   "http://localhost:4000"  
 ];
 
+// Настройки CORS для Express
 const corsOptions = {
   origin: function(origin, callback) {
     const allowedOrigins = [
@@ -197,78 +198,54 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Проксирование Google Drive с жесткой проверкой
+// Прокси-эндпоинт для Google Drive
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
-  const type = req.query.type || 'file';
+  const { google } = require('googleapis');
+  const drive = require('./config/googleDrive');
 
   try {
-    // Расширенное логирование
-    console.log('[GOOGLE_DRIVE_PROXY] Входящий запрос:', {
-      fileId,
-      type,
-      origin: req.get('origin'),
-      referer: req.get('referer'),
-      host: req.get('host'),
-      headers: req.headers
-    });
-
-    // Разрешаем все домены
-    const origin = req.get('origin') || '*';
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Methods', 'GET');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-
-    let googleDriveUrl;
-    try {
-      // Пытаемся декодировать, если это закодированный внешний URL
-      const decodedUrl = decodeURIComponent(fileId);
-      if (decodedUrl.startsWith('http')) {
-        googleDriveUrl = decodedUrl;
-        console.log('[GOOGLE_DRIVE_PROXY] Проксирование внешнего URL:', googleDriveUrl);
-      } else {
-        googleDriveUrl = type === 'thumbnail'
-          ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
-          : `https://drive.google.com/uc?id=${fileId}`;
-      }
-    } catch {
-      googleDriveUrl = type === 'thumbnail'
-        ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
-        : `https://drive.google.com/uc?id=${fileId}`;
+    console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
+    if (!drive.isInitialized) {
+      console.error('[PROXY-DRIVE] Google Drive не инициализирован');
+      return res.status(500).send('Google Drive not initialized');
     }
 
-    console.log('[GOOGLE_DRIVE_PROXY] Проксируемый URL:', googleDriveUrl);
-
-    const response = await axios({
-      method: 'get',
-      url: googleDriveUrl,
-      responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        'Referer': 'https://drive.google.com'
-      }
+    // Получаем метаданные файла
+    const meta = await drive.drive.files.get({
+      fileId,
+      fields: 'name, mimeType'
     });
+    const mimeType = meta.data.mimeType || 'application/octet-stream';
+    const fileName = meta.data.name || 'file';
+    console.log(`[PROXY-DRIVE] mimeType: ${mimeType}, fileName: ${fileName}`);
 
-    // Копируем заголовки ответа
-    res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
-    res.set('Cache-Control', 'public, max-age=86400'); // Кэширование на сутки
-    res.set('X-Proxy-Origin', origin);
+    // Получаем сам файл как stream
+    const fileRes = await drive.drive.files.get({
+      fileId,
+      alt: 'media'
+    }, { responseType: 'stream' });
 
-    // Логирование результата
-    console.log('[GOOGLE_DRIVE_PROXY] Результат:', {
-      contentType: response.headers['content-type'],
-      status: response.status
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+    fileRes.data.on('end', () => {
+      console.log(`[PROXY-DRIVE] Файл ${fileId} успешно отправлен на фронт`);
     });
-
-    response.data.pipe(res);
-  } catch (error) {
-    console.error('Google Drive proxy error:', error);
-    res.status(500).json({ 
-      error: 'Failed to proxy file',
-      details: error.message,
-      fileId: fileId,
-      type: type
+    fileRes.data.on('error', (err) => {
+      console.error('[PROXY-DRIVE] Ошибка при отправке файла:', err);
+      res.status(500).send('Error streaming file');
     });
+    fileRes.data.pipe(res);
+  } catch (err) {
+    if (err.message && err.message.includes('File not found')) {
+      console.warn(`[PROXY-DRIVE] ⚠️ Файл не найден: ${fileId}`);
+      return res.status(404).send('File not found');
+    }
+    console.error('[PROXY-DRIVE] ❌ Ошибка:', err.message);
+    res.status(500).send('Proxy error: ' + err.message);
   }
 });
 

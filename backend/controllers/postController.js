@@ -178,7 +178,17 @@ exports.createPost = async (req, res) => {
     
     console.log('Final post data being saved:', JSON.stringify(finalPostData, null, 2));
 
-    const newPost = new Post(finalPostData);
+    const newPost = new Post({
+      author: req.user._id,
+      caption: caption || '',
+      mediaType: req.file ? 'image' : 'text',
+      image: req.uploadResult ? req.uploadResult.url : null,
+      videoUrl: videoUrl || null,
+      youtubeUrl: videoUrl || null, // Для обратной совместимости
+      youtubeData: youtubeData,
+      thumbnailUrl: req.uploadResult ? req.uploadResult.thumbnailUrl : null,
+      gifPreviewUrl: req.uploadResult ? req.uploadResult.gifPreviewUrl : null
+    });
     await newPost.save();
 
     // Add post to user's posts array
