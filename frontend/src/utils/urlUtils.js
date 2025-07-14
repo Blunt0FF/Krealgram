@@ -1,53 +1,41 @@
-import { API_URL, ALLOWED_DOMAINS } from '../config';
-import { resolveMediaUrl } from './mediaUrlResolver';
+import { resolveMediaUrl, isUrlAllowed } from './mediaUrlResolver';
+import { API_URL } from '../config';
 
-export const processMediaUrl = (input) => {
-  console.log('🔗 processMediaUrl', input);
-  
-  const { url, type = 'image' } = input;
-  
-  if (!url) {
-    console.warn('❌ Empty URL provided');
-    return resolveMediaUrl('', type);
+/**
+ * Универсальная функция для обработки URL с различных источников
+ * @param {string|object} url - URL или объект с URL
+ * @param {string} type - Тип медиа (image, video, avatar)
+ * @returns {string} Обработанный URL
+ */
+export const processMediaUrl = (url, type = 'image') => {
+  console.group(`🔗 processMediaUrl [${type}]`);
+  console.log('Input:', { url, type });
+
+  // Если передан объект, извлекаем URL
+  if (typeof url === 'object' && url !== null) {
+    url = 
+      url.imageUrl || 
+      url.image || 
+      url.thumbnailUrl || 
+      url.videoUrl || 
+      url.avatarUrl || 
+      url.url || 
+      null;
   }
 
-  console.log('Current API_URL:', API_URL);
-  
-  // Специальная обработка Google Drive URL
-  if (url.includes('drive.google.com/uc')) {
-    console.log('🌐 Google Drive URL detected:', url);
-    return resolveMediaUrl(url, type);
-  }
+  const resolvedUrl = resolveMediaUrl(url, type);
+  console.log('✅ Resolved URL:', resolvedUrl);
+  console.groupEnd();
 
-  // Проверка абсолютных URL
-  if (/^https?:\/\//i.test(url)) {
-    try {
-      const parsedUrl = new URL(url);
-      
-      // Если домен не в списке разрешенных - проксируем
-      if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
-        console.log(`🔀 Proxying URL from domain: ${parsedUrl.hostname}`);
-        const proxiedUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}`;
-        console.log('✅ Proxied URL:', proxiedUrl);
-        return proxiedUrl;
-      }
-    } catch (error) {
-      console.error('URL parsing error:', error);
-    }
-  }
-
-  // Относительные пути
-  if (url.startsWith('/')) {
-    const fullUrl = `${API_URL}${url}`;
-    console.log('🔗 Constructed full URL:', fullUrl);
-    return fullUrl;
-  }
-
-  // Если ничего не подошло
-  console.warn('⚠️ Unhandled URL:', url);
-  return resolveMediaUrl(url, type);
+  return resolvedUrl;
 };
 
+// Алиасы для обратной совместимости
+export const getImageUrl = processMediaUrl;
+export const getVideoUrl = processMediaUrl;
+export const getAvatarUrl = processMediaUrl;
+
+// Дополнительные утилиты
 export const isValidUrl = (url) => {
   try {
     new URL(url);
@@ -58,12 +46,12 @@ export const isValidUrl = (url) => {
 };
 
 export const sanitizeUrl = (url) => {
-  if (!url) return '';
+  if (!url) return null;
   
   try {
-    const sanitized = url.trim().replace(/\s+/g, '');
-    return isValidUrl(sanitized) ? sanitized : '';
+    const parsedUrl = new URL(url);
+    return isUrlAllowed(url) ? url : null;
   } catch {
-    return '';
+    return null;
   }
 }; 

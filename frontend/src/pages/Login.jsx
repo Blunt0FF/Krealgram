@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getApiUrl, checkAndSetApiUrl } from '../config';
+import { API_URL } from '../config';
 import '../components/Auth/Auth.css';
 
 const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
@@ -29,15 +29,11 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
 
     setResendLoading(true);
     try {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/auth/resend-verification`, {
+      const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin
         },
-        credentials: 'include',
         body: JSON.stringify({ email: userEmail }),
       });
 
@@ -73,29 +69,14 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
     setShowResendVerification(false);
 
     try {
-      // Проверяем и устанавливаем корректный API URL
-      await checkAndSetApiUrl();
-      const apiUrl = getApiUrl();
-
-      console.log('🔐 Login attempt', {
-        apiUrl,
-        identifier: formData.identifier.substring(0, 3) + '***'
-      });
-
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin
+          'Accept': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify(formData)
-      });
-
-      console.log('🔐 Login response', {
-        status: response.status,
-        headers: Object.fromEntries(response.headers.entries())
       });
 
       let data;
@@ -103,8 +84,6 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       if (contentType && contentType.includes('application/json')) {
         data = await response.json();
       } else {
-        const text = await response.text();
-        console.error('Non-JSON response:', text);
         throw new Error('Server returned non-JSON response');
       }
 
@@ -114,7 +93,7 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
           setUserEmail(data.email);
           setError(data.message);
         } else {
-          throw new Error(data.message || 'Login error');
+        throw new Error(data.message || 'Login error');
         }
         return;
       }
@@ -134,23 +113,8 @@ const Login = ({ setIsAuthenticated, setUser, fetchUnreadCount }) => {
       
       navigate('/feed');
     } catch (error) {
-      console.error('Login error:', {
-        message: error.message,
-        stack: error.stack
-      });
-
-      // Расширенная обработка ошибок
-      if (error.message.includes('Failed to fetch')) {
-        setError('Unable to connect to the server. Please check your internet connection.');
-      } else if (error.message.includes('CORS')) {
-        setError('CORS error. Please check your server settings.');
-      } else if (error.message.includes('Not allowed by CORS')) {
-        setError('Domain not allowed. Please check your CORS settings.');
-      } else if (error.message.includes('NetworkError')) {
-        setError('Network error. Please check your connection and server status.');
-      } else {
-        setError(error.message || 'An error occurred while logging in. Please try again.');
-      }
+      console.error('Login error:', error);
+      setError(error.message || 'An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }

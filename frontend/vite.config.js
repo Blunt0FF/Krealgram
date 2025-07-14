@@ -20,21 +20,9 @@ export default defineConfig({
       }
     },
     cors: {
-      origin: [
-        'http://localhost:4000', 
-        'http://127.0.0.1:4000', 
-        'https://krealgram.vercel.app',
-        'https://krealgram.com',
-        'https://www.krealgram.com'
-      ],
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'X-Requested-With', 'Accept'],
-      credentials: true
-    }
-  },
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src')
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
     }
   }
 })
