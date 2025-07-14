@@ -13,22 +13,34 @@ export function setApiUrl(url) {
 }
 
 export async function checkAndSetApiUrl() {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
+  // Проверяем хост для определения среды
+  const hostname = window.location.hostname;
+  const isLocalhost = ['localhost', '127.0.0.1'].includes(hostname);
+  
+  // Если локальная разработка - пытаемся использовать локальный бэкенд
+  if (isLocalhost) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
 
-    await fetch(`${LOCAL_URL}/api/auth/ping`, {
-      method: 'GET',
-      signal: controller.signal
-    });
+      const response = await fetch(`${LOCAL_URL}/api/auth/ping`, {
+        method: 'GET',
+        signal: controller.signal
+      });
 
-    clearTimeout(timeoutId);
-    console.log('[CONFIG] Local server reachable, switching to LOCAL_URL');
-    setApiUrl(LOCAL_URL);
-    SOCKET_URL = `ws://${LOCAL_URL.split('://')[1]}`;
-  } catch (error) {
-    console.warn('[CONFIG] Local server not available, using REMOTE_URL');
-    setApiUrl(REMOTE_URL);
-    SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
+      if (response.ok) {
+        console.log('[CONFIG] Local server reachable, using LOCAL_URL');
+        setApiUrl(LOCAL_URL);
+        SOCKET_URL = `ws://${LOCAL_URL.split('://')[1]}`;
+        return;
+      }
+    } catch (error) {
+      console.warn('[CONFIG] Local server not available');
+    }
   }
+
+  // Если локальный бэкенд недоступен или это не локальная среда - используем удаленный
+  console.log('[CONFIG] Using REMOTE_URL');
+  setApiUrl(REMOTE_URL);
+  SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
 }

@@ -1,80 +1,26 @@
+import { processMediaUrl } from './urlUtils';
+import axios from 'axios';
 import { API_URL } from '../config';
-import axios from 'axios'; // Added missing import for axios
+import { getAvatarUrl as resolveAvatarUrl } from './mediaUrlResolver';
 
-/**
- * Сжимает изображение до указанного размера и качества
- * @param {File} file - файл изображения
- * @param {number} maxWidth - максимальная ширина
- * @param {number} maxHeight - максимальная высота  
- * @param {number} quality - качество (0.1 - 1.0)
- * @param {string} type - тип выходного изображения (например, 'image/jpeg' или 'image/webp')
- * @returns {Promise<Blob>} - Blob сжатого изображения
- */
-export const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.8, type = 'image/jpeg') => {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-
-    img.onload = () => {
-      // Вычисляем новые размеры с сохранением пропорций
-      let { width, height } = img;
-      
-      if (width > height) {
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = (width * maxHeight) / height;
-          height = maxHeight;
-        }
-      }
-
-      // Устанавливаем размеры canvas
-      canvas.width = width;
-      canvas.height = height;
-
-      // Рисуем сжатое изображение
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // Конвертируем в Blob
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            console.log(`Изображение сжато: ${file.size} байт -> ${blob.size} байт`);
-            resolve(blob);
-          } else {
-            reject(new Error('Ошибка создания Blob из canvas'));
-          }
-        },
-        type, // Используем переданный тип
-        quality
-      );
-    };
-
-    img.onerror = () => {
-      reject(new Error('Ошибка загрузки изображения'));
-    };
-
-    // Загружаем изображение
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      img.src = e.target.result;
-    };
-    reader.onerror = () => {
-      reject(new Error('Ошибка чтения файла'));
-    };
-    reader.readAsDataURL(file);
-  });
+const isImageFile = (file) => {
+  return file && file.type.startsWith('image/');
 };
 
-/**
- * Сжимает аватар до квадратного изображения WebP 250x250 и возвращает base64 строку.
- * @param {File} file - файл изображения
- * @returns {Promise<string>} - base64 строка сжатого аватара (data:image/webp;base64,...)
- */
+export const compressImage = async (file, maxSizeKB = 500, maxWidth = 1920) => {
+  // Заглушка для сжатия изображений
+  return file;
+};
+
+export const getFileSizeKB = (dataUrl) => {
+  return Math.round(dataUrl.length / 1024);
+}; 
+
+// Возвращаем оригинальный файл без сжатия
+export const compressPostImage = (file) => {
+  return Promise.resolve(file);
+};
+
 export const compressAvatar = (file) => {
   return new Promise((resolve, reject) => {
     if (!isImageFile(file)) {
@@ -165,298 +111,6 @@ export const compressAvatar = (file) => {
   });
 };
 
-/**
- * Возвращает оригинальный файл для поста (без сжатия на фронте)
- * @param {File} file - файл изображения  
- * @returns {Promise<File>} - Оригинальный файл без изменений
- */
-export const compressPostImage = (file) => {
-  // Возвращаем оригинальный файл без сжатия
-  // Сжатие будет происходить на backend с сохранением оригинального разрешения
-  return Promise.resolve(file);
-};
-
-// Сжатие изображения для сообщений (до 100КБ)
-export const compressMessageImage = (file, maxSizeKB = 100) => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    
-    img.onload = () => {
-      // Вычисляем новые размеры для сообщений
-      const maxWidth = 800;
-      const maxHeight = 600;
-      let { width, height } = img;
-      
-      if (width > height) {
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width;
-          width = maxWidth;
-        }
-      } else {
-        if (height > maxHeight) {
-          width = (width * maxHeight) / height;
-          height = maxHeight;
-        }
-      }
-      
-      canvas.width = width;
-      canvas.height = height;
-      
-      // Рисуем изображение
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      // Сжимаем до нужного размера
-      let quality = 0.9;
-      let compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-      
-      // Если размер больше maxSizeKB, уменьшаем качество
-      while (compressedDataUrl.length > maxSizeKB * 1024 && quality > 0.1) {
-        quality -= 0.1;
-        compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-      }
-      
-      resolve(compressedDataUrl);
-    };
-    
-    img.src = URL.createObjectURL(file);
-  });
-};
-
-// Сжатие аватара с продвинутыми настройками (до 50КБ)
-export const compressAvatarAdvanced = (file, maxSizeKB = 50) => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    
-    img.onload = () => {
-      // Аватар всегда квадратный
-      const size = 400;
-      canvas.width = size;
-      canvas.height = size;
-      
-      // Обрезаем изображение по центру
-      const { width, height } = img;
-      const minDimension = Math.min(width, height);
-      const startX = (width - minDimension) / 2;
-      const startY = (height - minDimension) / 2;
-      
-      ctx.drawImage(img, startX, startY, minDimension, minDimension, 0, 0, size, size);
-      
-      // Сжимаем
-      let quality = 0.8;
-      let compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-      
-      while (compressedDataUrl.length > maxSizeKB * 1024 && quality > 0.1) {
-        quality -= 0.1;
-        compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-      }
-      
-      resolve(compressedDataUrl);
-    };
-    
-    img.src = URL.createObjectURL(file);
-  });
-};
-
-// Проверка типа файла
-export const isImageFile = (file) => {
-  return file && file.type.startsWith('image/');
-};
-
-// Получение размера файла в КБ
-export const getFileSizeKB = (dataUrl) => {
-  return Math.round(dataUrl.length / 1024);
-}; 
-
-export const getImageUrl = (imagePath, options = {}) => {
-  // Если передан объект, извлекаем URL
-  if (typeof imagePath === 'object' && imagePath !== null) {
-    const urlSources = [
-      'imageUrl', 
-      'image', 
-      'thumbnailUrl', 
-      'url', 
-      'src',
-      'preview',
-      'gifPreview',
-      'originalFilename'
-    ];
-
-    for (const source of urlSources) {
-      if (imagePath[source]) {
-        imagePath = imagePath[source];
-        break;
-      }
-    }
-  }
-
-  // Если URL пустой, возвращаем placeholder
-  if (!imagePath) {
-    return '/default-post-placeholder.png';
-  }
-
-  // Обработка Google Drive URL
-  if (imagePath.includes('drive.google.com')) {
-    const googleDrivePatterns = [
-      /https:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
-      /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/,
-      /https:\/\/drive\.google\.com\/open\?id=([^&]+)/
-    ];
-
-    for (const pattern of googleDrivePatterns) {
-      const match = imagePath.match(pattern);
-      if (match && match[1]) {
-        const baseUrl = window.location.hostname.includes('krealgram.com') || window.location.hostname.includes('vercel.app')
-          ? 'https://krealgram-backend.onrender.com'
-          : 'http://localhost:3000';
-        return `${baseUrl}/api/proxy-drive/${match[1]}`;
-      }
-    }
-  }
-
-  // Если это уже полный URL, возвращаем как есть
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
-  }
-
-  const hostname = window.location.hostname;
-  const isProduction = 
-    hostname === 'krealgram.com' ||
-    hostname === 'www.krealgram.com' ||
-    hostname.endsWith('.krealgram.com') ||
-    hostname.endsWith('.vercel.app');
-
-  const baseUrl = isProduction 
-    ? 'https://krealgram-backend.onrender.com' 
-    : 'http://localhost:3000';
-
-  // Очистка пути от абсолютных путей файловой системы
-  const cleanPath = imagePath.split('/').pop();
-
-  // Специальная обработка для разных сценариев
-  if (imagePath.startsWith('/uploads/')) {
-    return `${baseUrl}${imagePath}`;
-  }
-
-  if (imagePath.startsWith('/')) {
-    return imagePath; // Статические файлы из public
-  }
-
-  // Проверяем, не является ли путь полным путем файловой системы
-  if (imagePath.includes('/opt/render/project/')) {
-    const filename = imagePath.split('/').pop();
-    return `${baseUrl}/uploads/messages/${filename}`;
-  }
-
-  return `${baseUrl}/uploads/messages/${cleanPath}`;
-};
-
-export const getAvatarUrl = (avatarPath) => {
-  if (!avatarPath) return '/default-avatar.png';
-
-  // Если это уже полный URL с проксированием
-  if (avatarPath.includes('/api/proxy-drive/')) {
-    return avatarPath;
-  }
-
-  const hostname = window.location.hostname;
-  const isProduction =
-    hostname === 'krealgram.com' ||
-    hostname === 'www.krealgram.com' ||
-    hostname.endsWith('.krealgram.com') ||
-    hostname.endsWith('.vercel.app');
-
-  const baseUrl = isProduction
-    ? 'https://krealgram-backend.onrender.com'
-    : 'http://localhost:3000';
-
-  // Обработка Google Drive URL
-  if (avatarPath.includes('drive.google.com')) {
-    const googleDrivePatterns = [
-      /https:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
-      /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/,
-      /https:\/\/drive\.google\.com\/open\?id=([^&]+)/
-    ];
-
-    for (const pattern of googleDrivePatterns) {
-      const match = avatarPath.match(pattern);
-      if (match && match[1]) {
-        return `${baseUrl}/api/proxy-drive/${match[1]}`;
-      }
-    }
-  }
-
-  // Если уже полный URL, возвращаем как есть
-  if (avatarPath.startsWith('http')) return avatarPath;
-
-  // Локальные пути
-  return `${baseUrl}/uploads/${avatarPath}`;
-};
-
-export const getVideoUrl = (videoPath) => {
-  if (!videoPath) return null;
-
-  const hostname = window.location.hostname;
-  const isProduction =
-    hostname === 'krealgram.com' ||
-    hostname === 'www.krealgram.com' ||
-    hostname.endsWith('.krealgram.com') ||
-    hostname.endsWith('.vercel.app');
-
-  const baseUrl = isProduction
-    ? 'https://krealgram-backend.onrender.com'
-    : 'http://localhost:3000';
-
-  // Обработка Google Drive URL
-  if (videoPath.includes('drive.google.com')) {
-    const googleDrivePatterns = [
-      /https:\/\/drive\.google\.com\/uc\?id=([^&]+)/,
-      /https:\/\/drive\.google\.com\/file\/d\/([^/]+)/,
-      /https:\/\/drive\.google\.com\/open\?id=([^&]+)/
-    ];
-
-    for (const pattern of googleDrivePatterns) {
-      const match = videoPath.match(pattern);
-      if (match && match[1]) {
-        return `${baseUrl}/api/proxy-drive/${match[1]}`;
-      }
-    }
-  }
-
-  // Если уже полный URL, возвращаем как есть
-  if (videoPath.startsWith('http') || videoPath.startsWith('data:')) return videoPath;
-
-  // Локальные пути
-  return `${baseUrl}/uploads/${videoPath}`;
-};
-
-export const generateVideoPreviewUrl = (videoPath) => {
-  const hostname = window.location.hostname;
-  const isProduction =
-    hostname === 'krealgram.com' ||
-    hostname === 'www.krealgram.com' ||
-    hostname.endsWith('.krealgram.com');
-
-  const baseUrl = isProduction
-    ? 'https://krealgram-backend.onrender.com'
-    : 'http://localhost:3000';
-
-  if (videoPath.includes('drive.google.com')) {
-    try {
-      const url = new URL(videoPath);
-      const fileId = url.searchParams.get('id');
-      if (fileId) return `${baseUrl}/api/proxy-drive/${fileId}`;
-    } catch (e) {
-      console.error('Invalid Google Drive URL', videoPath);
-    }
-  }
-
-  return `https://drive.google.com/uc?id=${videoPath}`;
-};
-
 export const uploadAvatar = async (file) => {
   try {
     const formData = new FormData();
@@ -491,3 +145,10 @@ export const uploadAvatar = async (file) => {
     }
   }
 };
+
+// Алиасы для обратной совместимости
+export const getImageUrl = processMediaUrl;
+export const getAvatarUrl = (avatarPath) => {
+  return resolveAvatarUrl(avatarPath);
+};
+export const getVideoUrl = processMediaUrl;

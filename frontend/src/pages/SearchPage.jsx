@@ -26,26 +26,12 @@ const SearchPage = () => {
       if (res.ok) {
         const data = await res.json();
         const processedUsers = data.users || []
-          .map(user => {
-            // Расширенная отладка аватаров
-            const avatarUrl = user.avatar ? 
-              (user.avatar.startsWith('http') ? user.avatar : 
-               `${process.env.REACT_APP_API_URL}/uploads/${user.avatar}`) : 
-              '/default-avatar.png';
-
-            console.log('🔍 Search User Avatar Debug:', {
-              userId: user._id,
-              username: user.username,
-              originalAvatar: user.avatar,
-              processedAvatar: avatarUrl,
-              apiUrl: process.env.REACT_APP_API_URL
-            });
-
-            return {
-              ...user,
-              avatarUrl: avatarUrl
-            };
-          });
+          .map(user => ({
+            ...user,
+            avatarUrl: user.avatar && !user.avatar.includes('krealgram/posts/') 
+              ? getAvatarUrl(user.avatar) 
+              : '/default-avatar.png'
+          }));
         setSearchResults(processedUsers);
       }
     } catch (e) {
@@ -147,7 +133,7 @@ const SearchPage = () => {
               onClick={() => handleUserClick(user)}
             >
               <img 
-                src={getAvatarUrl(user.avatar)} 
+                src={user.avatarUrl} 
                 alt={user.username} 
                 className="search-result-avatar"
                 loading="lazy"
@@ -174,7 +160,7 @@ const SearchPage = () => {
                   onClick={() => handleUserClick(user)}
                 >
                   <img 
-                    src={getAvatarUrl(user.avatar)}
+                    src={user.avatarUrl}
                     alt={user.username} 
                     className="search-result-avatar"
                     loading="lazy"
