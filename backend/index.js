@@ -75,7 +75,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.warn(`[CORS] Blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Временно разрешаем все, чтобы не блокировать
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -91,12 +91,17 @@ app.use(cors(corsOptions));
 // Глобальный middleware для CORS
 app.use((req, res, next) => {
   const origin = req.get('origin');
+  
+  // Разрешаем все домены из белого списка
   if (whitelist.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
-    res.header('Access-Control-Allow-Credentials', true);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
   }
+  
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', true);
   
   // Обработка preflight-запросов
   if (req.method === 'OPTIONS') {
@@ -134,14 +139,15 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Проксирование Google Drive с улучшенной обработкой
+// Проксирование Google Drive
 app.get('/api/proxy-drive/:fileId', async (req, res) => {
   try {
     const fileId = req.params.fileId;
     const type = req.query.type || 'file';
 
     // Добавляем заголовки CORS для всех доменов
-    res.header('Access-Control-Allow-Origin', '*');
+    const origin = req.get('origin') || '*';
+    res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Methods', 'GET');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
 
@@ -156,14 +162,12 @@ app.get('/api/proxy-drive/:fileId', async (req, res) => {
       headers: {
         'User-Agent': 'Mozilla/5.0',
         'Referer': 'https://drive.google.com'
-      },
-      maxRedirects: 5 // Увеличиваем количество редиректов
+      }
     });
 
     // Копируем заголовки ответа
     res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400'); // Кэширование на сутки
-    res.set('Access-Control-Allow-Origin', '*'); // Разрешаем кросс-доменные запросы
 
     response.data.pipe(res);
   } catch (error) {
