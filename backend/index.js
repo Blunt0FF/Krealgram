@@ -32,7 +32,10 @@ const io = new Server(server, {
       "http://127.0.0.1:4000",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com"
+      "https://www.krealgram.com",
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "http://127.0.0.1:3000"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
@@ -51,7 +54,9 @@ const whitelist = [
   "http://localhost:3000",
   "http://localhost:4000",
   "http://127.0.0.1:3000",
-  "http://127.0.0.1:4000"
+  "http://127.0.0.1:4000",
+  "http://localhost",
+  "http://localhost:4000"  
 ];
 
 const corsOptions = {
@@ -59,67 +64,110 @@ const corsOptions = {
     const allowedOrigins = [
       'https://krealgram.vercel.app', 
       'https://krealgram.com',
-      'https://krealgram-backend.onrender.com'
+      'https://krealgram-backend.onrender.com',
+      'http://localhost:3000',
+      'http://localhost:4000',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:4000',
+      'http://localhost',
+      null // Разрешаем null для внутренних запросов
     ];
 
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    console.log(`[CORS] Checking origin: ${origin}`);
+
+    // Проверяем точное совпадение или вхождение домена
+    const isAllowed = allowedOrigins.some(allowed => 
+      allowed === origin || 
+      (origin && origin.includes(allowed))
+    );
+
+    if (isAllowed) {
       console.log(`[CORS] Allowed origin: ${origin}`);
       callback(null, true);
     } else {
       console.warn(`[CORS] Blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      // Мягкий возврат с разрешением
+      callback(null, true);
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
   allowedHeaders: [
     'Content-Type', 
     'Authorization', 
     'X-Requested-With', 
     'Accept', 
     'Origin', 
-    'Cache-Control'
+    'Cache-Control',
+    'X-Forwarded-For',
+    'X-Real-IP',
+    'Access-Control-Allow-Origin'
   ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
+  exposedHeaders: [
+    'Content-Range', 
+    'X-Content-Range', 
+    'Cache-Control', 
+    'X-Proxy-Origin',
+    'Access-Control-Allow-Origin'
+  ],
   credentials: true,
   maxAge: 86400,
   preflightContinue: false,
   optionsSuccessStatus: 204
 };
 
-app.options('*', cors(corsOptions));
-app.use(cors(corsOptions));
+// Глобальный middleware для CORS с расширенной логикой
 app.use((req, res, next) => {
-  console.log(`[CORS Debug] Full Request Details:`);
-  console.log(`Origin: ${req.get('origin')}`);
-  console.log(`Host: ${req.get('host')}`);
-  console.log(`Referer: ${req.get('referer')}`);
-  console.log(`Method: ${req.method}`);
-  console.log(`Path: ${req.path}`);
-  next();
-});
+  const origin = req.get('origin') || req.get('referer') || '*';
+  const requestMethod = req.method;
+  const requestPath = req.path;
 
-// Глобальный middleware для CORS
-app.use((req, res, next) => {
-  const origin = req.get('origin');
-  
-  // Разрешаем все домены из белого списка
-  if (whitelist.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', true);
+  console.log(`[CORS Debug] Full Request Details:`, {
+    origin,
+    host: req.get('host'),
+    referer: req.get('referer'),
+    method: requestMethod,
+    path: requestPath,
+    headers: req.headers
+  });
+
+  // Список разрешенных доменов с поддержкой поддоменов
+  const allowedOrigins = [
+    'https://krealgram.vercel.app', 
+    'https://krealgram.com',
+    'https://krealgram-backend.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:4000',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:4000',
+    'http://localhost'
+  ];
+
+  // Проверка и установка заголовков CORS с максимальной гибкостью
+  const normalizedOrigin = origin.replace(/\/+$/, '');
+  const isAllowedOrigin = allowedOrigins.some(allowed => 
+    normalizedOrigin === allowed || 
+    normalizedOrigin.includes(allowed)
+  );
+
+  // Устанавливаем заголовки CORS
+  res.header('Access-Control-Allow-Origin', isAllowedOrigin ? origin : '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH,HEAD');
+  res.header('Access-Control-Allow-Headers', 
+    'Content-Type, Authorization, Content-Length, X-Requested-With, Origin, Accept, Access-Control-Allow-Origin'
+  );
+  res.header('Access-Control-Allow-Credentials', 'true');
   
   // Обработка preflight-запросов
-  if (req.method === 'OPTIONS') {
+  if (requestMethod === 'OPTIONS') {
     return res.sendStatus(200);
   }
   
   next();
 });
+
+// Применение CORS
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));

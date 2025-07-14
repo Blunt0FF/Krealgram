@@ -16,7 +16,12 @@ import Sidebar from './components/Sidebar/Sidebar';
 import MobileNavigation from './components/Navigation/MobileNavigation';
 import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
-import { API_URL, LOCAL_URL, REMOTE_URL, checkAndSetApiUrl } from './config';
+import { 
+  getApiUrl, 
+  setApiUrl, 
+  LOCAL_URL, 
+  REMOTE_URL 
+} from './config';
 import './App.css';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
@@ -35,7 +40,7 @@ const App = () => {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        await fetch(`${API_URL}/api/auth/logout`, {
+        await fetch(`${getApiUrl()}/api/auth/logout`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -53,7 +58,7 @@ const App = () => {
 
   const fetchUnreadCount = async (authToken) => {
     try {
-      const res = await fetch(`${API_URL}/api/notifications?limit=1`, {
+      const res = await fetch(`${getApiUrl()}/api/notifications?limit=1`, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (res.ok) {
@@ -65,6 +70,11 @@ const App = () => {
     }
   };
 
+  const checkLocalServer = async () => {
+    // Всегда возвращаем false, чтобы использовать Render
+    return false;
+  };
+
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
@@ -73,7 +83,7 @@ const App = () => {
       console.log('🌐 Current environment:', {
         hostname: window.location.hostname,
         protocol: window.location.protocol,
-        API_URL: API_URL,
+        API_URL: getApiUrl(),
         LOCAL_URL,
         REMOTE_URL
       });
@@ -81,19 +91,23 @@ const App = () => {
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
       if (isLocal) {
-        await checkAndSetApiUrl();
+        const localServerAvailable = await checkLocalServer();
+        if (!localServerAvailable) {
+          console.log('[CONFIG] Using REMOTE_URL');
+          setApiUrl(REMOTE_URL);
+        }
       }
 
       const token = localStorage.getItem('token');
       if (token) {
-        fetch(`${API_URL}/api/auth/me`, {
+        fetch(`${getApiUrl()}/api/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
           .then(res => {
             console.log('🔐 Auth check response:', {
               status: res.status,
               ok: res.ok,
-              API_URL
+              API_URL: getApiUrl()
             });
 
             if (res.ok) return res.json();
@@ -113,7 +127,7 @@ const App = () => {
           .catch(error => {
             console.error('🚨 Authentication check error:', {
               message: error.message,
-              API_URL
+              API_URL: getApiUrl()
             });
             localStorage.removeItem('token');
             localStorage.removeItem('user');
