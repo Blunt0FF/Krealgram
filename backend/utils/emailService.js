@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendPasswordResetEmail = async (to, resetToken) => {
-  const resetUrl = `https://krealgram.com/reset-password?token=${resetToken}`;
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
@@ -38,7 +38,7 @@ const sendPasswordResetEmail = async (to, resetToken) => {
 };
 
 const sendEmailVerificationEmail = async (to, verificationToken, username) => {
-  const verificationUrl = `https://krealgram.com/verify-email?token=${verificationToken}`;
+  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
 
   const mailOptions = {
     from: process.env.EMAIL_USER,

@@ -6,66 +6,6 @@ const googleDrive = require('../config/googleDrive');
 const Post = require('../models/postModel'); // Добавляем импорт Post
 // Удаляем импорт onlineUsers и io
 // const { onlineUsers, io } = require('../index');
-const path = require('path'); // Добавляем импорт path
-const fs = require('fs/promises'); // Добавляем импорт fs
-
-// Улучшенная функция генерации безопасного имени файла
-const generateSafeFilename = (originalName, prefix = '') => {
-  // Удаляем небезопасные символы и ограничиваем длину
-  const safeName = originalName
-    .replace(/[^a-zA-Z0-9.-]/g, '_')  // Заменяем небезопасные символы
-    .replace(/(\.{2,})/g, '.')  // Удаляем множественные точки
-    .substring(0, 255);  // Ограничиваем длину
-
-  const timestamp = Date.now();
-  const extension = path.extname(safeName);
-  const baseFileName = path.basename(safeName, extension);
-
-  // Добавляем префикс, если передан
-  const finalPrefix = prefix ? `${prefix}_` : '';
-
-  return `${finalPrefix}${baseFileName}_${timestamp}${extension}`;
-};
-
-// Улучшенная функция переименования файла с расширенной отладкой
-const safeRenameFile = async (sourcePath, targetPath) => {
-  try {
-    // Создаем директорию, если она не существует
-    await fs.mkdir(path.dirname(targetPath), { recursive: true });
-
-    console.log('[FILE_RENAME_DEBUG] Попытка переименования:', {
-      source: sourcePath,
-      target: targetPath
-    });
-
-    // Проверяем существование исходного файла
-    await fs.access(sourcePath, fs.constants.F_OK);
-
-    // Переименовываем файл
-    await fs.rename(sourcePath, targetPath);
-
-    console.log('[FILE_RENAME_DEBUG] ✅ Файл успешно переименован');
-    return targetPath;
-  } catch (error) {
-    console.error('[FILE_RENAME_DEBUG] ❌ Ошибка переименования:', {
-      message: error.message,
-      code: error.code,
-      source: sourcePath,
-      target: targetPath
-    });
-
-    // Если переименование не удалось, пробуем скопировать файл
-    try {
-      await fs.copyFile(sourcePath, targetPath);
-      await fs.unlink(sourcePath);
-      console.log('[FILE_RENAME_DEBUG] ✅ Файл скопирован вместо переименования');
-      return targetPath;
-    } catch (copyError) {
-      console.error('[FILE_RENAME_DEBUG] ❌ Ошибка копирования:', copyError.message);
-      throw copyError;
-    }
-  }
-};
 
 // @desc    Получение списка диалогов пользователя
 // @route   GET /api/conversations
@@ -276,30 +216,14 @@ exports.sendMessage = async (req, res) => {
         const fileType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
         validateMediaFile(req.file, fileType);
         
-        // Генерируем безопасное имя файла с сохранением оригинального имени
-        const safeFilename = generateSafeFilename(req.file.originalname);
-        const uploadPath = path.join('uploads', 'messages', safeFilename);
-
-        // Переименовываем файл
-        await safeRenameFile(req.file.path, uploadPath);
-        
-        // Создаем ответ для медиа
+        // Создаем ответ для медиа - поддерживаем как Cloudinary, так и локальные файлы
         const mediaResponse = {
           type: fileType,
-          url: `/uploads/messages/${safeFilename}`,
-          filename: req.file.originalname,  // Сохраняем оригинальное имя
-          originalFilename: safeFilename,   // Добавляем безопасное имя
+          url: req.file.path || `/uploads/messages/${req.file.filename}`, // Cloudinary возвращает path
+          filename: req.file.originalname,
           size: req.file.size
         };
         
-        console.log('[MEDIA_DEBUG] Media response:', {
-          type: mediaResponse.type,
-          url: mediaResponse.url,
-          filename: mediaResponse.filename,
-          originalFilename: mediaResponse.originalFilename,
-          size: mediaResponse.size
-        });
-
         newMessage.media = mediaResponse;
         newMessage.image = mediaResponse.url; // Для обратной совместимости
       } catch (error) {

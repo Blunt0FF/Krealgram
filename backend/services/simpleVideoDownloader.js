@@ -108,7 +108,7 @@ class SimpleVideoDownloader {
       // Удаляем временные файлы
       fs.unlinkSync(inputPath);
       fs.unlinkSync(thumbnailPath);
-      
+
       return {
         inputPath,
         thumbnailPath,

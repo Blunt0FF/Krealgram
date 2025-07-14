@@ -4,23 +4,6 @@ const { addNotification, removeNotification } = require('./notificationControlle
 const mongoose = require('mongoose');
 const sharp = require('sharp'); // Импортируем sharp
 const googleDrive = require('../config/googleDrive');
-const uploadProcessedToGoogleDrive = require('../middlewares/uploadMiddleware').uploadProcessedToGoogleDrive;
-const multer = require('multer');
-
-// Настройка multer для обработки файлов
-const upload = multer({
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5 МБ
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Неподдерживаемый тип файла'), false);
-    }
-  }
-}).single('avatar');
 
 // @desc    Получение профиля пользователя по ID или username
 // @route   GET /api/users/:identifier
@@ -135,87 +118,76 @@ exports.getUserProfile = async (req, res) => {
 // @route   PUT /api/users/profile
 // @access  Private
 exports.updateUserProfile = async (req, res) => {
-  upload(req, res, async (uploadError) => {
-    if (uploadError) {
-      console.error('[AVATAR_UPLOAD_ERROR]', uploadError);
-      return res.status(400).json({ 
-        message: uploadError.message || 'Ошибка загрузки файла' 
-      });
+  try {
+    const userId = req.user.id; // ID текущего пользователя из authMiddleware
+    const { bio, removeAvatar } = req.body;
+
+    const fieldsToUpdate = {};
+    if (bio !== undefined) {
+      fieldsToUpdate.bio = bio.trim();
     }
 
-    try {
-      const userId = req.user.id;
-      const { bio } = req.body;
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: 'Пользователь не найден.' });
+    }
 
-      const currentUser = await User.findById(userId);
-      if (!currentUser) {
-        return res.status(404).json({ message: 'Пользователь не найден.' });
-      }
-
-      const fieldsToUpdate = {};
-      if (bio !== undefined) {
-        fieldsToUpdate.bio = bio.trim();
-      }
-
-      // Обработка аватара
-      if (req.file) {
-        console.log('[AVATAR_UPLOAD_DEBUG] Файл получен:', {
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size
-        });
-
-        // Обработка изображения с помощью sharp
-        const processedImageBuffer = await sharp(req.file.buffer)
-          .resize({ width: 500, height: 500, fit: 'cover' }) // Квадратное изображение
-          .webp({ quality: 80 })
-          .toBuffer();
-
-        // Генерируем уникальное имя файла
-        const safeUsername = currentUser.username.replace(/[^a-zA-Z0-9]/g, '_');
-        const timestamp = Date.now();
-        const driveFilename = `avatar_${safeUsername}_${timestamp}.webp`;
-
-        // Загружаем в Google Drive
-        const uploadResult = await uploadProcessedToGoogleDrive(
-          processedImageBuffer, 
-          driveFilename, 
-          'image/webp', 
-          'avatar', 
-          process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
-        );
-
-        // Удаляем старый аватар
-        if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
+    // Если загружен новый аватар
+    if (req.uploadResult && req.uploadResult.secure_url) {
+      // Удаляем старый аватар, если он был и хранился на Google Drive
+      if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
           try {
-            const fileId = currentUser.avatar.split('id=')[1];
-            if (fileId) {
-              await googleDrive.deleteFile(fileId);
-            }
+              const fileId = currentUser.avatar.split('id=')[1];
+              if (fileId) {
+                await googleDrive.deleteFile(fileId);
+                console.log(`[AVATAR] Старый аватар ${fileId} удален.`);
+              }
           } catch(e) {
-            console.error('Не удалось удалить старый аватар:', e);
+              console.error(`[AVATAR] Не удалось удалить старый аватар: ${e.message}`);
           }
-        }
-
-        fieldsToUpdate.avatar = uploadResult.secure_url;
       }
-
-      const updatedUser = await User.findByIdAndUpdate(
-        userId, 
-        fieldsToUpdate, 
-        { new: true, select: '-password -email' }
-      );
-
-      res.status(200).json(updatedUser);
-
-    } catch (error) {
-      console.error('Ошибка обновления профиля:', error);
-      res.status(500).json({ 
-        message: 'Не удалось обновить профиль', 
-        error: error.message 
-      });
+      fieldsToUpdate.avatar = req.uploadResult.secure_url;
+    } 
+    // Если нужно удалить аватар
+    else if (removeAvatar === 'true') {
+      if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
+           try {
+              const fileId = currentUser.avatar.split('id=')[1];
+              if (fileId) {
+                await googleDrive.deleteFile(fileId);
+                console.log(`[AVATAR] Аватар ${fileId} удален по запросу.`);
+              }
+          } catch(e) {
+              console.error(`[AVATAR] Не удалось удалить аватар по запросу: ${e.message}`);
+          }
+      }
+      fieldsToUpdate.avatar = null;
     }
-  });
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      // Если не было ни bio, ни файла, но был запрос, возвращаем текущие данные
+      return res.status(200).json(currentUser);
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: fieldsToUpdate },
+      { new: true, runValidators: true } // new: true возвращает обновленный документ, runValidators: true для проверки по схеме
+    ).select('-password'); // Не возвращаем пароль
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Пользователь не найден.' });
+    }
+
+    res.status(200).json(updatedUser); // Возвращаем пользователя в том же формате, что ожидает фронтенд
+
+  } catch (error) {
+    console.error('Ошибка обновления профиля:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Ошибка валидации: ' + error.message });
+    }
+    res.status(500).json({ message: 'На сервере произошла ошибка при обновлении профиля.', error: error.message });
+  }
 };
 
 // @desc    Обновление аватара текущего пользователя
@@ -225,11 +197,6 @@ exports.updateUserAvatar = async (req, res) => {
   try {
     const userId = req.user.id;
     let { avatar: base64AvatarInput } = req.body;
-
-    console.log('[AVATAR_DEBUG] Incoming avatar data:', {
-      userId,
-      avatarLength: base64AvatarInput ? base64AvatarInput.length : 'No data'
-    });
 
     if (typeof base64AvatarInput !== 'string') {
       return res.status(400).json({ message: 'Поле avatar должно быть строкой.' });
@@ -258,20 +225,10 @@ exports.updateUserAvatar = async (req, res) => {
 
       const imageBuffer = Buffer.from(base64Data, 'base64');
 
-      console.log('[AVATAR_DEBUG] Image buffer details:', {
-        bufferLength: imageBuffer.length,
-        mimeType: base64AvatarInput.split(';')[0].split(':')[1]
-      });
-
       // Обрабатываем изображение
       const processedImageBuffer = await sharp(imageBuffer)
-        .resize({ width: 500, height: 500, fit: 'cover' }) // Квадратное изображение
         .webp({ quality: 80 })
         .toBuffer();
-
-      console.log('[AVATAR_DEBUG] Processed image details:', {
-        processedBufferLength: processedImageBuffer.length
-      });
 
       // Загружаем в Google Drive
       const uploadResult = await googleDrive.uploadFile(
@@ -281,48 +238,42 @@ exports.updateUserAvatar = async (req, res) => {
         process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
       );
 
-      console.log('[AVATAR_DEBUG] Upload result:', {
-        directUrl: uploadResult.directUrl,
-        fileId: uploadResult.fileId
-      });
-
       avatarUrl = uploadResult.directUrl;
     }
 
     // Получаем текущего пользователя чтобы удалить старый аватар
     const currentUser = await User.findById(userId);
     if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
-      try {
-        const fileId = currentUser.avatar.split('id=')[1];
-        if (fileId) {
-          await googleDrive.deleteFile(fileId);
-          console.log(`[AVATAR_DEBUG] Старый аватар ${fileId} удален.`);
-        }
-      } catch (error) {
-        console.error(`[AVATAR_DEBUG] Не удалось удалить старый аватар: ${error.message}`);
+      const fileId = currentUser.avatar.split('id=')[1];
+      if (fileId) {
+        await googleDrive.deleteFile(fileId);
       }
     }
 
-    // Обновляем пользователя
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { avatar: avatarUrl },
+      { $set: { avatar: avatarUrl } },
       { new: true, runValidators: true }
     ).select('-password');
 
-    console.log('[AVATAR_DEBUG] Updated user:', {
-      username: updatedUser.username,
-      avatar: updatedUser.avatar
-    });
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Пользователь не найден.' });
+    }
 
-    res.status(200).json(updatedUser);
+    res.status(200).json({
+      message: avatarUrl === '' ? 'Аватар успешно удален' : 'Аватар успешно обновлен',
+      user: updatedUser
+    });
 
   } catch (error) {
-    console.error('[AVATAR_DEBUG] Ошибка обновления аватара:', error);
-    res.status(500).json({ 
-      message: 'На сервере произошла ошибка при обновлении аватара.',
-      error: error.message 
-    });
+    console.error('Ошибка обновления аватара:', error);
+    if (error.message.includes('Input buffer contains unsupported image format') || error.message.includes('Input buffer is invalid')) {
+      return res.status(400).json({ message: 'Неподдерживаемый или поврежденный формат изображения для аватара.' });
+    }
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: 'Ошибка валидации: ' + error.message });
+    }
+    res.status(500).json({ message: 'На сервере произошла ошибка при обновлении аватара.', error: error.message });
   }
 };
 

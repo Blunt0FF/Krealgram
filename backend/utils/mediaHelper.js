@@ -5,6 +5,12 @@ const fs = require('fs').promises;
 const getMediaConfig = () => {
   return {
     isDevelopment: process.env.NODE_ENV !== 'production',
+    cloudinaryConfig: {
+      useCloudinary: process.env.USE_CLOUDINARY === 'true',
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
+    },
     localUploadPath: 'uploads/',
     maxFileSize: 50 * 1024 * 1024, // 50MB
     allowedTypes: {
@@ -48,19 +54,18 @@ const processYouTubeUrl = (url) => {
   };
 };
 
-// Функция для получения URL медиа файла с расширенной поддержкой GIF
-const getMediaUrl = (filename, type = 'post', isGif = false) => {
+// Функция для получения URL медиа файла (локальный или Cloudinary)
+const getMediaUrl = (filename, type = 'post') => {
   const config = getMediaConfig();
   
-  // Специальная обработка для GIF
-  if (isGif) {
-    console.log('[MEDIA_URL_DEBUG] Обработка URL для GIF:', {
-      filename,
-      type
-    });
+  if (config.cloudinaryConfig.useCloudinary) {
+    // В продакшене с Cloudinary будем возвращать Cloudinary URL
+    // TODO: Реализовать логику для Google Drive
+    return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
+  } else {
+    // В разработке используем локальные файлы
+    return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
   }
-  
-  return `/uploads/${type === 'message' ? 'messages/' : ''}${filename}`;
 };
 
 // Функция для удаления локального файла
@@ -73,12 +78,12 @@ const deleteLocalFile = async (filePath) => {
   }
 };
 
-// Обновляем функцию создания медиа-ответа с поддержкой GIF
+// Функция для создания структуры ответа медиа
 const createMediaResponse = (file, youtubeData = null) => {
   if (youtubeData) {
     return {
       type: 'video',
-      youtubeId: youtubeData.videoId,
+      youtubeId: youtubeData.videoId, // Поддерживаем и youtubeId для совместимости с фронтендом
       videoId: youtubeData.videoId,
       url: youtubeData.watchUrl,
       embedUrl: youtubeData.embedUrl,
@@ -87,15 +92,12 @@ const createMediaResponse = (file, youtubeData = null) => {
   }
   
   if (file) {
-    const isGif = file.mimetype === 'image/gif';
-    
     return {
-      type: isGif ? 'gif' : (file.mimetype.startsWith('image/') ? 'image' : 'video'),
-      url: getMediaUrl(file.filename, 'message', isGif),
+      type: file.mimetype.startsWith('image/') ? 'image' : 'video',
+      url: getMediaUrl(file.filename, 'message'),
       filename: file.filename,
       originalName: file.originalname,
-      size: file.size,
-      ...(isGif && file.gifPreviewUrl ? { gifPreviewUrl: file.gifPreviewUrl } : {})
+      size: file.size
     };
   }
   
