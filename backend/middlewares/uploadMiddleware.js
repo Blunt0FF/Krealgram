@@ -160,7 +160,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
   try {
     let context = 'post';
     if (req.file.fieldname === 'avatar') context = 'avatar';
-    else if (req.file.fieldname === 'message') context = 'message';
+    else if (req.file.fieldname === 'media') context = 'message';
 
     let fileBuffer, finalFilename, fileMimetype, thumbnailUrl = null;
     

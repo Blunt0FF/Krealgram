@@ -43,21 +43,4 @@ router.get('/me', authMiddleware, authController.getCurrentUser);
 // @access  Private (защищено authMiddleware)
 router.post('/logout', authMiddleware, authController.logout);
 
-router.get('/ping', (req, res) => {
-  console.log('[PING] Received ping request', {
-    origin: req.get('origin'),
-    headers: req.headers
-  });
-
-  res.header('Access-Control-Allow-Origin', req.get('origin') || '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  
-  res.status(200).json({
-    status: 'ok',
-    message: 'API is available',
-    timestamp: new Date().toISOString()
-  });
-});
-
 module.exports = router; 

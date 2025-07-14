@@ -178,17 +178,7 @@ exports.createPost = async (req, res) => {
     
     console.log('Final post data being saved:', JSON.stringify(finalPostData, null, 2));
 
-    const newPost = new Post({
-      author: req.user._id,
-      caption: caption || '',
-      mediaType: req.file ? 'image' : 'text',
-      image: req.uploadResult ? req.uploadResult.url : null,
-      videoUrl: videoUrl || null,
-      youtubeUrl: videoUrl || null, // Для обратной совместимости
-      youtubeData: youtubeData,
-      thumbnailUrl: req.uploadResult ? req.uploadResult.thumbnailUrl : null,
-      gifPreviewUrl: req.uploadResult ? req.uploadResult.gifPreviewUrl : null
-    });
+    const newPost = new Post(finalPostData);
     await newPost.save();
 
     // Add post to user's posts array
@@ -628,16 +618,6 @@ exports.getVideoUsers = async (req, res) => {
   try {
     console.log('Getting video users...');
     
-    // Логируем количество постов с видео перед агрегацией
-    const totalVideoPosts = await Post.countDocuments({
-      $or: [
-        { mediaType: 'video' },
-        { youtubeData: { $exists: true, $ne: null } },
-        { videoUrl: { $exists: true, $ne: null } }
-      ]
-    });
-    console.log(`Total video posts: ${totalVideoPosts}`);
-
     const videoUsers = await Post.aggregate([
       {
         $match: {
@@ -689,8 +669,6 @@ exports.getVideoUsers = async (req, res) => {
     ]);
 
     console.log(`Found ${videoUsers.length} video users`);
-    console.log('Video Users Details:', JSON.stringify(videoUsers, null, 2));
-    
     res.json({ success: true, users: videoUsers });
   } catch (error) {
     console.error('Error fetching video users:', error);
