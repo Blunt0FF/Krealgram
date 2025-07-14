@@ -9,9 +9,6 @@ const ALLOWED_DOMAINS = [
   '127.0.0.1'
 ];
 
-// Принудительное проксирование через Render только для Google Drive
-const RENDER_PROXY_URL = 'https://krealgram-backend.onrender.com/api/proxy-drive/';
-
 export const resolveMediaUrl = (url, type = 'image') => {
   console.group(`🔗 resolveMediaUrl [${type}]`);
   console.log('Input URL:', url);
@@ -28,7 +25,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
 
   // Если уже полный HTTP/HTTPS URL
   if (url.startsWith('http')) {
-    // Проксирование ТОЛЬКО для Google Drive
+    // Google Drive обработка
     if (url.includes('drive.google.com')) {
       try {
         const fileId = 
@@ -38,8 +35,11 @@ export const resolveMediaUrl = (url, type = 'image') => {
           url.match(/\/uc\?id=([^&]+)/)?.[1];
         
         if (fileId) {
-          console.log('🔒 Проксирование Google Drive:', fileId);
-          return `${RENDER_PROXY_URL}${fileId}`;
+          console.log('Google Drive FileID:', fileId);
+          // Используем текущий домен для проксирования
+          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
+          console.log('Proxy URL:', proxyUrl);
+          return proxyUrl;
         }
       } catch (error) {
         console.error('Google Drive URL parsing error:', error);
@@ -59,6 +59,25 @@ export const resolveMediaUrl = (url, type = 'image') => {
         const youtubeId = match[1];
         return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
       }
+    }
+
+    // Если это уже полный URL с проксированием
+    if (url.includes('/api/proxy-drive/')) {
+      return url;
+    }
+
+    // Проверяем, что URL с разрешенного домена
+    try {
+      const parsedUrl = new URL(url);
+      const currentDomain = getCurrentDomain();
+      
+      // Если текущий домен не совпадает с доменом URL, используем проксирование
+      if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
+        console.log(`[MediaUrlResolver] Проксируем URL с домена ${parsedUrl.hostname}`);
+        return `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}`;
+      }
+    } catch {
+      // Если не удалось распарсить URL, возвращаем как есть
     }
 
     return url;
