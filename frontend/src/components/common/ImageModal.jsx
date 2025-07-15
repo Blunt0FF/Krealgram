@@ -43,13 +43,6 @@ const ImageModal = ({
 
   const handleImageZoom = (e) => {
     if (e.touches.length === 2) {
-      const touch1 = e.touches[0];
-      const touch2 = e.touches[1];
-      const distance = Math.hypot(
-        touch1.pageX - touch2.pageX,
-        touch1.pageY - touch2.pageY
-      );
-
       if (!isZoomed) {
         setIsZoomed(true);
         imageRef.current.style.transform = 'scale(2)';
@@ -165,7 +158,7 @@ const ImageModal = ({
     >
       <div 
         ref={contentRef}
-        className="image-modal-content" 
+        className="image-modal-content"
         onClick={(e) => e.stopPropagation()}
       >
         <button 

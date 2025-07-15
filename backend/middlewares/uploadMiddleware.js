@@ -181,6 +181,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
     else if (req.file.fieldname === 'message') context = 'message';
 
     let fileBuffer, finalFilename, fileMimetype, thumbnailUrl = null;
+    let folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID; // Устанавливаем дефолтную папку
     
     // Специальная обработка HEIC/HEIF
     const heicMimeTypes = [
@@ -218,8 +219,6 @@ const uploadToGoogleDrive = async (req, res, next) => {
         folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
       } else if (context === 'post') {
         folderId = process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID;
-      } else {
-        folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
       }
     } else if (req.file.mimetype.startsWith('image/') && req.file.mimetype !== 'image/gif') {
       const fileStats = await fs.stat(tempFilePath);
@@ -269,6 +268,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
       fileBuffer = await fs.readFile(tempFilePath);
       finalFilename = req.file.originalname; // Сохраняем оригинальное имя файла
       fileMimetype = req.file.mimetype;
+      folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
     } else {
       fileBuffer = await fs.readFile(tempFilePath);
       finalFilename = req.file.originalname; // Сохраняем оригинальное имя файла
