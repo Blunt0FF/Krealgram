@@ -4,13 +4,26 @@ const fs = require('fs').promises;
 const ffmpeg = require('fluent-ffmpeg');
 
 // Убедимся, что временные директории существуют
-const TEMP_DIR = path.resolve(process.cwd(), 'backend/temp');
+const TEMP_DIR = path.resolve(process.cwd(), 'temp');
 const TEMP_INPUT_DIR = path.join(TEMP_DIR, 'input');
 const TEMP_OUTPUT_DIR = path.join(TEMP_DIR, 'output');
 
 const ensureTempDirs = async () => {
-  await fs.mkdir(TEMP_INPUT_DIR, { recursive: true });
-  await fs.mkdir(TEMP_OUTPUT_DIR, { recursive: true });
+  try {
+    console.log('[TEMP_DIRS] Текущая рабочая директория:', process.cwd());
+    console.log('[TEMP_DIRS] Полный путь к TEMP_DIR:', TEMP_DIR);
+    console.log('[TEMP_DIRS] Полный путь к TEMP_INPUT_DIR:', TEMP_INPUT_DIR);
+    console.log('[TEMP_DIRS] Полный путь к TEMP_OUTPUT_DIR:', TEMP_OUTPUT_DIR);
+
+    await fs.mkdir(TEMP_DIR, { recursive: true });
+    await fs.mkdir(TEMP_INPUT_DIR, { recursive: true });
+    await fs.mkdir(TEMP_OUTPUT_DIR, { recursive: true });
+
+    console.log('[TEMP_DIRS] ✅ Все временные директории созданы');
+  } catch (error) {
+    console.error('[TEMP_DIRS] ❌ Ошибка создания временных директорий:', error);
+    throw error;
+  }
 };
 
 // Вызовем функцию при инициализации модуля
@@ -91,7 +104,7 @@ class ImageCompressor {
               progressive: true, 
               mozjpeg: true 
             });
-          outputFormat = 'jpg';
+            outputFormat = 'jpg';
           }
           break;
       }
@@ -154,16 +167,82 @@ class ImageCompressor {
       const compressed = await this.compressImage(inputPath, originalName);
       const thumbnailBuffer = await this.createThumbnail(inputPath);
       
+      const thumbnailFilename = `thumb_${compressed.info.filename.replace(/\.[^/.]+$/, '.webp')}`;
+      const thumbnailPath = path.join(TEMP_OUTPUT_DIR, thumbnailFilename);
+      
+      // Сохраняем превью на диск
+      await fs.writeFile(thumbnailPath, thumbnailBuffer);
+      
+      console.log(`[IMAGE_COMPRESSOR] ✅ Превью сохранено: ${thumbnailPath}`);
+      
       return {
         original: compressed,
         thumbnail: {
           buffer: thumbnailBuffer,
-          filename: `thumb_${compressed.info.filename.replace(/\.[^/.]+$/, '.webp')}`
+          filename: thumbnailFilename,
+          path: thumbnailPath
         }
       };
     } catch (error) {
       console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка оптимизации для веба:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Оптимизирует изображение для веба, работая с буфером
+   * @param {Buffer} inputBuffer - буфер изображения
+   * @param {string} originalName - оригинальное имя файла
+   * @returns {Promise<Object>}
+   */
+  async optimizeForWebFromBuffer(inputBuffer, originalName) {
+    const tempInputPath = path.join(TEMP_INPUT_DIR, `temp-${Date.now()}-${originalName}`);
+    
+    try {
+      // Сохраняем буфер во временный файл
+      await fs.writeFile(tempInputPath, inputBuffer);
+      
+      const result = await this.optimizeForWeb(tempInputPath, originalName);
+      
+      return result;
+    } catch (error) {
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка оптимизации буфера:`, error);
+      throw error;
+    } finally {
+      // Удаляем временный файл
+      await fs.unlink(tempInputPath).catch(err => {
+        if (err.code !== 'ENOENT') {
+          console.error(`Failed to clean up temp file: ${tempInputPath}`, err);
+        }
+      });
+    }
+  }
+
+  /**
+   * Создает превью для видео из буфера
+   * @param {Buffer} inputBuffer - буфер видео
+   * @returns {Promise<Object>}
+   */
+  async generateVideoThumbnailFromBuffer(inputBuffer) {
+    const tempInputPath = path.join(TEMP_INPUT_DIR, `temp-video-${Date.now()}.mp4`);
+    
+    try {
+      // Сохраняем буфер во временный файл
+      await fs.writeFile(tempInputPath, inputBuffer);
+      
+      const result = await generateVideoThumbnail(tempInputPath);
+      
+      return result;
+    } catch (error) {
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка создания превью из буфера:`, error);
+      throw error;
+    } finally {
+      // Удаляем временный файл
+      await fs.unlink(tempInputPath).catch(err => {
+        if (err.code !== 'ENOENT') {
+          console.error(`Failed to clean up temp file: ${tempInputPath}`, err);
+        }
+      });
     }
   }
 }
@@ -380,10 +459,9 @@ const generateUniversalGifThumbnail = async (inputPath) => {
 
 const imageCompressor = new ImageCompressor();
 
-module.exports = {
-  optimizeForWeb: imageCompressor.optimizeForWeb.bind(imageCompressor),
-  generateVideoThumbnail,
-  generateGifThumbnail,
-  generateUniversalGifThumbnail,
-  TEMP_INPUT_DIR, // Экспортируем для использования в middleware
-}; 
+module.exports = ImageCompressor;
+module.exports.ImageCompressor = ImageCompressor;
+module.exports.generateVideoThumbnail = generateVideoThumbnail;
+module.exports.generateGifThumbnail = generateGifThumbnail;
+module.exports.generateUniversalGifThumbnail = generateUniversalGifThumbnail;
+module.exports.TEMP_OUTPUT_DIR = TEMP_OUTPUT_DIR; // Экспортируем для использования в других модулях 

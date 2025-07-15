@@ -84,6 +84,16 @@ const CreatePost = () => {
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     
+    console.log('🚀 Post Creation Debug:', {
+      compressedFile: compressedFile ? {
+        name: compressedFile.name,
+        type: compressedFile.type,
+        size: compressedFile.size
+      } : null,
+      parsedVideoData,
+      caption
+    });
+
     if (!compressedFile && !parsedVideoData) {
       setError('Please select a file or external video first');
       return;
@@ -99,10 +109,21 @@ const CreatePost = () => {
       formData.append('caption', caption);
 
       if (parsedVideoData) {
+        console.log('🎬 External Video Data:', parsedVideoData);
         formData.append('videoUrl', parsedVideoData.videoUrl || parsedVideoData.originalUrl);
         formData.append('videoData', JSON.stringify(parsedVideoData.videoData || parsedVideoData));
       } else if (compressedFile) {
-        formData.append('image', compressedFile, originalFileName);
+        console.log('📸 File Details:', {
+          name: compressedFile.name,
+          type: compressedFile.type,
+          size: compressedFile.size
+        });
+        formData.append('image', compressedFile, compressedFile.name);
+      }
+
+      console.log('📤 FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}:`, value);
       }
 
       const response = await fetch(`${API_URL}/api/posts`, {
@@ -113,9 +134,21 @@ const CreatePost = () => {
         body: formData
       });
 
+      console.log('📥 Response status:', response.status);
+
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (jsonError) {
+        console.error('❌ JSON Parsing Error:', jsonError);
+        const responseText = await response.text();
+        console.error('❌ Response Text:', responseText);
+        throw new Error('Invalid server response');
+      }
+
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Error creating post');
+        console.error('❌ Server Error:', responseData);
+        throw new Error(responseData.message || 'Error creating post');
       }
 
       // Сбрасываем состояние после успешной загрузки
@@ -128,7 +161,7 @@ const CreatePost = () => {
 
       navigate('/');
     } catch (error) {
-      console.error('Post creation error:', error);
+      console.error('❌ Post creation error:', error);
       setError(error.message || 'Failed to create post');
     } finally {
       setLoading(false);

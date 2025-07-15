@@ -1,3 +1,5 @@
+require('dotenv').config(); // Загружаем переменные окружения в самом начале
+
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -10,7 +12,11 @@ const connectDB = require('./config/db');
 const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
 const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
 
-dotenv.config();
+// Уменьшаем количество логов
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
+const logLevel = process.env.NODE_ENV === 'production' ? 'error' : 'info';
+
 console.log('[SERVER] 🚀 Starting Krealgram backend...');
 
 connectDB();

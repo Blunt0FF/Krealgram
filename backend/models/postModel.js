@@ -86,6 +86,10 @@ const postSchema = new mongoose.Schema({
       format: String,
       bytes: Number
     }
+  },
+  thumbnailUrl: {
+    type: String,
+    default: null
   }
 }, { 
   timestamps: true // Добавляет createdAt и updatedAt

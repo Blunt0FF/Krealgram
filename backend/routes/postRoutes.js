@@ -66,7 +66,42 @@ const optionalUpload = (req, res, next) => {
 // @route   POST api/posts
 // @desc    Создать новый пост
 // @access  Private
-router.post('/', authMiddleware, optionalUpload, postController.createPost);
+router.post('/', authMiddleware, upload.single('image'), uploadToGoogleDrive, async (req, res) => {
+  try {
+    console.log('[POST_ROUTE_DEBUG] Incoming post creation request:', {
+      user: req.user ? req.user.username : 'Unknown',
+      file: req.file ? {
+        originalname: req.file.originalname,
+        filename: req.file.filename,
+        path: req.file.path,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : 'No file',
+      body: req.body
+    });
+
+    const postController = require('../controllers/postController');
+    await postController.createPost(req, res);
+  } catch (error) {
+    console.error('[POST_ROUTE_ERROR] Full error details:', error);
+    
+    // Очистка файла в случае ошибки
+    if (req.file && req.file.path) {
+      try {
+        const fs = require('fs').promises;
+        await fs.unlink(req.file.path);
+        console.log('[POST_ROUTE_DEBUG] Temporary file deleted');
+      } catch (cleanupError) {
+        console.error('[POST_ROUTE_ERROR] Error deleting file:', cleanupError);
+      }
+    }
+
+    res.status(500).json({ 
+      message: 'Server error while creating post',
+      error: error.message 
+    });
+  }
+});
 
 // СПЕЦИФИЧНЫЕ ROUTES ДОЛЖНЫ БЫТЬ ПЕРЕД ОБЩИМИ!
 
@@ -119,9 +154,20 @@ router.get('/:id', authMiddleware, postController.getPostById);
 // @access  Private (только автор)
 router.put('/:id', authMiddleware, postController.updatePost);
 
-// @route   DELETE api/posts/:id
-// @desc    Удалить пост
+// @route   DELETE /api/posts/:postId
+// @desc    Удаление поста
 // @access  Private
-router.delete('/:id', authMiddleware, postController.deletePost);
+router.delete('/:postId', authMiddleware, async (req, res) => {
+  try {
+    const postController = require('../controllers/postController');
+    await postController.deletePost(req, res);
+  } catch (error) {
+    console.error('[POST_DELETE_ROUTE] Error:', error);
+    res.status(500).json({ 
+      message: 'Server error while deleting post', 
+      error: error.message 
+    });
+  }
+});
 
 module.exports = router; 

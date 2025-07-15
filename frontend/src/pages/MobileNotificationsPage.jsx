@@ -169,7 +169,7 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
       className="notification-post-image-mobile"
       onError={(e) => {
         e.target.onerror = null;
-        e.target.src = '/video-placeholder.svg';
+        e.target.src = '/default-post-placeholder.png';
       }}
     />
   </Link>

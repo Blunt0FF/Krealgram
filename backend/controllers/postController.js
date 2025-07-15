@@ -8,6 +8,8 @@ const axios = require('axios');
 const os = require('os');
 const VideoDownloader = require('../services/videoDownloader');
 const googleDrive = require('../config/googleDrive');
+const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerator');
+const GoogleDriveFileManager = require('../utils/googleDriveFileManager');
 
 console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
 
@@ -25,6 +27,17 @@ exports.createPost = async (req, res) => {
     }
 
     const authorId = req.user.id; // Используем ID из middleware аутентификации
+
+    // Инициализируем finalPostData перед использованием
+    let finalPostData = {
+      author: authorId,
+      caption: caption,
+      image: null,
+      mediaType: 'image',
+      videoUrl: null,
+      youtubeData: null,
+      thumbnailUrl: null
+    };
 
     // Подробное логирование для отладки загрузки с iPhone
     if (req.file) {
@@ -141,54 +154,105 @@ exports.createPost = async (req, res) => {
       thumbnailUrl = req.uploadResult.thumbnailUrl;
     }
 
-    // Проверяем что у нас есть хотя бы что-то для отображения
-    if (!imagePath && !videoUrl && !caption?.trim()) {
-      console.log('No video URL, no file, and no caption provided');
-      return res.status(400).json({ message: 'Media content or caption is required for the post.' });
+    console.log('[THUMBNAIL_DEBUG] Источники thumbnailUrl:', {
+      uploadResult: req.uploadResult?.thumbnailUrl,
+      fileThumb: req.file?.thumbnailUrl,
+      videoDataThumb: videoData?.thumbnailUrl,
+      youtubeDataThumb: incomingYoutubeData?.thumbnailUrl,
+      youtubeDataThumb: youtubeData?.thumbnailUrl
+    });
+
+    // Дополнительная логика для thumbnailUrl
+    if (youtubeData && youtubeData.thumbnailUrl) {
+      thumbnailUrl = youtubeData.thumbnailUrl;
     }
 
-    // Если нет imagePath но есть videoUrl, НЕ устанавливаем placeholder для внешних видео
-    if (!imagePath && videoUrl && !youtubeData) {
-      // Только для случаев когда нет youtubeData (например, прямые ссылки на видео файлы)
-      imagePath = '/video-placeholder.svg';
-      mediaType = 'video';
-    } else if (!imagePath && videoUrl && youtubeData) {
-      // Для внешних видео (TikTok, YouTube и т.д.) НЕ устанавливаем imagePath
-      // Оставляем imagePath пустым, чтобы система использовала youtubeData
-      mediaType = 'video';
-    }
-    
-    // Если нет медиа вообще, но есть подпись, используем текстовый пост
-    if (!imagePath && !videoUrl && caption?.trim()) {
-      imagePath = '/text-post-placeholder.svg';
-      mediaType = 'image';
+    // Если thumbnailUrl все еще не установлен, используем первый доступный источник
+    if (!thumbnailUrl) {
+      const thumbnailSources = [
+        req.uploadResult?.thumbnailUrl,
+        req.file?.thumbnailUrl,
+        videoData?.thumbnailUrl,
+        incomingYoutubeData?.thumbnailUrl,
+        '/default-post-placeholder.png'
+      ].filter(Boolean);
+
+      thumbnailUrl = thumbnailSources[0];
     }
 
-    // Финальные данные для создания поста
-    const finalPostData = {
+    console.log('[THUMBNAIL_DEBUG] Финальный thumbnailUrl:', thumbnailUrl);
+
+    // Обновляем finalPostData перед сохранением
+    finalPostData = {
       author: authorId,
       caption: caption,
-      image: imagePath, // Путь к основному медиа (картинка или видео на GDrive)
+      image: imagePath || req.uploadResult?.secure_url, // Путь к основному медиа
       mediaType: mediaType,
-      videoUrl: videoUrl, // URL для встраивания (если применимо, н-р, YouTube)
+      videoUrl: videoUrl, // URL для встраивания
       youtubeData: youtubeData,
-      gifPreview: req.uploadResult?.gifPreviewUrl || null, // Добавляем GIF-превью
+      thumbnailUrl: thumbnailUrl,
+      gifPreview: req.uploadResult?.gifPreviewUrl || null
     };
-    
+
     console.log('Final post data being saved:', JSON.stringify(finalPostData, null, 2));
 
+    // Внутри функции createPost, перед сохранением поста
+    if (req.file && req.file.path) {
+      try {
+        console.log('[POST_CONTROLLER] Начало генерации превью:', {
+          filePath: req.file.path,
+          originalName: req.file.originalname,
+          mimetype: req.file.mimetype,
+          previewFolderId: process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+        });
+
+        const thumbnailGenerator = new UniversalThumbnailGenerator();
+        
+        let thumbnailResult;
+        if (req.file.mimetype.startsWith('image/')) {
+          thumbnailResult = await thumbnailGenerator.generateImageThumbnail(
+            req.file.path, 
+            req.file.originalname
+          );
+        } else if (req.file.mimetype.startsWith('video/')) {
+          thumbnailResult = await thumbnailGenerator.generateVideoThumbnail(
+            req.file.path, 
+            req.file.originalname
+          );
+        }
+        
+        if (thumbnailResult) {
+          console.log('[POST_CONTROLLER] Превью успешно создано:', thumbnailResult);
+          finalPostData.thumbnailUrl = thumbnailResult.thumbnailUrl;
+        } else {
+          console.warn('[POST_CONTROLLER] Превью не создано');
+          finalPostData.thumbnailUrl = '/default-post-placeholder.png';
+        }
+      } catch (thumbnailError) {
+        console.error('Thumbnail generation error:', thumbnailError, {
+          env: process.env,
+          previewFolderId: process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+        });
+        // Используем дефолтный превью, если не удалось создать
+        finalPostData.thumbnailUrl = '/default-post-placeholder.png';
+      }
+    }
+
+    // Создаем новый пост
     const newPost = new Post(finalPostData);
-    await newPost.save();
+    const savedPost = await newPost.save();
 
-    // Add post to user's posts array
-    await User.findByIdAndUpdate(authorId, { $push: { posts: newPost._id } });
+    // Обновляем пользователя
+    await User.findByIdAndUpdate(
+      authorId, 
+      { $push: { posts: savedPost._id }, $inc: { postsCount: 1 } },
+      { new: true }
+    );
 
-    // Return the post with author data
-    const populatedPost = await Post.findById(newPost._id).populate('author', 'username avatar');
-
-    res.status(201).json({
+    // Возвращаем полную информацию о посте
+    return res.status(201).json({
       message: 'Post created successfully',
-      post: populatedPost
+      post: savedPost
     });
 
   } catch (error) {
@@ -270,25 +334,35 @@ exports.getAllPosts = async (req, res) => {
     // Add full URL for images and information about likes
     const postsWithFullInfo = posts.map(post => {
         let imageUrl;
+        let thumbnailUrl;
         
-        // Для внешних видео с youtubeData (TikTok, YouTube и т.д.) без image
+        // Логика определения imageUrl (как было раньше)
         if (!post.image && post.youtubeData) {
-          imageUrl = null; // Не устанавливаем imageUrl, фронтенд будет использовать youtubeData
-        }
-        // Для видео с внешними URL (TikTok, VK, Instagram) или placeholder
-        else if (post.image === '/video-placeholder.svg' || (post.image && post.image.startsWith('/'))) {
-          imageUrl = post.image; // Оставляем как есть для статических файлов
+          imageUrl = null;
+        } else if (post.image === '/video-placeholder.svg' || (post.image && post.image.startsWith('/'))) {
+          imageUrl = post.image;
         } else if (post.image && post.image.startsWith('http')) {
-          imageUrl = post.image; // Уже полный URL (Cloudinary, YouTube thumbnail)
+          imageUrl = post.image;
         } else if (post.image) {
           imageUrl = getMediaUrl(post.image, 'image');
         } else {
-          imageUrl = null; // Нет изображения
+          imageUrl = null;
+        }
+        
+        // Приоритет: thumbnailUrl из поста, затем youtubeData, затем генерация
+        if (post.thumbnailUrl) {
+          thumbnailUrl = post.thumbnailUrl;
+        } else if (post.youtubeData && post.youtubeData.thumbnailUrl) {
+          thumbnailUrl = post.youtubeData.thumbnailUrl;
+        } else if (post.image && post.image.startsWith('/')) {
+          // Для статических файлов генерируем thumbnailUrl
+          thumbnailUrl = `/uploads/thumb_${post.image.split('/').pop().replace(/\.[^/.]+$/, '.webp')}`;
         }
         
         return {
           ...post,
           imageUrl: imageUrl,
+          thumbnailUrl: thumbnailUrl,
           likes: post.likes ? post.likes.map(like => like._id || like) : [],
           likesCount: post.likes ? post.likes.length : 0,
           isLikedByCurrentUser: currentUserId ? post.likes?.some(like => like.toString() === currentUserId.toString()) : false,
@@ -338,8 +412,9 @@ exports.getPostById = async (req, res) => {
 
     // Add full URL for the post image and likes information
     let imageUrl;
+    let thumbnailUrl;
     
-    // Для внешних видео с youtubeData (TikTok, YouTube и т.д.) без image
+    // Логика определения imageUrl (как было раньше)
     if (!post.image && post.youtubeData) {
       imageUrl = null; // Не устанавливаем imageUrl, фронтенд будет использовать youtubeData
     }
@@ -354,9 +429,20 @@ exports.getPostById = async (req, res) => {
       imageUrl = null; // Нет изображения
     }
     
+    // Приоритет: thumbnailUrl из поста, затем youtubeData, затем генерация
+    if (post.thumbnailUrl) {
+      thumbnailUrl = post.thumbnailUrl;
+    } else if (post.youtubeData && post.youtubeData.thumbnailUrl) {
+      thumbnailUrl = post.youtubeData.thumbnailUrl;
+    } else if (post.image && post.image.startsWith('/')) {
+      // Для статических файлов генерируем thumbnailUrl
+      thumbnailUrl = `/uploads/thumb_${post.image.split('/').pop().replace(/\.[^/.]+$/, '.webp')}`;
+    }
+
     const postWithImageUrl = {
         ...post,
         imageUrl: imageUrl,
+        thumbnailUrl: thumbnailUrl,
         likesCount: post.likes ? post.likes.length : 0,
         isLikedByCurrentUser: isLikedByCurrentUser,
         commentsCount: post.comments ? post.comments.length : 0
@@ -430,15 +516,13 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-// @desc    Delete a post
-// @route   DELETE /api/posts/:id
-// @access  Private
+// Метод для удаления поста с очисткой файлов в Google Drive
 exports.deletePost = async (req, res) => {
   try {
-    const postId = req.params.id;
+    const { postId } = req.params;
     const userId = req.user.id;
 
-    // Находим пост перед удалением, чтобы получить URL файлов
+    // Находим пост
     const post = await Post.findById(postId);
 
     if (!post) {
@@ -450,56 +534,57 @@ exports.deletePost = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this post' });
     }
 
-    // Удаляем файлы из Google Drive
-    try {
-      // Удаление основного файла (видео/изображения)
-      if (post.image && post.image.includes('drive.google.com')) {
-        const mainFileId = post.image.split('id=')[1];
-        await googleDrive.deleteFile(mainFileId);
-        console.log(`[DELETE_POST] ✅ Successfully deleted main file: ${mainFileId}`);
-      }
+    // Извлекаем ID файлов из URL Google Drive
+    const extractGoogleDriveId = (url) => {
+      const match = url.match(/\/uc\?id=([^&]+)/);
+      return match ? match[1] : null;
+    };
 
-      // Удаление превью видео
-      if (post.thumbnailUrl && post.thumbnailUrl.includes('drive.google.com')) {
-        const thumbnailFileId = post.thumbnailUrl.split('id=')[1];
-        await googleDrive.deleteFile(thumbnailFileId);
-        console.log(`[DELETE_POST] ✅ Successfully deleted video thumbnail: ${thumbnailFileId}`);
-      }
+    const fileIds = [];
 
-      // Удаление GIF превью
-      if (post.gifPreview && post.gifPreview.includes('drive.google.com')) {
-        const gifPreviewFileId = post.gifPreview.split('id=')[1];
-        await googleDrive.deleteFile(gifPreviewFileId);
-        console.log(`[DELETE_POST] ✅ Successfully deleted GIF preview: ${gifPreviewFileId}`);
-      }
-    } catch (driveError) {
-      console.error('[DELETE_POST] Error deleting files from Google Drive:', driveError);
-      // Не прерываем выполнение, если не удалось удалить файлы
+    // Добавляем ID основного изображения/видео
+    if (post.image) {
+      const mainFileId = extractGoogleDriveId(post.image);
+      if (mainFileId) fileIds.push(mainFileId);
     }
 
-    // Удаляем связанные лайки
-    await Like.deleteMany({ post: postId });
+    // Внутри функции deletePost
+    if (post.thumbnailUrl && post.thumbnailUrl.includes('google.com/uc')) {
+      const thumbnailFileId = post.thumbnailUrl.split('id=')[1]?.split('&')[0];
+      
+      if (thumbnailFileId) {
+        fileIds.push(thumbnailFileId);
+      }
+    }
 
-    // Удаляем пост из массива постов пользователя
-    await User.findByIdAndUpdate(userId, { $pull: { posts: postId } });
+    // Удаляем файлы из Google Drive
+    const deleteResults = await GoogleDriveFileManager.deleteFiles(fileIds.filter(Boolean));
 
-    // Удаляем сам пост
+    console.log('[POST_DELETE] Результаты удаления файлов:', deleteResults);
+
+    // Удаляем пост из базы данных
     await Post.findByIdAndDelete(postId);
 
+    // Обновляем пользователя - удаляем ссылку на пост и уменьшаем счетчик
+    await User.findByIdAndUpdate(
+      userId, 
+      { 
+        $pull: { posts: postId }, 
+        $inc: { postsCount: -1 } 
+      }
+    );
+
     res.status(200).json({ 
-      message: 'Post deleted successfully',
+      message: 'Post deleted successfully', 
       deletedFiles: {
-        mainFile: post.image,
-        thumbnailUrl: post.thumbnailUrl,
-        gifPreview: post.gifPreview
+        success: deleteResults.success,
+        failed: deleteResults.failed
       }
     });
+
   } catch (error) {
     console.error('Error deleting post:', error);
-    res.status(500).json({ 
-      message: 'Server error while deleting post', 
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Server error while deleting post', error: error.message });
   }
 };
 
@@ -538,6 +623,7 @@ exports.getUserPosts = async (req, res) => {
 
     const postsWithImageUrls = posts.map(post => {
       let imageUrl;
+      let thumbnailUrl;
       
           // Для внешних видео с youtubeData (TikTok, YouTube и т.д.) без image
     if (!post.image && post.youtubeData) {
@@ -553,10 +639,19 @@ exports.getUserPosts = async (req, res) => {
     } else {
       imageUrl = null; // Нет изображения
     }
+
+    // Новая логика для thumbnailUrl
+    if (post.thumbnailUrl) {
+      thumbnailUrl = post.thumbnailUrl;
+    } else if (post.image && post.image.startsWith('/')) {
+      // Для статических файлов генерируем thumbnailUrl
+      thumbnailUrl = `/uploads/thumb_${post.image.split('/').pop().replace(/\.[^/.]+$/, '.webp')}`;
+    }
       
       return {
         ...post,
-        imageUrl: imageUrl
+        imageUrl: imageUrl,
+        thumbnailUrl: thumbnailUrl
       };
     });
 

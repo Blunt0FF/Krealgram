@@ -35,14 +35,23 @@ class GoogleDriveFileManager {
       failed: []
     };
 
+    console.log(`[GOOGLE_DRIVE_FILE_MANAGER] Начало удаления файлов: ${fileIds.join(', ')}`);
+
     for (const fileId of fileIds) {
-      const deleted = await this.deleteFile(fileId);
-      if (deleted) {
+      try {
+        await drive.drive.files.delete({ fileId });
         results.success.push(fileId);
-      } else {
+        console.log(`[GOOGLE_DRIVE_FILE_MANAGER] ✅ Файл ${fileId} успешно удален`);
+      } catch (error) {
+        console.error(`[GOOGLE_DRIVE_FILE_MANAGER] ❌ Ошибка удаления файла ${fileId}:`, error.message);
         results.failed.push(fileId);
       }
     }
+
+    console.log('[GOOGLE_DRIVE_FILE_MANAGER] Результаты удаления:', {
+      успешно_удалено: results.success.length,
+      не_удалось_удалить: results.failed.length
+    });
 
     return results;
   }
