@@ -101,8 +101,31 @@ class ImageProcessor {
 
   // Метод для создания превью БЕЗ сохранения в папку постов
   static async createTemporaryPreview(file, maxSize = 300) {
-    const previewDataUrl = await this.createImagePreview(file, maxSize);
-    return previewDataUrl;
+    if (file.type.startsWith('video/')) {
+      return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = maxSize;
+          canvas.height = maxSize;
+          const ctx = canvas.getContext('2d');
+          
+          // Устанавливаем время на 10% от длительности
+          video.currentTime = video.duration * 0.1;
+          
+          video.onseeked = () => {
+            ctx.drawImage(video, 0, 0, maxSize, maxSize);
+            resolve(canvas.toDataURL('image/jpeg'));
+          };
+        };
+        video.onerror = reject;
+        video.src = URL.createObjectURL(file);
+      });
+    }
+    
+    // Для изображений используем существующий метод
+    return this.createImagePreview(file, maxSize);
   }
 
   // Проверка типа и размера файла

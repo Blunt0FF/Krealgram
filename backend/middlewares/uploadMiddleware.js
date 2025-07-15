@@ -2,8 +2,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const googleDrive = require('../config/googleDrive');
-const ImageCompressor = require('../utils/imageCompressor');
-const imageCompressor = new ImageCompressor();
+const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerator');
+const thumbnailGenerator = new UniversalThumbnailGenerator();
 
 const TEMP_INPUT_DIR = path.resolve(process.cwd(), 'temp/input');
 const TEMP_OUTPUT_DIR = path.resolve(process.cwd(), 'temp/output');
@@ -36,27 +36,25 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
     let thumbnailUrl = null;
     let thumbnailBuffer = null;
 
+    const tempInputPath = path.join(TEMP_INPUT_DIR, `temp-${Date.now()}-${originalFilename}`);
+    
+    // Сохраняем буфер во временный файл
+    await fs.promises.writeFile(tempInputPath, fileBuffer);
+
     if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
-      const optimized = await imageCompressor.optimizeForWebFromBuffer(fileBuffer, originalFilename);
-      if (optimized.thumbnail) {
-        thumbnailBuffer = optimized.thumbnail.buffer;
-        thumbnailUrl = await uploadThumbnailToDrive(
-          thumbnailBuffer, 
-          optimized.thumbnail.filename, 
-          'image/webp'
-        );
-      }
+      const result = await thumbnailGenerator.generateImageThumbnail(tempInputPath, originalFilename);
+      thumbnailUrl = result.thumbnailUrl;
     } else if (fileMimetype.startsWith('video/')) {
-      const thumbnail = await imageCompressor.generateVideoThumbnailFromBuffer(fileBuffer);
-      if (thumbnail) {
-        thumbnailBuffer = thumbnail.buffer;
-        thumbnailUrl = await uploadThumbnailToDrive(
-          thumbnailBuffer, 
-          thumbnail.filename, 
-          'image/jpeg'
-        );
-      }
+      const result = await thumbnailGenerator.generateVideoThumbnail(tempInputPath, originalFilename);
+      thumbnailUrl = result.thumbnailUrl;
     }
+
+    // Удаляем временный файл
+    await fs.promises.unlink(tempInputPath).catch(err => {
+      if (err.code !== 'ENOENT') {
+        console.error(`Failed to clean up temp file: ${tempInputPath}`, err);
+      }
+    });
 
     return thumbnailUrl;
   } catch (error) {
@@ -110,12 +108,17 @@ const uploadProcessedToGoogleDrive = async (fileBuffer, finalFilename, fileMimet
       context
     );
 
-    // Остальная логика загрузки без изменений...
+    // Выбираем папку в зависимости от типа файла
+    let targetFolderId = folderId;
+    if (fileMimetype.startsWith('video/')) {
+      targetFolderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID || folderId;
+    }
+
     const result = await googleDrive.uploadFile(
       fileBuffer,
       finalFilename,
       fileMimetype,
-      folderId
+      targetFolderId
     );
     
     const uploadResult = {
@@ -128,7 +131,7 @@ const uploadProcessedToGoogleDrive = async (fileBuffer, finalFilename, fileMimet
       thumbnailUrl: thumbnailUrl // Добавляем URL превью
     };
     
-    console.log(`[UPLOAD_BUFFER] ✅ Файл загружен в папку ${context}:`, uploadResult.secure_url);
+    console.log(`[UPLOAD_BUFFER] ✅ Файл загружен в папку ${targetFolderId}:`, uploadResult.secure_url);
     return uploadResult;
 
   } catch (error) {

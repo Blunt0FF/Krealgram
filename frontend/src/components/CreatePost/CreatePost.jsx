@@ -66,7 +66,7 @@ const CreatePost = () => {
       // Сжатие с мемоизацией
       const compressedFile = fileType === 'image' 
         ? await ImageProcessor.compressImage(file) 
-        : file;
+        : file; // Для видео оставляем оригинальный файл
       
       setCompressedFile(compressedFile);
     } catch (err) {

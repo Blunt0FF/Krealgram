@@ -143,63 +143,68 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
   // Для загруженных видео создаем GIF превью для ленты
   const videoUrl = post.videoUrl || post.video || post.image || post.imageUrl;
   
-    // Проверяем тип файла
-    const isWebm = videoUrl.includes('.webm');
-    
-    // Для webm файлов используем fl_animated для правильной обработки
-    if (isWebm) {
-      const isMobile = window.innerWidth <= 900;
-      
-      if (isMobile) {
-        // Мобильные: простой GIF для webm
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_300,c_scale,f_gif,fl_animated,q_70/`
-        );
-        return gifUrl;
-      } else {
-        // Десктоп: простой GIF для webm
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,c_scale,f_gif,fl_animated,q_80/`
-        );
-        return gifUrl;
-      }
-    } else {
-      // Для других видео форматов (mp4, mov и т.д.)
-      const isMobile = window.innerWidth <= 900;
-      
-      if (isMobile) {
-        // Мобильные: простой GIF без проблемных параметров
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_300,c_scale,f_gif,q_70/`
-        );
-        return gifUrl;
-      } else {
-        // Десктоп: простой GIF без проблемных параметров
-        const gifUrl = videoUrl.replace(
-          '/video/upload/',
-          `/video/upload/w_400,c_scale,f_gif,q_80/`
-        );
-        return gifUrl;
-    }
-  }
-
   // Для Google Drive видео
   if (videoUrl && videoUrl.includes('drive.google.com')) {
     try {
       const url = new URL(videoUrl);
-      const fileId = url.searchParams.get('id');
+      const fileId = url.searchParams.get('id') || 
+                     videoUrl.split('/').pop() || 
+                     videoUrl.match(/\/file\/d\/([^/]+)/)?.[1];
+      
       if (fileId) {
         const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
-        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
+        
+        // Приоритет: thumbnail, затем первый кадр
+        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail,first_frame`;
       }
     } catch (e) {
       console.error("Invalid Google Drive URL", {
         videoUrl: videoUrl,
         error: e.message
       });
+    }
+  }
+
+  // Проверяем тип файла
+  const isWebm = videoUrl.includes('.webm');
+  
+  // Для webm файлов используем fl_animated для правильной обработки
+  if (isWebm) {
+    const isMobile = window.innerWidth <= 900;
+    
+    if (isMobile) {
+      // Мобильные: простой GIF для webm
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_300,c_scale,f_gif,fl_animated,q_70/`
+      );
+      return gifUrl;
+    } else {
+      // Десктоп: простой GIF для webm
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_400,c_scale,f_gif,fl_animated,q_80/`
+      );
+      return gifUrl;
+    }
+  } else {
+    // Для других видео форматов (mp4, mov и т.д.)
+    const isMobile = window.innerWidth <= 900;
+    
+    if (isMobile) {
+      // Мобильные: простой GIF без проблемных параметров
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_300,c_scale,f_gif,q_70/`
+      );
+      return gifUrl;
+    } else {
+      // Десктоп: простой GIF без проблемных параметров
+      const gifUrl = videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_400,c_scale,f_gif,q_80/`
+      );
+      return gifUrl;
     }
   }
 

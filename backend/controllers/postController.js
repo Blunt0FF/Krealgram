@@ -549,11 +549,17 @@ exports.deletePost = async (req, res) => {
     }
 
     // Внутри функции deletePost
-    if (post.thumbnailUrl && post.thumbnailUrl.includes('google.com/uc')) {
-      const thumbnailFileId = post.thumbnailUrl.split('id=')[1]?.split('&')[0];
-      
-      if (thumbnailFileId) {
-        fileIds.push(thumbnailFileId);
+    if (post.thumbnailUrl) {
+      try {
+        // Извлекаем ID превью из Google Drive URL
+        const thumbnailFileId = new URL(post.thumbnailUrl).searchParams.get('id');
+        
+        if (thumbnailFileId) {
+          fileIds.push(thumbnailFileId);
+          console.log(`[POST_DELETE] Добавлен ID превью: ${thumbnailFileId}`);
+        }
+      } catch (error) {
+        console.error(`[POST_DELETE] Ошибка извлечения ID превью: ${error.message}`);
       }
     }
 

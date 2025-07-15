@@ -47,10 +47,14 @@
 
 .image-modal-img {
   max-width: 100%;
-  max-height: 100vh;
+  max-height: 85vh;
   object-fit: contain;
   transition: transform 0.3s ease-out;
   touch-action: pinch-zoom;
+  border-radius: 8px;
+  user-select: none;
+  -webkit-user-drag: none;
+
 }
 
 .image-modal-img.zoomed {

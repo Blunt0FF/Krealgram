@@ -43,7 +43,12 @@ class GoogleDriveFileManager {
         results.success.push(fileId);
         console.log(`[GOOGLE_DRIVE_FILE_MANAGER] ✅ Файл ${fileId} успешно удален`);
       } catch (error) {
-        console.error(`[GOOGLE_DRIVE_FILE_MANAGER] ❌ Ошибка удаления файла ${fileId}:`, error.message);
+        console.error(`[GOOGLE_DRIVE_FILE_MANAGER] ❌ Ошибка удаления файла ${fileId}:`, {
+          errorMessage: error.message,
+          fileId: fileId,
+          errorCode: error.code,
+          errorResponse: error.response?.data
+        });
         results.failed.push(fileId);
       }
     }

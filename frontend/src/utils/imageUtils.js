@@ -33,8 +33,8 @@ export const compressAvatar = async (file) => {
 
     // Максимальный размер аватара
     const MAX_SIZE = 500;
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
 
     // Вычисляем новые размеры с сохранением пропорций
     const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
@@ -50,7 +50,7 @@ export const compressAvatar = async (file) => {
         resolve(new File([blob], file.name, { type: file.type }));
       }, file.type, 0.8);
     });
-  } catch (error) {
+        } catch (error) {
     console.error('Ошибка сжатия аватара:', error);
     return file; // Возвращаем оригинальный файл в случае ошибки
   }
