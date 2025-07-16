@@ -49,17 +49,17 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
         thumbnailBuffer = optimized.thumbnail.buffer;
         thumbnailUrl = await uploadThumbnailToDrive(
           thumbnailBuffer, 
-          optimized.thumbnail.filename, 
+            optimized.thumbnail.filename,
           'image/webp'
         );
       }
     } else if (fileMimetype.startsWith('video/')) {
       const thumbnail = await imageCompressorInstance.generateVideoThumbnailFromBuffer(fileBuffer);
-      if (thumbnail) {
+            if (thumbnail) {
         thumbnailBuffer = thumbnail.buffer;
         thumbnailUrl = await uploadThumbnailToDrive(
           thumbnailBuffer, 
-          thumbnail.filename, 
+                    thumbnail.filename,
           'image/jpeg'
         );
       }
@@ -129,7 +129,7 @@ const uploadProcessedToGoogleDrive = async (fileBuffer, finalFilename, fileMimet
     if (fileMimetype.startsWith('video/')) {
       targetFolderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID || folderId;
     }
-
+    
     const result = await googleDrive.uploadFile(
       fileBuffer,
       finalFilename,
@@ -213,10 +213,10 @@ const uploadToGoogleDrive = async (req, res, next) => {
       body: req.body
     });
 
-    if (!req.file) {
+  if (!req.file) {
       console.log('[UPLOAD_MIDDLEWARE] No file to upload');
-      return next();
-    }
+    return next();
+  }
 
     const originalFilename = req.file.originalname;
     console.log(`[UPLOAD_MIDDLEWARE] Uploading file to Google Drive: ${originalFilename}`);

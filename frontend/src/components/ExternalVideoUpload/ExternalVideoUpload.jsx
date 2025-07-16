@@ -93,7 +93,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
 
       console.log('✅ YouTube Video processed:', processedData);
       onVideoDownloaded(processedData);
-      onClose();
+        onClose();
     } catch (error) {
       console.error('Error importing video:', error);
       setError('Failed to import video');

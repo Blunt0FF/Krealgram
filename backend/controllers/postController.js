@@ -50,7 +50,7 @@ exports.createPost = async (req, res) => {
         };
 
         imagePath = youtubeData.thumbnailUrl;
-        mediaType = 'video';
+      mediaType = 'video';
         thumbnailUrl = youtubeData.thumbnailUrl;
       } catch (error) {
         console.error('YouTube URL processing error:', error);
@@ -112,7 +112,7 @@ exports.createPost = async (req, res) => {
         console.error("Error during file cleanup:", cleanupError);
       }
     }
-
+    
     res.status(500).json({ 
       message: 'Server error while creating post.', 
       error: error.message 
@@ -269,7 +269,7 @@ exports.getPostById = async (req, res) => {
       // Для статических файлов генерируем thumbnailUrl
       thumbnailUrl = `/uploads/thumb_${post.image.split('/').pop().replace(/\.[^/.]+$/, '.webp')}`;
     }
-
+    
     const postWithImageUrl = {
         ...post,
         imageUrl: imageUrl,
@@ -377,7 +377,7 @@ exports.deletePost = async (req, res) => {
     if (post.image) {
       const mainFileId = extractGoogleDriveId(post.image);
       if (mainFileId) fileIds.push(mainFileId);
-    }
+      }
 
     // Внутри функции deletePost
     if (post.thumbnailUrl) {
@@ -388,7 +388,7 @@ exports.deletePost = async (req, res) => {
         if (thumbnailFileId) {
           fileIds.push(thumbnailFileId);
           console.log(`[POST_DELETE] Добавлен ID превью: ${thumbnailFileId}`);
-        }
+      }
       } catch (error) {
         console.error(`[POST_DELETE] Ошибка извлечения ID превью: ${error.message}`);
       }
@@ -412,7 +412,7 @@ exports.deletePost = async (req, res) => {
     );
 
     res.status(200).json({ 
-      message: 'Post deleted successfully', 
+      message: 'Post deleted successfully',
       deletedFiles: {
         success: deleteResults.success,
         failed: deleteResults.failed
@@ -1042,14 +1042,14 @@ exports.createExternalVideoPost = async (req, res) => {
       caption: caption || ''
     };
 
-    res.status(200).json({
-      success: true,
+      res.status(200).json({
+        success: true,
       videoData: videoData
     });
   } catch (error) {
     console.error('Error processing external video:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Failed to process external video' 
     });
   }

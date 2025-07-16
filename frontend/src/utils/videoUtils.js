@@ -165,46 +165,46 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
     }
   }
 
-  // Проверяем тип файла
-  const isWebm = videoUrl.includes('.webm');
-  
-  // Для webm файлов используем fl_animated для правильной обработки
-  if (isWebm) {
-    const isMobile = window.innerWidth <= 900;
+    // Проверяем тип файла
+    const isWebm = videoUrl.includes('.webm');
     
-    if (isMobile) {
-      // Мобильные: простой GIF для webm
-      const gifUrl = videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,fl_animated,q_70/`
-      );
-      return gifUrl;
+    // Для webm файлов используем fl_animated для правильной обработки
+    if (isWebm) {
+      const isMobile = window.innerWidth <= 900;
+      
+      if (isMobile) {
+        // Мобильные: простой GIF для webm
+        const gifUrl = videoUrl.replace(
+          '/video/upload/',
+          `/video/upload/w_300,c_scale,f_gif,fl_animated,q_70/`
+        );
+        return gifUrl;
+      } else {
+        // Десктоп: простой GIF для webm
+        const gifUrl = videoUrl.replace(
+          '/video/upload/',
+          `/video/upload/w_400,c_scale,f_gif,fl_animated,q_80/`
+        );
+        return gifUrl;
+      }
     } else {
-      // Десктоп: простой GIF для webm
-      const gifUrl = videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,fl_animated,q_80/`
-      );
-      return gifUrl;
-    }
-  } else {
-    // Для других видео форматов (mp4, mov и т.д.)
-    const isMobile = window.innerWidth <= 900;
-    
-    if (isMobile) {
-      // Мобильные: простой GIF без проблемных параметров
-      const gifUrl = videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_300,c_scale,f_gif,q_70/`
-      );
-      return gifUrl;
-    } else {
-      // Десктоп: простой GIF без проблемных параметров
-      const gifUrl = videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_400,c_scale,f_gif,q_80/`
-      );
-      return gifUrl;
+      // Для других видео форматов (mp4, mov и т.д.)
+      const isMobile = window.innerWidth <= 900;
+      
+      if (isMobile) {
+        // Мобильные: простой GIF без проблемных параметров
+        const gifUrl = videoUrl.replace(
+          '/video/upload/',
+          `/video/upload/w_300,c_scale,f_gif,q_70/`
+        );
+        return gifUrl;
+      } else {
+        // Десктоп: простой GIF без проблемных параметров
+        const gifUrl = videoUrl.replace(
+          '/video/upload/',
+          `/video/upload/w_400,c_scale,f_gif,q_80/`
+        );
+        return gifUrl;
     }
   }
 
