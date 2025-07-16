@@ -55,9 +55,15 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
       return;
     }
 
-    const detectedPlatform = detectPlatform(url);
-    if (!detectedPlatform) {
-      setError('Unsupported platform. Supported: TikTok, Instagram, YouTube');
+    const extractYouTubeId = (url) => {
+      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    };
+
+    const videoId = extractYouTubeId(url);
+    if (!videoId) {
+      setError('Invalid YouTube URL');
       return;
     }
 
@@ -67,44 +73,27 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
     try {
       const token = localStorage.getItem('token');
       
-      // Определяем endpoint в зависимости от платформы
-      let endpoint;
-      let requestBody;
-      
-      if (detectedPlatform === 'youtube') {
-        // YouTube - iframe embedding
-        endpoint = 'https://krealgram-backend.onrender.com/api/posts/external-video';
-        requestBody = {
-          url: url.trim(),
-          caption: '' // Пустое описание, пользователь сможет добавить позже
-        };
-      } else {
-        // TikTok, Instagram, - реальное скачивание
-        endpoint = 'https://krealgram-backend.onrender.com/api/posts/external-video/download';
-        requestBody = {
-          url: url.trim()
-        };
-      }
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(requestBody)
-      });
+      const videoData = {
+        platform: 'youtube',
+        videoId: videoId,
+        originalUrl: url.trim(),
+        embedUrl: `https://www.youtube.com/embed/${videoId}`,
+        thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      };
 
-      const data = await response.json();
-      
-      if (response.ok) {
-        // Для скачанных видео возвращаем данные как есть
-        // Для YouTube iframe - тоже возвращаем данные
-        onVideoDownloaded(data);
-        onClose();
-      } else {
-        setError(data.message || data.error || 'Failed to import video');
-      }
+      const processedData = {
+        success: true,
+        platform: 'youtube',
+        originalUrl: url.trim(),
+        videoData: videoData,
+        thumbnailUrl: videoData.thumbnailUrl,
+        embedUrl: videoData.embedUrl,
+        videoId: videoId
+      };
+
+      console.log('✅ YouTube Video processed:', processedData);
+      onVideoDownloaded(processedData);
+      onClose();
     } catch (error) {
       console.error('Error importing video:', error);
       setError('Failed to import video');

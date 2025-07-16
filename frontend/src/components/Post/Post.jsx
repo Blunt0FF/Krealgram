@@ -300,6 +300,13 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
     }
   };
 
+  const getPostThumbnail = () => {
+    if (post.videoData && post.videoData.platform === 'youtube' && post.videoData.videoId) {
+      return `https://img.youtube.com/vi/${post.videoData.videoId}/default.jpg`;
+    }
+    return post.thumbnailUrl || post.imageUrl;
+  };
+
   return (
     <div className="post">
       <div className="post-header">

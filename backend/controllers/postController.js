@@ -1033,89 +1033,24 @@ exports.downloadExternalVideo = async (req, res) => {
 exports.createExternalVideoPost = async (req, res) => {
   try {
     const { url, caption } = req.body;
-    const authorId = req.user._id;
+    const userId = req.user._id;
 
-    if (!url || !url.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "URL видео обязателен"
-      });
-    }
-
-    // Определяем платформу
-    const detectPlatform = (url) => {
-      if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
-      if (url.includes("tiktok.com")) return "tiktok";
-      if (url.includes("instagram.com")) return "instagram";
-      if (url.includes("twitter.com") || url.includes("x.com")) return "twitter";
-      return null;
+    // Только подготовка данных, без создания поста
+    const videoData = {
+      platform: 'youtube',
+      url: url,
+      caption: caption || ''
     };
 
-    const platform = detectPlatform(url);
-    if (!platform) {
-      return res.status(400).json({
-        success: false,
-        message: "Неподдерживаемая платформа"
-      });
-    }
-
-    if (platform === "youtube") {
-      const { processYouTubeUrl } = require('../utils/mediaHelper');
-      const youtubeData = processYouTubeUrl(url);
-
-      const newPost = new Post({
-        author: authorId,
-        caption: caption || '',
-        image: youtubeData.thumbnailUrl,
-        mediaType: 'video',
-        videoUrl: url,
-        youtubeData: {
-          videoId: youtubeData.videoId,
-          embedUrl: youtubeData.embedUrl,
-          thumbnailUrl: youtubeData.thumbnailUrl,
-          platform: 'youtube',
-          originalUrl: url
-        },
-        thumbnailUrl: youtubeData.thumbnailUrl
-      });
-
-      const savedPost = await newPost.save();
-      const populatedPost = await Post.findById(savedPost._id)
-        .populate('author', 'username avatar');
-
-      return res.status(201).json({
-        success: true,
-        message: 'YouTube пост создан успешно',
-        post: populatedPost
-      });
-    } else {
-      // Для других платформ возвращаем подготовленные данные
-      const platformData = {
-        platform: platform,
-        originalUrl: url,
-        note: `External ${platform} video content`,
-        title: "",
-        isExternalLink: true
-      };
-
-      res.status(200).json({
-        success: true,
-        message: `${platform} video data prepared`,
-        isExternalLink: true,
-        platform: platform,
-        videoData: platformData,
-        originalUrl: url,
-        thumbnailUrl: `https://via.placeholder.com/400x400/000000/FFFFFF?text=${platform.toUpperCase()}`,
-        title: "",
-        note: `External ${platform} video content`
-      });
-    }
-
+    res.status(200).json({
+      success: true,
+      videoData: videoData
+    });
   } catch (error) {
-    console.error("Error creating external video post:", error);
-    res.status(500).json({
-      success: false,
-      message: "Ошибка сервера при создании поста"
+    console.error('Error processing external video:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to process external video' 
     });
   }
 };

@@ -15,21 +15,32 @@ const VideoPlayer = ({
 }) => {
   if (!src) return null;
 
+  const renderVideoContent = () => {
+    if (videoData.platform === 'youtube' && videoData.embedUrl) {
+      return (
+        <iframe
+          src={videoData.embedUrl}
+          title="YouTube Video"
+          width="100%"
+          height="100%"
+          frameBorder="0"
+          allowFullScreen
+        />
+      );
+    }
+    
+    return (
+      <video 
+        src={videoUrl} 
+        controls 
+        style={{ width: '100%', height: '100%' }}
+      />
+    );
+  };
+
   return (
     <div className={`video-player-wrapper ${className}`} style={style} onClick={onClick} onDoubleClick={onDoubleClick}>
-      <video
-        src={src}
-        poster={poster}
-        autoPlay={autoplay}
-        controls={controls}
-        muted={muted}
-        loop={loop}
-        playsInline
-        preload="metadata"
-        className="video-element"
-      >
-        Your browser does not support the video tag.
-      </video>
+      {renderVideoContent()}
     </div>
   );
 };

@@ -568,6 +568,13 @@ const Profile = ({ user: currentUserProp }) => {
     }
   };
 
+  const getPostThumbnail = (post) => {
+    if (post.videoData && post.videoData.platform === 'youtube' && post.videoData.videoId) {
+      return `https://img.youtube.com/vi/${post.videoData.videoId}/default.jpg`;
+    }
+    return post.thumbnailUrl || post.imageUrl;
+  };
+
   useEffect(() => {
     // Scroll to top when navigating to profile
     window.scrollTo(0, 0);

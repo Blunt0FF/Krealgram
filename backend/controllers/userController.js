@@ -12,21 +12,23 @@ const path = require('path'); // Импортируем path для получе
 exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
+    console.log(`[PROFILE_FETCH_DEBUG] Fetching profile for identifier: ${identifier}`);
+
     let user;
 
     // Проверяем, является ли идентификатор валидным ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
       user = await User.findById(identifier)
-        .select('-password -email') // Не отдаем пароль и email публично
+        .select('-password -email')
         .populate({
             path: 'posts',
-            select: 'image caption likes comments createdAt author',
+            select: 'image caption likes comments createdAt author videoData',
             populate: [
-                { path: 'author', select: 'username avatar _id' }, // Добавил _id на всякий случай
+                { path: 'author', select: 'username avatar _id' },
                 { 
                     path: 'comments', 
                     select: 'text user createdAt _id',
-                    populate: { path: 'user', select: 'username avatar _id' } // Добавил _id
+                    populate: { path: 'user', select: 'username avatar _id' }
                 }
             ]
         })
@@ -37,52 +39,70 @@ exports.getUserProfile = async (req, res) => {
         .select('-password -email')
         .populate({
             path: 'posts',
-            select: 'image caption likes comments createdAt author',
+            select: 'image caption likes comments createdAt author videoData',
             populate: [
-                { path: 'author', select: 'username avatar _id' }, // Добавил _id
+                { path: 'author', select: 'username avatar _id' },
                 { 
                     path: 'comments', 
                     select: 'text user createdAt _id',
-                    populate: { path: 'user', select: 'username avatar _id' } // Добавил _id
+                    populate: { path: 'user', select: 'username avatar _id' }
                 }
             ]
         })
         .lean();
     }
 
+    console.log(`[PROFILE_FETCH_DEBUG] User found: ${!!user}`);
     if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден.' });
+      // Дополнительная проверка существования пользователя
+      const userExists = await User.findOne({ username: identifier }).select('_id');
+      console.log(`[PROFILE_FETCH_DEBUG] User exists in DB: ${!!userExists}`);
+      
+      return res.status(404).json({ 
+        message: 'Пользователь не найден.',
+        details: {
+          identifier,
+          userExists: !!userExists
+        }
+      });
     }
 
-    console.log('[PROFILE_DEBUG] User data:', {
+    console.log(`[PROFILE_FETCH_DEBUG] Posts count: ${user.posts ? user.posts.length : 0}`);
+    console.log(`[PROFILE_FETCH_DEBUG] User details:`, {
       username: user.username,
       avatar: user.avatar,
-      postsCount: user.posts ? user.posts.length : 0,
-      followersCount: user.followers ? user.followers.length : 0,
-      followingCount: user.following ? user.following.length : 0
+      postsCount: user.posts ? user.posts.length : 0
     });
 
-    // Добавляем полные URL для изображений постов пользователя
-    if (user.posts && user.posts.length > 0) {
-      user.posts = user.posts.map(post => {
-        console.log(`[PROFILE_DEBUG] Post details:`, {
+    // Расширенная отладка постов
+    if (user.posts) {
+      user.posts.forEach((post, index) => {
+        console.log(`[PROFILE_FETCH_DEBUG] Post ${index} details:`, {
           postId: post._id,
           image: post.image,
-          imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`,
-          comments: post.comments
+          videoData: post.videoData,
+          author: post.author
         });
+      });
+    }
+    
+    // Добавляем безопасную обработку image
+    if (user.posts && user.posts.length > 0) {
+      user.posts = user.posts.map(post => {
+        // Безопасная генерация imageUrl
+        const imageUrl = post.image 
+          ? (post.image.startsWith('http') 
+              ? post.image 
+              : `${req.protocol}://${req.get('host')}/uploads/${post.image}`)
+          : '/default-post-placeholder.png';
 
-        const commentCount = post.comments ? post.comments.length : 0;
-        console.log(`[DEBUG] Post ${post._id} comments:`, {
-          commentsArray: post.comments,
-          commentsCount: commentCount,
-          commentsType: typeof post.comments,
-          commentsIsArray: Array.isArray(post.comments)
-        });
+        const commentCount = post.comments && Array.isArray(post.comments) 
+          ? post.comments.length 
+          : 0;
 
         return {
           ...post,
-          imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`,
+          imageUrl: imageUrl,
           likeCount: post.likes ? post.likes.length : 0,
           commentCount: commentCount
         };

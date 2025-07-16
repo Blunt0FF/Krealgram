@@ -168,10 +168,10 @@ const CreatePost = () => {
     }
   }, [compressedFile, parsedVideoData, caption, originalFileName, navigate]);
 
-  const handleExternalVideoSelect = useCallback((videoData) => {
+  const handleExternalVideoSelect = useCallback(async (videoData) => {
     console.log('🎬 External video selected:', videoData);
     
-    // Clear file data when selecting external video
+    // Не создаем пост автоматически
     setCompressedFile(null);
     setOriginalFileName('');
     
@@ -180,13 +180,13 @@ const CreatePost = () => {
     setVideoUrl(videoData.originalUrl || videoData.videoUrl);
     setMediaType('video');
     
-    // Set preview, using proxy for Google Drive thumbnails
-    if (videoData.thumbnailUrl) {
+    // Улучшенная логика превью для YouTube
+    if (videoData.platform === 'youtube' && videoData.videoId) {
+      const thumbnailUrl = `https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`;
+      setPreviewUrl(thumbnailUrl);
+    } else if (videoData.thumbnailUrl) {
       setPreviewUrl(videoData.thumbnailUrl);
-    } else if (videoData.platform === 'youtube' && videoData.videoId) {
-      setPreviewUrl(`https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`);
     } else {
-      // For other platforms
       setPreviewUrl(`https://via.placeholder.com/300x300/000000/FFFFFF?text=${videoData.platform?.toUpperCase()}+Video`);
     }
     
