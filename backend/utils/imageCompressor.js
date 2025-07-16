@@ -190,6 +190,34 @@ class ImageCompressor {
   }
 
   /**
+   * Создает превью для видео из буфера
+   * @param {Buffer} inputBuffer - буфер видео
+   * @returns {Promise<Object>}
+   */
+  async generateVideoThumbnailFromBuffer(inputBuffer) {
+    const tempInputPath = path.join(TEMP_INPUT_DIR, `temp-video-${Date.now()}.mp4`);
+    
+    try {
+      // Сохраняем буфер во временный файл
+      await fs.writeFile(tempInputPath, inputBuffer);
+      
+      const result = await generateVideoThumbnail(tempInputPath);
+      
+      return result;
+    } catch (error) {
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка создания превью из буфера:`, error);
+      throw error;
+    } finally {
+      // Удаляем временный файл
+      await fs.unlink(tempInputPath).catch(err => {
+        if (err.code !== 'ENOENT') {
+          console.error(`Failed to clean up temp file: ${tempInputPath}`, err);
+        }
+      });
+    }
+  }
+
+  /**
    * Оптимизирует изображение для веба, работая с буфером
    * @param {Buffer} inputBuffer - буфер изображения
    * @param {string} originalName - оригинальное имя файла
@@ -202,11 +230,27 @@ class ImageCompressor {
       // Сохраняем буфер во временный файл
       await fs.writeFile(tempInputPath, inputBuffer);
       
-      const result = await this.optimizeForWeb(tempInputPath, originalName);
+      const compressed = await this.compressImage(tempInputPath, originalName);
+      const thumbnailBuffer = await this.createThumbnail(tempInputPath);
       
-      return result;
+      const thumbnailFilename = `thumb_${compressed.info.filename.replace(/\.[^/.]+$/, '.webp')}`;
+      const thumbnailPath = path.join(TEMP_OUTPUT_DIR, thumbnailFilename);
+      
+      // Сохраняем превью на диск
+      await fs.writeFile(thumbnailPath, thumbnailBuffer);
+      
+      console.log(`[IMAGE_COMPRESSOR] ✅ Превью сохранено: ${thumbnailPath}`);
+      
+      return {
+        original: compressed,
+        thumbnail: {
+          buffer: thumbnailBuffer,
+          filename: thumbnailFilename,
+          path: thumbnailPath
+        }
+      };
     } catch (error) {
-      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка оптимизации буфера:`, error);
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка оптимизации для веба:`, error);
       throw error;
     } finally {
       // Удаляем временный файл
@@ -219,8 +263,57 @@ class ImageCompressor {
   }
 }
 
+const generateVideoThumbnail = async (inputPath) => {
+  console.log('[THUMBNAIL_GEN] Starting video thumbnail generation from path...');
+  
+  const tempThumbPath = path.join(TEMP_OUTPUT_DIR, `thumb-${Date.now()}.jpg`);
+  
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .on('end', async () => {
+        try {
+          // Проверяем существование файла
+          const fileExists = await fs.access(tempThumbPath)
+            .then(() => true)
+            .catch(() => false);
+          
+          if (!fileExists) {
+            console.error('[THUMBNAIL_GEN] Thumbnail file was not created');
+            return reject(new Error('Thumbnail file was not created'));
+          }
+
+          const thumbnailBuffer = await fs.readFile(tempThumbPath);
+          
+          console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
+          resolve({
+            buffer: thumbnailBuffer,
+            filename: path.basename(tempThumbPath),
+            path: tempThumbPath
+          });
+        } catch (readError) {
+          console.error('[THUMBNAIL_GEN] Error reading thumbnail:', readError);
+          reject(readError);
+        } finally {
+          // Удаляем временный файл
+          await fs.unlink(tempThumbPath).catch(err => console.error('Failed to cleanup thumb.', err));
+        }
+      })
+      .on('error', (err) => {
+        console.error('[THUMBNAIL_GEN] FFmpeg error:', err.message);
+        reject(err);
+      })
+      .screenshots({
+        timestamps: ['1%'],
+        filename: path.basename(tempThumbPath),
+        folder: path.dirname(tempThumbPath),
+        size: '320x?' 
+      });
+  });
+};
+
 const imageCompressor = new ImageCompressor();
 
 module.exports = ImageCompressor;
 module.exports.ImageCompressor = ImageCompressor;
+module.exports.generateVideoThumbnail = generateVideoThumbnail;
 module.exports.TEMP_OUTPUT_DIR = TEMP_OUTPUT_DIR; // Экспортируем для использования в других модулях 

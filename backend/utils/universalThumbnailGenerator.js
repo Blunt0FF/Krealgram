@@ -49,19 +49,24 @@ class UniversalThumbnailGenerator {
         throw new Error(`Файл не найден: ${inputPath}`);
       }
 
-      // Получаем список существующих файлов в папке превью
-      const existingFiles = await this._listFilesInPreviewFolder();
+      // Создаем папку для превью с префиксом thumb_
+      const thumbDir = path.join(path.dirname(inputPath), 'thumb_');
+      await fs.promises.mkdir(thumbDir, { recursive: true });
 
-      // Генерируем уникальное имя файла
-      const thumbnailFileName = this._generateUniqueFileName(originalName, existingFiles);
+      // Генерируем имя файла с префиксом thumb_
+      const thumbnailFileName = `thumb_${originalName.replace(/\.[^/.]+$/, '.webp')}`;
+      const thumbnailPath = path.join(thumbDir, thumbnailFileName);
 
-      console.log('[THUMBNAIL_GEN] Сгенерировано имя файла:', thumbnailFileName);
+      console.log('[THUMBNAIL_GEN] Путь превью:', thumbnailPath);
 
       const thumbnailBuffer = await sharp(inputPath)
         .rotate()
         .resize(300, 300, { fit: 'cover', position: 'center' })
         .webp({ quality: 75 })
         .toBuffer();
+
+      // Сохраняем превью локально
+      await fs.promises.writeFile(thumbnailPath, thumbnailBuffer);
 
       const fileMetadata = {
         name: thumbnailFileName,
@@ -80,13 +85,27 @@ class UniversalThumbnailGenerator {
       console.log('[THUMBNAIL_GEN] Превью успешно создано:', {
         thumbnailUrl: result.data.webContentLink,
         thumbnailFileName: thumbnailFileName,
-        fileId: result.data.id
+        fileId: result.data.id,
+        localPath: thumbnailPath
       });
+
+      // Автоматическая очистка через 10 минут
+      setTimeout(async () => {
+        try {
+          await fs.promises.unlink(thumbnailPath);
+          console.log(`[THUMBNAIL_CLEANUP] Удален файл превью: ${thumbnailPath}`);
+        } catch (cleanupError) {
+          if (cleanupError.code !== 'ENOENT') {
+            console.error(`[THUMBNAIL_CLEANUP] Ошибка удаления: ${cleanupError.message}`);
+          }
+        }
+      }, 10 * 60 * 1000);
 
       return {
         thumbnailUrl: result.data.webContentLink,
         thumbnailFileName: thumbnailFileName,
-        fileId: result.data.id
+        fileId: result.data.id,
+        localPath: thumbnailPath
       };
     } catch (error) {
       console.error(`[THUMBNAIL_GEN] Ошибка генерации превью: ${error.message}`);
@@ -102,16 +121,13 @@ class UniversalThumbnailGenerator {
    */
   async generateVideoThumbnail(inputPath, originalName) {
     try {
-      // Получаем список существующих файлов в папке превью
-      const existingFiles = await this._listFilesInPreviewFolder();
+      // Создаем папку для превью с префиксом thumb_
+      const thumbDir = path.join(path.dirname(inputPath), 'thumb_');
+      await fs.promises.mkdir(thumbDir, { recursive: true });
 
-      // Генерируем уникальное имя файла
-      const thumbnailFileName = this._generateUniqueFileName(originalName.replace(/\.[^/.]+$/, '.gif'), existingFiles);
-
-      const tempThumbPath = path.join(this.previewDir, thumbnailFileName);
-
-      // Создаем директорию, если она не существует
-      await fs.mkdir(this.previewDir, { recursive: true });
+      // Генерируем имя файла с префиксом thumb_
+      const thumbnailFileName = `thumb_${originalName.replace(/\.[^/.]+$/, '.gif')}`;
+      const tempThumbPath = path.join(thumbDir, thumbnailFileName);
 
       return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
@@ -124,7 +140,7 @@ class UniversalThumbnailGenerator {
           .on('end', async () => {
             try {
               // Читаем файл
-              const gifBuffer = await fs.readFile(tempThumbPath);
+              const gifBuffer = await fs.promises.readFile(tempThumbPath);
 
               // Проверяем размер GIF
               const maxSizeMB = 2;
@@ -132,7 +148,7 @@ class UniversalThumbnailGenerator {
               
               if (sizeMB > maxSizeMB) {
                 console.warn(`[THUMBNAIL_GEN] GIF слишком большой (${sizeMB.toFixed(2)}MB), пропускаем`);
-                await fs.unlink(tempThumbPath);
+                await fs.promises.unlink(tempThumbPath);
                 resolve(null);
                 return;
               }
@@ -152,13 +168,21 @@ class UniversalThumbnailGenerator {
                 fields: 'id, webContentLink'
               });
 
-              // Удаляем временный файл
-              await fs.unlink(tempThumbPath);
+              // Автоматическая очистка через 10 минут
+              setTimeout(async () => {
+                try {
+                  await fs.promises.unlink(tempThumbPath);
+                  console.log(`[THUMBNAIL_CLEANUP] Удален файл превью: ${tempThumbPath}`);
+                } catch (cleanupError) {
+                  console.error(`[THUMBNAIL_CLEANUP] Ошибка удаления: ${cleanupError.message}`);
+                }
+              }, 10 * 60 * 1000);
 
               resolve({
                 thumbnailUrl: result.data.webContentLink,
                 thumbnailFileName: thumbnailFileName,
-                fileId: result.data.id
+                fileId: result.data.id,
+                localPath: tempThumbPath
               });
             } catch (uploadError) {
               reject(uploadError);
@@ -171,7 +195,7 @@ class UniversalThumbnailGenerator {
           .save(tempThumbPath);
       });
     } catch (error) {
-      console.error('[THUMBNAIL_GEN] Ошибка создания GIF-превью:', error);
+      console.error('Ошибка генерации превью для видео:', error);
       throw error;
     }
   }

@@ -66,42 +66,102 @@ const optionalUpload = (req, res, next) => {
 // @route   POST api/posts
 // @desc    Создать новый пост
 // @access  Private
-router.post('/', authMiddleware, upload.single('image'), uploadToGoogleDrive, async (req, res) => {
-  try {
-    console.log('[POST_ROUTE_DEBUG] Incoming post creation request:', {
-      user: req.user ? req.user.username : 'Unknown',
-      file: req.file ? {
-        originalname: req.file.originalname,
-        filename: req.file.filename,
-        path: req.file.path,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      } : 'No file',
-      body: req.body
-    });
-
-    const postController = require('../controllers/postController');
-    await postController.createPost(req, res);
-  } catch (error) {
-    console.error('[POST_ROUTE_ERROR] Full error details:', error);
+router.post('/', 
+  authMiddleware, 
+  (req, res, next) => {
+    // Проверяем content-type
+    const contentType = req.headers['content-type'] || '';
     
-    // Очистка файла в случае ошибки
-    if (req.file && req.file.path) {
-      try {
-        const fs = require('fs').promises;
-        await fs.unlink(req.file.path);
-        console.log('[POST_ROUTE_DEBUG] Temporary file deleted');
-      } catch (cleanupError) {
-        console.error('[POST_ROUTE_ERROR] Error deleting file:', cleanupError);
-      }
+    // Если это multipart/form-data
+    if (contentType.includes('multipart/form-data')) {
+      upload.single('image')(req, res, async (err) => {
+        if (err) {
+          console.error('Multer upload error:', err);
+          
+          // Обработка ошибок Multer
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ 
+              message: 'File too large. Maximum size is 50MB.',
+              error: err.message 
+            });
+          }
+          
+          if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
+            return res.status(400).json({ 
+              message: 'Unsupported file type. Please upload images or videos only.', 
+              error: err.message 
+            });
+          }
+          
+          // Если ошибка multer но есть videoUrl, игнорируем ошибку
+          if (req.body && req.body.videoUrl) {
+            return next();
+          }
+          
+          return res.status(400).json({ 
+            message: 'File upload error',
+            error: err.message 
+          });
+        }
+        
+        // Если файл есть, загружаем на Google Drive
+        if (req.file) {
+          try {
+            await uploadToGoogleDrive(req, res, next);
+          } catch (uploadError) {
+            console.error('Google Drive upload error:', uploadError);
+            return res.status(500).json({ 
+              message: 'Failed to upload file to Google Drive',
+              error: uploadError.message 
+            });
+          }
+        } else {
+          next();
+        }
+      });
+    } else {
+      // Для обычных JSON запросов просто переходим дальше
+      next();
     }
+  },
+  async (req, res) => {
+    try {
+      console.log('[POST_ROUTE_DEBUG] Incoming post creation request:', {
+        user: req.user ? req.user.username : 'Unknown',
+        file: req.file ? {
+          originalname: req.file.originalname,
+          filename: req.file.filename,
+          path: req.file.path,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : 'No file',
+        body: req.body,
+        uploadResult: req.uploadResult
+      });
 
-    res.status(500).json({ 
-      message: 'Server error while creating post',
-      error: error.message 
-    });
+      const postController = require('../controllers/postController');
+      await postController.createPost(req, res);
+    } catch (error) {
+      console.error('[POST_ROUTE_ERROR] Full error details:', error);
+      
+      // Очистка файла в случае ошибки
+      if (req.file && req.file.path) {
+        try {
+          const fs = require('fs').promises;
+          await fs.unlink(req.file.path);
+          console.log('[POST_ROUTE_DEBUG] Temporary file deleted');
+        } catch (cleanupError) {
+          console.error('[POST_ROUTE_ERROR] Error deleting file:', cleanupError);
+        }
+      }
+
+      res.status(500).json({ 
+        message: 'Server error while creating post',
+        error: error.message 
+      });
+    }
   }
-});
+);
 
 // СПЕЦИФИЧНЫЕ ROUTES ДОЛЖНЫ БЫТЬ ПЕРЕД ОБЩИМИ!
 

@@ -4,6 +4,8 @@ const fs = require('fs');
 const googleDrive = require('../config/googleDrive');
 const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerator');
 const thumbnailGenerator = new UniversalThumbnailGenerator();
+const imageCompressor = require('../utils/imageCompressor').ImageCompressor;
+const imageCompressorInstance = new imageCompressor();
 
 const TEMP_INPUT_DIR = path.resolve(process.cwd(), 'temp/input');
 const TEMP_OUTPUT_DIR = path.resolve(process.cwd(), 'temp/output');
@@ -42,11 +44,25 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
     await fs.promises.writeFile(tempInputPath, fileBuffer);
 
     if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
-      const result = await thumbnailGenerator.generateImageThumbnail(tempInputPath, originalFilename);
-      thumbnailUrl = result.thumbnailUrl;
+      const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(fileBuffer, originalFilename);
+      if (optimized.thumbnail) {
+        thumbnailBuffer = optimized.thumbnail.buffer;
+        thumbnailUrl = await uploadThumbnailToDrive(
+          thumbnailBuffer, 
+          optimized.thumbnail.filename, 
+          'image/webp'
+        );
+      }
     } else if (fileMimetype.startsWith('video/')) {
-      const result = await thumbnailGenerator.generateVideoThumbnail(tempInputPath, originalFilename);
-      thumbnailUrl = result.thumbnailUrl;
+      const thumbnail = await imageCompressorInstance.generateVideoThumbnailFromBuffer(fileBuffer);
+      if (thumbnail) {
+        thumbnailBuffer = thumbnail.buffer;
+        thumbnailUrl = await uploadThumbnailToDrive(
+          thumbnailBuffer, 
+          thumbnail.filename, 
+          'image/jpeg'
+        );
+      }
     }
 
     // Удаляем временный файл
@@ -191,6 +207,12 @@ const upload = multer({
 // Middleware для загрузки файлов на Google Drive, работающий с файлами
 const uploadToGoogleDrive = async (req, res, next) => {
   try {
+    console.log('[UPLOAD_MIDDLEWARE_FULL_DEBUG] Request details:', {
+      hasFile: !!req.file,
+      user: req.user ? req.user.username : 'No user',
+      body: req.body
+    });
+
     if (!req.file) {
       console.log('[UPLOAD_MIDDLEWARE] No file to upload');
       return next();
@@ -216,7 +238,10 @@ const uploadToGoogleDrive = async (req, res, next) => {
     req.file.secure_url = uploadResult.secure_url;
     req.file.public_id = uploadResult.public_id;
 
-    console.log('[UPLOAD_MIDDLEWARE] File uploaded successfully:', uploadResult.secure_url);
+    console.log('[UPLOAD_MIDDLEWARE] File uploaded successfully:', {
+      secureUrl: uploadResult.secure_url,
+      thumbnailUrl: uploadResult.thumbnailUrl
+    });
 
     // Удаляем временный файл
     await fs.promises.unlink(req.file.path).catch(err => {
@@ -225,10 +250,19 @@ const uploadToGoogleDrive = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('[UPLOAD_MIDDLEWARE] Upload to Google Drive error:', error);
+    console.error('[UPLOAD_MIDDLEWARE] Upload to Google Drive FULL ERROR:', {
+      message: error.message,
+      stack: error.stack,
+      file: req.file,
+      body: req.body
+    });
     return res.status(500).json({ 
       message: 'File upload error', 
-      error: error.message 
+      error: error.message,
+      details: {
+        filename: req.file?.originalname,
+        mimetype: req.file?.mimetype
+      }
     });
   }
 };

@@ -36,17 +36,22 @@ exports.createPost = async (req, res) => {
         const { processYouTubeUrl } = require('../utils/mediaHelper');
         const parsedVideoData = processYouTubeUrl(videoUrl);
         
+        // Парсим входящие videoData
+        const incomingVideoData = typeof videoData === 'string' 
+          ? JSON.parse(videoData) 
+          : videoData;
+        
         youtubeData = {
-          videoId: parsedVideoData.videoId,
-          embedUrl: parsedVideoData.embedUrl,
-          thumbnailUrl: parsedVideoData.thumbnailUrl,
+          videoId: incomingVideoData?.videoId || parsedVideoData.videoId,
+          embedUrl: incomingVideoData?.embedUrl || parsedVideoData.embedUrl,
+          thumbnailUrl: incomingVideoData?.thumbnailUrl || parsedVideoData.thumbnailUrl,
           platform: 'youtube',
           originalUrl: videoUrl
         };
 
-        imagePath = parsedVideoData.thumbnailUrl;
+        imagePath = youtubeData.thumbnailUrl;
         mediaType = 'video';
-        thumbnailUrl = parsedVideoData.thumbnailUrl;
+        thumbnailUrl = youtubeData.thumbnailUrl;
       } catch (error) {
         console.error('YouTube URL processing error:', error);
         return res.status(400).json({ message: 'Invalid YouTube URL', error: error.message });
@@ -80,6 +85,13 @@ exports.createPost = async (req, res) => {
     });
 
     const savedPost = await newPost.save();
+
+    // ВАЖНО: Добавляем пост в массив постов пользователя
+    await User.findByIdAndUpdate(
+      authorId, 
+      { $push: { posts: savedPost._id } },
+      { new: true }
+    );
 
     // Населяем пост данными автора
     const populatedPost = await Post.findById(savedPost._id)
