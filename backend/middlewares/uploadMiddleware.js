@@ -34,6 +34,11 @@ ensureTempDir(TEMP_OUTPUT_DIR);
 
 // Специальная обработка для создания и загрузки превью
 const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimetype, context) => {
+  // Не создаем превью для сообщений
+  if (context === 'message') {
+    return null;
+  }
+
   try {
     let thumbnailUrl = null;
     let thumbnailBuffer = null;
@@ -49,17 +54,17 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
         thumbnailBuffer = optimized.thumbnail.buffer;
         thumbnailUrl = await uploadThumbnailToDrive(
           thumbnailBuffer, 
-            optimized.thumbnail.filename,
+          optimized.thumbnail.filename,
           'image/webp'
         );
       }
     } else if (fileMimetype.startsWith('video/')) {
       const thumbnail = await imageCompressorInstance.generateVideoThumbnailFromBuffer(fileBuffer);
-            if (thumbnail) {
+      if (thumbnail) {
         thumbnailBuffer = thumbnail.buffer;
         thumbnailUrl = await uploadThumbnailToDrive(
           thumbnailBuffer, 
-                    thumbnail.filename,
+          thumbnail.filename,
           'image/jpeg'
         );
       }
@@ -211,7 +216,8 @@ const uploadToGoogleDrive = async (req, res, next) => {
       hasFile: !!req.file,
       user: req.user ? req.user.username : 'No user',
       body: req.body,
-      url: req.url
+      url: req.url,
+      messagesFolderId: process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID
     });
 
     if (!req.file) {
@@ -228,7 +234,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
     let context = 'post';
     let folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
 
-    // Проверяем URL и тело запроса на наличие признаков аватара
+    // Проверяем URL и тело запроса на наличие признаков аватара или сообщения
     if (
       req.url.includes('/avatar') || 
       req.url.includes('/profile') || 
@@ -238,6 +244,23 @@ const uploadToGoogleDrive = async (req, res, next) => {
       context = 'avatar';
       folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
       console.log('[UPLOAD_MIDDLEWARE] Detected avatar upload context');
+    } else if (
+      req.url.includes('/messages') || 
+      req.url.includes('/conversations') || 
+      req.body.message
+    ) {
+      context = 'message';
+      folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
+      console.log('[UPLOAD_MIDDLEWARE] Detected message upload context');
+    }
+
+    // Проверка наличия корректного folderId
+    if (!folderId || folderId === 'your_messages_folder_id') {
+      console.error('[UPLOAD_MIDDLEWARE] Invalid folder ID for context:', context);
+      return res.status(500).json({ 
+        message: 'Server configuration error: Invalid Google Drive folder', 
+        context: context 
+      });
     }
 
     const uploadResult = await uploadProcessedToGoogleDrive(
@@ -269,18 +292,19 @@ const uploadToGoogleDrive = async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error('[UPLOAD_MIDDLEWARE] Upload to Google Drive FULL ERROR:', {
+    console.error('[UPLOAD_MIDDLEWARE] Upload to Google Drive error:', {
       message: error.message,
       stack: error.stack,
-      file: req.file,
-      body: req.body
+      context: context,
+      folderId: folderId
     });
     return res.status(500).json({ 
       message: 'File upload error', 
       error: error.message,
       details: {
         filename: req.file?.originalname,
-        mimetype: req.file?.mimetype
+        mimetype: req.file?.mimetype,
+        context: context
       }
     });
   }

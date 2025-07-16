@@ -1,5 +1,13 @@
 require('dotenv').config(); // Загружаем переменные окружения в самом начале
 
+// Принудительная установка переменных окружения для Google Drive
+process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
+process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
+process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
+process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID = process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
+process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
+process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID = process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
+
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -212,7 +220,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     fileRes.data.on('error', (err) => {
       console.error('[PROXY-DRIVE_FULL_DEBUG] Ошибка при отправке файла:', err);
       if (!headersSent) {
-        res.status(500).send('Error streaming file');
+      res.status(500).send('Error streaming file');
       }
     });
 

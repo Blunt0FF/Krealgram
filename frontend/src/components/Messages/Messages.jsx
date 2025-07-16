@@ -581,7 +581,7 @@ const Messages = ({ currentUser }) => {
   const deleteMessage = async (messageId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/conversations/delete-message/${messageId}`, {
+      const response = await fetch(`${API_URL}/api/conversations/messages/${selectedConversation._id}/${messageId}`, {
         method: 'DELETE',
         headers: { 
           'Authorization': `Bearer ${token}`,

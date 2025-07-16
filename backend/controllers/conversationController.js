@@ -331,42 +331,58 @@ exports.sendMessage = async (req, res) => {
 };
 
 // @desc    Удаление сообщения
-// @route   DELETE /api/conversations/messages/:messageId
+// @route   DELETE /api/conversations/messages/:conversationId/:messageId
 // @access  Private
 exports.deleteMessage = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const messageId = req.params.messageId;
-    const userId = req.user._id;
+    const { conversationId, messageId } = req.params;
+    const userId = req.user.id;
 
-    // Находим сообщение и проверяем права на удаление
-    const conversation = await Conversation.findOne({
-      'messages._id': messageId,
-      participants: userId
-    }).session(session);
+    console.log('[DELETE_MESSAGE_DEBUG] Attempt to delete message:', {
+      conversationId,
+      messageId,
+      currentUserId: userId
+    });
+
+    const conversation = await Conversation.findById(conversationId)
+      .populate({
+        path: 'messages.sender',
+        select: '_id username'
+      })
+      .session(session);
 
     if (!conversation) {
+      console.error('[DELETE_MESSAGE_DEBUG] Conversation not found');
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: 'Message not found or you do not have permission to delete it.' });
+      return res.status(404).json({ message: 'Conversation not found.' });
     }
 
-    // Находим конкретное сообщение
     const messageToDelete = conversation.messages.id(messageId);
 
     if (!messageToDelete) {
+      console.error('[DELETE_MESSAGE_DEBUG] Message not found');
       await session.abortTransaction();
       session.endSession();
       return res.status(404).json({ message: 'Message not found.' });
     }
 
-    // Проверяем, что удаляющий пользователь является отправителем сообщения
-    if (messageToDelete.sender.toString() !== userId.toString()) {
+    console.log('[DELETE_MESSAGE_DEBUG] Message details:', {
+      senderId: messageToDelete.sender._id.toString(),
+      senderUsername: messageToDelete.sender.username,
+      currentUserId: userId,
+      media: messageToDelete.media
+    });
+
+    // Проверяем права пользователя на удаление
+    if (messageToDelete.sender._id.toString() !== userId) {
+      console.warn('[DELETE_MESSAGE_DEBUG] User not authorized to delete this message');
       await session.abortTransaction();
       session.endSession();
-      return res.status(403).json({ message: 'You can only delete your own messages.' });
+      return res.status(403).json({ message: 'Not authorized to delete this message.' });
     }
 
     // Удаление файла с Google Drive, если есть медиа
@@ -375,16 +391,20 @@ exports.deleteMessage = async (req, res) => {
         const googleDrive = require('../config/googleDrive');
         const url = messageToDelete.media.url;
         
+        console.log('[DELETE_MESSAGE_DEBUG] Media URL:', url);
+        
         if (url.includes('drive.google.com')) {
-          const fileId = url.split('id=')[1] || url.split('/').pop();
+          const fileId = url.match(/\/d\/([^/]+)/)?.[1] || url.split('id=')[1] || url.split('/').pop();
+          
+          console.log('[DELETE_MESSAGE_DEBUG] Extracted File ID:', fileId);
           
           if (fileId) {
             await googleDrive.deleteFile(fileId);
-            console.log(`[DELETE_MESSAGE] ✅ Successfully deleted media file: ${fileId}`);
+            console.log(`[DELETE_MESSAGE_DEBUG] ✅ Successfully deleted media file: ${fileId}`);
           }
         }
       } catch (driveError) {
-        console.error('[DELETE_MESSAGE] Error deleting file from Google Drive:', driveError);
+        console.error('[DELETE_MESSAGE_DEBUG] Error deleting file from Google Drive:', driveError);
         // Не прерываем выполнение, если не удалось удалить файл
       }
     }
@@ -403,15 +423,20 @@ exports.deleteMessage = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    console.log('[DELETE_MESSAGE_DEBUG] Message deleted successfully');
+
     res.status(200).json({ 
       message: 'Message deleted successfully',
       deletedMedia: messageToDelete.media ? messageToDelete.media.url : null
     });
 
   } catch (error) {
-    console.error('Error deleting message:', error);
+    console.error('[DELETE_MESSAGE_DEBUG] Error deleting message:', error);
     await session.abortTransaction();
     session.endSession();
-    res.status(500).json({ message: 'Server error while deleting message.', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error while deleting message.', 
+      error: error.message 
+    });
   }
 };
