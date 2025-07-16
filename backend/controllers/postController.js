@@ -19,6 +19,7 @@ console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downlo
 exports.createPost = async (req, res) => {
   try {
     const { caption, videoUrl, videoData, image, youtubeData: incomingYoutubeData } = req.body;
+    
     if (!req.user || !req.user.id) {
       return res.status(401).json({ 
         message: 'Unauthorized: User not authenticated',
@@ -26,265 +27,83 @@ exports.createPost = async (req, res) => {
       });
     }
 
-    const authorId = req.user.id; // Используем ID из middleware аутентификации
+    const authorId = req.user.id;
+    let imagePath, mediaType, thumbnailUrl, youtubeData = null;
 
-    // Инициализируем finalPostData перед использованием
-    let finalPostData = {
-      author: authorId,
-      caption: caption,
-      image: null,
-      mediaType: 'image',
-      videoUrl: null,
-      youtubeData: null,
-      thumbnailUrl: null
-    };
-
-    // Подробное логирование для отладки загрузки с iPhone
-    if (req.file) {
-      console.log('[IPHONE_DEBUG] Received file from client:', {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        buffer_exists: !!req.file.buffer
-      });
-    }
-
-    console.log('=== CREATE POST DEBUG ===');
-    console.log('Request body:', req.body);
-    console.log('Has file:', !!req.file);
-    console.log('File details:', req.file ? {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      secure_url: req.file.secure_url,
-      public_id: req.file.public_id,
-      path: req.file.path,
-      filename: req.file.filename
-    } : 'No file');
-    console.log('Cloudinary config:', {
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key_exists: !!process.env.CLOUDINARY_API_KEY
-    });
-    console.log('Author ID:', authorId);
-
-    let imagePath = null;
-    let mediaType = 'image';
-    let youtubeData = null;
-    let thumbnailUrl = null;
-
-    // НОВАЯ ЛОГИКА: Проверяем сначала данные скачанного видео (TikTok/Instagram/VK)
-    if (image && (image.includes('cloudinary.com') || image.includes('res.cloudinary'))) {
-      console.log('Processing downloaded video from Cloudinary:', image);
-      
-      // Это скачанное видео - используем Cloudinary URL как основное изображение
-      imagePath = image;
-      mediaType = 'video';
-      
-      // Используем переданные youtubeData для скачанного видео
-      if (incomingYoutubeData) {
-        youtubeData = incomingYoutubeData;
-        console.log('Using provided youtubeData for downloaded video:', youtubeData);
-      }
-    } 
-    // Проверяем, есть ли URL видео (для iframe/внешних ссылок)
-    else if (videoUrl) {
-      console.log('[IPHONE_DEBUG] Processing video from URL:', videoUrl);
-      console.log('Video data:', videoData);
-      
-      mediaType = 'video';
-      
-      const parsedVideoData = videoData ? (typeof videoData === 'string' ? JSON.parse(videoData) : videoData) : {};
-      
-      // Если видео уже на нашем Google Drive (скачано с TikTok/Insta)
-      if (videoUrl.includes('drive.google.com')) {
-        imagePath = videoUrl;
-        if (parsedVideoData.thumbnailUrl) {
-          thumbnailUrl = parsedVideoData.thumbnailUrl;
-        }
-      } else {
-        // Для внешних видео (YouTube и т.д.)
-        imagePath = '/video-placeholder.svg'; // Используем заглушку
-      }
-      
-      if (parsedVideoData) {
-        console.log('Parsed video data:', parsedVideoData);
+    // Обработка YouTube-видео
+    if (videoUrl && !req.file) {
+      try {
+        const { processYouTubeUrl } = require('../utils/mediaHelper');
+        const parsedVideoData = processYouTubeUrl(videoUrl);
         
-        // ВСЕГДА устанавливаем thumbnailUrl верхнего уровня, если он есть
-        if (parsedVideoData.thumbnailUrl) {
-          thumbnailUrl = parsedVideoData.thumbnailUrl;
-        }
-
         youtubeData = {
-          platform: parsedVideoData.platform,
           videoId: parsedVideoData.videoId,
-          originalUrl: parsedVideoData.originalUrl,
           embedUrl: parsedVideoData.embedUrl,
-          // Сохраняем превью и здесь для обратной совместимости или специфичных нужд
-          thumbnailUrl: parsedVideoData.thumbnailUrl, 
-          note: 'External video content'
+          thumbnailUrl: parsedVideoData.thumbnailUrl,
+          platform: 'youtube',
+          originalUrl: videoUrl
         };
+
+        imagePath = parsedVideoData.thumbnailUrl;
+        mediaType = 'video';
+        thumbnailUrl = parsedVideoData.thumbnailUrl;
+      } catch (error) {
+        console.error('YouTube URL processing error:', error);
+        return res.status(400).json({ message: 'Invalid YouTube URL', error: error.message });
       }
     } 
     // Обычная загрузка файла через Google Drive
     else if (req.uploadResult) {
-      console.log('Processing uploaded file via Google Drive:', req.uploadResult);
-      
       imagePath = req.uploadResult.secure_url;
-      // Убираем сохранение thumbnailUrl
-      console.log('Google Drive file uploaded:', imagePath);
-      
       mediaType = req.uploadResult.resource_type;
       
-      // Сохраняем MIME-type для правильного отображения GIF
-      if (req.file && req.file.mimetype) {
-        console.log('File MIME type:', req.file.mimetype);
+      if (req.uploadResult.thumbnailUrl) {
+        thumbnailUrl = req.uploadResult.thumbnailUrl;
       }
     } 
     // Если нет данных вообще
     else {
-      // Проверяем что у нас есть хотя бы что-то для отображения
-      if (!videoUrl && !caption?.trim()) {
-        console.log('No video URL, no file, and no caption provided');
+      if (!caption?.trim()) {
         return res.status(400).json({ message: 'Media content or caption is required for the post.' });
       }
     }
 
-    // Дополнительно проверяем, если есть uploadResult, используем его thumbnailUrl
-    if (req.uploadResult && req.uploadResult.thumbnailUrl) {
-      thumbnailUrl = req.uploadResult.thumbnailUrl;
-    }
-
-    console.log('[THUMBNAIL_DEBUG] Источники thumbnailUrl:', {
-      uploadResult: req.uploadResult?.thumbnailUrl,
-      fileThumb: req.file?.thumbnailUrl,
-      videoDataThumb: videoData?.thumbnailUrl,
-      youtubeDataThumb: incomingYoutubeData?.thumbnailUrl,
-      youtubeDataThumb: youtubeData?.thumbnailUrl
+    // Создание поста
+    const newPost = new Post({
+      author: authorId,
+      caption: caption || '',
+      image: imagePath,
+      mediaType: mediaType || 'image',
+      videoUrl: videoUrl,
+      youtubeData: youtubeData,
+      thumbnailUrl: thumbnailUrl
     });
 
-    // Дополнительная логика для thumbnailUrl
-    if (youtubeData && youtubeData.thumbnailUrl) {
-      thumbnailUrl = youtubeData.thumbnailUrl;
-    }
-
-    // Если thumbnailUrl все еще не установлен, используем первый доступный источник
-    if (!thumbnailUrl) {
-      const thumbnailSources = [
-        req.uploadResult?.thumbnailUrl,
-        req.file?.thumbnailUrl,
-        videoData?.thumbnailUrl,
-        incomingYoutubeData?.thumbnailUrl,
-        '/default-post-placeholder.png'
-      ].filter(Boolean);
-
-      thumbnailUrl = thumbnailSources[0];
-    }
-
-    console.log('[THUMBNAIL_DEBUG] Финальный thumbnailUrl:', thumbnailUrl);
-
-    // Обновляем finalPostData перед сохранением
-    finalPostData = {
-      author: authorId,
-      caption: caption,
-      image: imagePath || req.uploadResult?.secure_url, // Путь к основному медиа
-      mediaType: mediaType,
-      videoUrl: videoUrl, // URL для встраивания
-      youtubeData: youtubeData,
-      thumbnailUrl: thumbnailUrl,
-      gifPreview: req.uploadResult?.gifPreviewUrl || null
-    };
-
-    console.log('Final post data being saved:', JSON.stringify(finalPostData, null, 2));
-
-    // Внутри функции createPost, перед сохранением поста
-    if (req.file && req.file.path) {
-      try {
-        console.log('[POST_CONTROLLER] Начало генерации превью:', {
-          filePath: req.file.path,
-          originalName: req.file.originalname,
-          mimetype: req.file.mimetype,
-          previewFolderId: process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
-        });
-
-        const thumbnailGenerator = new UniversalThumbnailGenerator();
-        
-        let thumbnailResult;
-        if (req.file.mimetype.startsWith('image/')) {
-          thumbnailResult = await thumbnailGenerator.generateImageThumbnail(
-            req.file.path, 
-            req.file.originalname
-          );
-        } else if (req.file.mimetype.startsWith('video/')) {
-          thumbnailResult = await thumbnailGenerator.generateVideoThumbnail(
-            req.file.path, 
-            req.file.originalname
-          );
-        }
-        
-        if (thumbnailResult) {
-          console.log('[POST_CONTROLLER] Превью успешно создано:', thumbnailResult);
-          finalPostData.thumbnailUrl = thumbnailResult.thumbnailUrl;
-        } else {
-          console.warn('[POST_CONTROLLER] Превью не создано');
-          finalPostData.thumbnailUrl = '/default-post-placeholder.png';
-        }
-      } catch (thumbnailError) {
-        console.error('Thumbnail generation error:', thumbnailError, {
-          env: process.env,
-          previewFolderId: process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
-        });
-        // Используем дефолтный превью, если не удалось создать
-        finalPostData.thumbnailUrl = '/default-post-placeholder.png';
-      }
-    }
-
-    // Создаем новый пост
-    const newPost = new Post(finalPostData);
     const savedPost = await newPost.save();
 
-    // Обновляем пользователя
-    await User.findByIdAndUpdate(
-      authorId, 
-      { $push: { posts: savedPost._id }, $inc: { postsCount: 1 } },
-      { new: true }
-    );
+    // Населяем пост данными автора
+    const populatedPost = await Post.findById(savedPost._id)
+      .populate('author', 'username avatar');
 
-    // Возвращаем полную информацию о посте
-    return res.status(201).json({
-      message: 'Post created successfully',
-      post: savedPost
-    });
+    res.status(201).json(populatedPost);
 
   } catch (error) {
     console.error('Error creating post:', error);
-    console.error('Error stack:', error.stack);
-    console.error('Request body:', req.body);
-    console.error('Request file:', req.file);
     
-    // Clean up uploaded file if DB error occurred
+    // Очистка файлов в случае ошибки
     if (req.file && req.file.path) {
       try {
-        fs.unlink(path.join(__dirname, '..', 'uploads', req.file.filename), (err) => {
+        fs.unlink(req.file.path, (err) => {
           if (err) console.error("Error deleting file on failed post creation:", err);
         });
       } catch (cleanupError) {
         console.error("Error during file cleanup:", cleanupError);
       }
     }
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: 'Validation Error: ' + error.message });
-    }
-    
-    // Более подробная информация об ошибке
-    const errorMessage = error.message || 'Unknown error occurred';
-    const errorCode = error.code || 'UNKNOWN_ERROR';
-    
+
     res.status(500).json({ 
       message: 'Server error while creating post.', 
-      error: errorMessage,
-      code: errorCode,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message 
     });
   }
 };
@@ -1228,51 +1047,37 @@ exports.createExternalVideoPost = async (req, res) => {
       });
     }
 
-    let newPost;
-
     if (platform === "youtube") {
-      // YouTube как iframe (как раньше)
-      const extractYouTubeId = (url) => {
-        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-        const match = url.match(regex);
-        return match ? match[1] : null;
-      };
+      const { processYouTubeUrl } = require('../utils/mediaHelper');
+      const youtubeData = processYouTubeUrl(url);
 
-      const videoId = extractYouTubeId(url);
-      if (!videoId) {
-        return res.status(400).json({
-          success: false,
-          message: "Неверный YouTube URL"
-        });
-      }
-
-      // Возвращаем данные YouTube для создания поста во фронтенде (НЕ создаем пост автоматически)
-      const youtubeData = {
-        videoId: videoId,
-        embedUrl: `https://www.youtube.com/embed/${videoId}`,
-        thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-        title: caption || "",
-        platform: "youtube",
-        originalUrl: url,
-        isExternalLink: true
-      };
-
-      console.log("✅ Prepared YouTube iframe data");
-      // Для YouTube возвращаем данные
-      res.status(200).json({
-        success: true,
-        message: "YouTube video data prepared",
-        isExternalLink: true,
-        platform: "youtube",
-        videoData: youtubeData,
-        originalUrl: url,
-        thumbnailUrl: youtubeData.thumbnailUrl,
-        title: "",
-        note: "YouTube iframe video"
+      const newPost = new Post({
+        author: authorId,
+        caption: caption || '',
+        image: youtubeData.thumbnailUrl,
+        mediaType: 'video',
+        videoUrl: url,
+        youtubeData: {
+          videoId: youtubeData.videoId,
+          embedUrl: youtubeData.embedUrl,
+          thumbnailUrl: youtubeData.thumbnailUrl,
+          platform: 'youtube',
+          originalUrl: url
+        },
+        thumbnailUrl: youtubeData.thumbnailUrl
       });
-      return;
+
+      const savedPost = await newPost.save();
+      const populatedPost = await Post.findById(savedPost._id)
+        .populate('author', 'username avatar');
+
+      return res.status(201).json({
+        success: true,
+        message: 'YouTube пост создан успешно',
+        post: populatedPost
+      });
     } else {
-      // Другие платформы как внешние ссылки - тоже не создаем пост автоматически
+      // Для других платформ возвращаем подготовленные данные
       const platformData = {
         platform: platform,
         originalUrl: url,
@@ -1281,8 +1086,6 @@ exports.createExternalVideoPost = async (req, res) => {
         isExternalLink: true
       };
 
-      console.log(`✅ Prepared ${platform} external link data`);
-      
       res.status(200).json({
         success: true,
         message: `${platform} video data prepared`,
@@ -1294,7 +1097,6 @@ exports.createExternalVideoPost = async (req, res) => {
         title: "",
         note: `External ${platform} video content`
       });
-      return;
     }
 
   } catch (error) {
