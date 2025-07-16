@@ -210,25 +210,42 @@ const uploadToGoogleDrive = async (req, res, next) => {
     console.log('[UPLOAD_MIDDLEWARE_FULL_DEBUG] Request details:', {
       hasFile: !!req.file,
       user: req.user ? req.user.username : 'No user',
-      body: req.body
+      body: req.body,
+      url: req.url
     });
 
-  if (!req.file) {
+    if (!req.file) {
       console.log('[UPLOAD_MIDDLEWARE] No file to upload');
-    return next();
-  }
+      return next();
+    }
 
     const originalFilename = req.file.originalname;
     console.log(`[UPLOAD_MIDDLEWARE] Uploading file to Google Drive: ${originalFilename}`);
 
     const fileBuffer = await fs.promises.readFile(req.file.path);
 
+    // КРИТИЧЕСКИ ВАЖНАЯ ЛОГИКА: Определяем папку для загрузки
+    let context = 'post';
+    let folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
+
+    // Проверяем URL и тело запроса на наличие признаков аватара
+    if (
+      req.url.includes('/avatar') || 
+      req.url.includes('/profile') || 
+      req.body.avatar || 
+      req.body.removeAvatar
+    ) {
+      context = 'avatar';
+      folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
+      console.log('[UPLOAD_MIDDLEWARE] Detected avatar upload context');
+    }
+
     const uploadResult = await uploadProcessedToGoogleDrive(
       fileBuffer, 
       req.file.originalname, 
       req.file.mimetype, 
-      'post', 
-      process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID,
+      context, 
+      folderId,
       req.user ? req.user.username : null,
       req.file
     );
@@ -240,7 +257,9 @@ const uploadToGoogleDrive = async (req, res, next) => {
 
     console.log('[UPLOAD_MIDDLEWARE] File uploaded successfully:', {
       secureUrl: uploadResult.secure_url,
-      thumbnailUrl: uploadResult.thumbnailUrl
+      thumbnailUrl: uploadResult.thumbnailUrl,
+      context: context,
+      folderId: folderId
     });
 
     // Удаляем временный файл
