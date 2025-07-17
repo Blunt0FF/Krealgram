@@ -22,7 +22,7 @@ exports.getUserProfile = async (req, res) => {
         .select('-password -email')
         .populate({
             path: 'posts',
-            select: 'image caption likes comments createdAt author videoData',
+            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -39,7 +39,7 @@ exports.getUserProfile = async (req, res) => {
         .select('-password -email')
         .populate({
             path: 'posts',
-            select: 'image caption likes comments createdAt author videoData',
+            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -89,12 +89,23 @@ exports.getUserProfile = async (req, res) => {
     // Добавляем безопасную обработку image
     if (user.posts && user.posts.length > 0) {
       user.posts = user.posts.map(post => {
-        // Безопасная генерация imageUrl
-        const imageUrl = post.image 
-          ? (post.image.startsWith('http') 
-              ? post.image 
-              : `${req.protocol}://${req.get('host')}/uploads/${post.image}`)
-          : '/default-post-placeholder.png';
+        // Используем ту же логику, что и в уведомлениях - приоритет для thumbnailUrl
+        let imageUrl;
+        let thumbnailUrl;
+        
+        // Приоритет для thumbnailUrl (готовые превью)
+        if (post.thumbnailUrl) {
+          thumbnailUrl = post.thumbnailUrl;
+        }
+        
+        // Для основного изображения всегда используем оригинал
+        if (post.image) {
+          imageUrl = post.image.startsWith('http') 
+            ? post.image 
+            : `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+        } else {
+          imageUrl = '/default-post-placeholder.png';
+        }
 
         const commentCount = post.comments && Array.isArray(post.comments) 
           ? post.comments.length 
@@ -103,6 +114,7 @@ exports.getUserProfile = async (req, res) => {
         return {
           ...post,
           imageUrl: imageUrl,
+          thumbnailUrl: thumbnailUrl,
           likeCount: post.likes ? post.likes.length : 0,
           commentCount: commentCount
         };

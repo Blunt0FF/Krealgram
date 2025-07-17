@@ -49,7 +49,7 @@ const getPostPreviewUrl = (post) => {
     '/default-post-placeholder.png'
   ].filter(Boolean);
 
-  return getImageUrl(urls[0], { isThumbnail: true });
+  return getImageUrl(urls[0]);
 };
 
 // Компонент элемента уведомления (тот же, что и в NotificationsPanel)

@@ -123,11 +123,11 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
     // Приоритет для превью, затем для основного изображения
     const imageUrl = notification.post.thumbnailUrl || notification.post.image;
     if (imageUrl) {
-      return getImageUrl(imageUrl, { isThumbnail: true });
+      return getImageUrl(imageUrl);
     }
     // Заглушка по умолчанию
     return '/default-post-placeholder.png';
-  }, [notification.post.thumbnailUrl, notification.post.image]);
+  }, [notification.post]);
 
   return (
     <div 
@@ -176,7 +176,7 @@ const PostPreview = ({ post }) => {
       '/default-post-placeholder.png'
     ].filter(Boolean);
 
-    return getImageUrl(urls[0], { isThumbnail: true });
+    return getImageUrl(urls[0]);
   }, [post]);
 
   const handleImageError = (e) => {

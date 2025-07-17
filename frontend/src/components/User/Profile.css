@@ -806,13 +806,13 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.3);
-  opacity: 0;
+  opacity: 1; /* Изменено с 0 на 1 - значок видим всегда */
   transition: opacity 0.2s ease;
   pointer-events: none;
 }
 
 .post-thumbnail:hover .video-play-overlay {
-  opacity: 1;
+  opacity: 1; /* Оставляем 1 для консистентности */
 }
 
 .post-thumbnail .video-play-overlay .play-icon {

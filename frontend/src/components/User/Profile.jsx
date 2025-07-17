@@ -6,7 +6,7 @@ import EditPostModal from '../Post/EditPostModal';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
 import { processMediaUrl } from '../../utils/urlUtils';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
 import { getProfileGifThumbnail, createYouTubeData } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
@@ -15,6 +15,7 @@ import './Profile.css';
 
 // Функция для получения превью поста
 const getPostThumbnail = (post) => {
+  // Используем ту же логику, что и в уведомлениях
   const urls = [
     post.thumbnailUrl,
     post.imageUrl,
@@ -22,17 +23,11 @@ const getPostThumbnail = (post) => {
     post.youtubeData?.thumbnailUrl,
     post.preview,
     post.gifPreview,
-    // YouTube-превью с максимальным разрешением
-    post.videoData?.platform === 'youtube' 
-      ? `https://img.youtube.com/vi/${post.videoData.videoId}/maxresdefault.jpg`
-      : null,
-    // Если нет превью - возвращаем оригинальный файл
-    post.image,
     '/default-post-placeholder.png'
   ].filter(Boolean);
 
-  // Используем первый доступный URL
-  return processMediaUrl(urls[0]);
+  // Используем getImageUrl как в уведомлениях
+  return getImageUrl(urls[0]);
 };
 
 // Mobile navigation component
@@ -94,7 +89,6 @@ const PostThumbnail = React.memo(({ post, onClick }) => {
       post.mediaType === 'video',
       post.videoUrl,
       post.youtubeData,
-      post.videoData?.platform === 'youtube',
       post.type === 'video'
     ];
 
@@ -285,6 +279,12 @@ const Profile = ({ user: currentUserProp }) => {
     
     // Create YouTube data if this is a YouTube video - check all fields
     let postToOpen = { ...post, isLikedByCurrentUser: post.isLikedByCurrentUser };
+    
+    // Для модалки используем оригинальное изображение, а не превью
+    // Восстанавливаем оригинальное поле image для модалки
+    if (post.image) {
+      postToOpen.image = post.image; // Оригинальное изображение для модалки
+    }
     
     // Function to check YouTube URL
     const checkYouTubeUrl = (url) => {

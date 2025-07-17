@@ -107,7 +107,7 @@ const ModalMedia = memo(({ postData }) => {
 
     return (
       <video
-        src={getVideoUrl(postData.imageUrl || `${API_URL}/uploads/${postData.image}`)}
+        src={getVideoUrl(postData.image || postData.imageUrl || `${API_URL}/uploads/${postData.image}`)}
         className="post-modal-video"
         controls
         playsInline
@@ -134,7 +134,7 @@ const ModalMedia = memo(({ postData }) => {
 
   return (
     <img
-      src={getImageUrl(postData.imageUrl || `${API_URL}/uploads/${postData.image}`)}
+      src={getImageUrl(postData.image || postData.imageUrl || `${API_URL}/uploads/${postData.image}`)}
       alt="Post"
       className="post-modal-image"
       onError={(e) => {
