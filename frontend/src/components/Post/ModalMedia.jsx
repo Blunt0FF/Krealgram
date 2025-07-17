@@ -15,7 +15,26 @@ const MAX_CAPTION_LENGTH_EDIT = 500;
 const ModalMedia = memo(({ postData }) => {
   if (!postData) return null;
 
-  // Используем существующие утилиты для определения YouTube-видео
+  // Расширенная функция извлечения YouTube ID
+  const extractYouTubeId = (url) => {
+    if (!url) return null;
+    
+    // Стандартный YouTube URL
+    const standardMatch = url.match(/[?&]v=([^&]+)/);
+    if (standardMatch) return standardMatch[1];
+    
+    // Короткий YouTube URL
+    const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
+    if (shortMatch) return shortMatch[1];
+    
+    // Из миниатюры
+    const thumbnailMatch = url.match(/\/vi\/([^/]+)/);
+    if (thumbnailMatch) return thumbnailMatch[1];
+    
+    return null;
+  };
+
+  // Список источников для поиска YouTube-ссылки
   const urlsToCheck = [
     postData.videoUrl,
     postData.youtubeUrl,
@@ -25,32 +44,32 @@ const ModalMedia = memo(({ postData }) => {
     postData.imageUrl
   ];
 
+  // Пытаемся найти YouTube ID
+  const videoId = urlsToCheck.reduce((foundId, url) => {
+    return foundId || extractYouTubeId(url);
+  }, null) || 
+  (postData.image?.includes('img.youtube.com/vi/') && 
+    postData.image.match(/\/vi\/([^/]+)/)?.[1]);
+
+  // Если ID найден, восстанавливаем полную ссылку
   let youtubeEmbedUrl = null;
   let originalYouTubeUrl = null;
 
-  for (let url of urlsToCheck) {
-    if (url && (url.includes('youtube') || url.includes('youtu.be'))) {
-      const videoId = extractYouTubeId(url);
-      if (videoId) {
-        youtubeEmbedUrl = createYouTubeEmbedUrl(url);
-        originalYouTubeUrl = url;
-        break;
-      }
-    }
+  if (videoId) {
+    originalYouTubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    youtubeEmbedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0`;
   }
 
-  // Если YouTube-видео не нашлось, но есть youtubeData
+  // Fallback к youtubeData, если основной метод не сработал
   if (!youtubeEmbedUrl && postData.youtubeData) {
-    const videoId = extractYouTubeId(postData.youtubeData.originalUrl);
-    if (videoId) {
-      youtubeEmbedUrl = createYouTubeEmbedUrl(postData.youtubeData.originalUrl);
-      originalYouTubeUrl = postData.youtubeData.originalUrl;
-    }
+    originalYouTubeUrl = postData.youtubeData.originalUrl;
+    youtubeEmbedUrl = postData.youtubeData.embedUrl;
   }
 
   if (youtubeEmbedUrl) {
     return (
       <iframe
+        key={youtubeEmbedUrl}
         width="100%"
         height="100%"
         src={youtubeEmbedUrl}
@@ -65,6 +84,13 @@ const ModalMedia = memo(({ postData }) => {
           aspectRatio: '16/9',
           display: 'block',
           backgroundColor: '#000'
+        }}
+        onError={() => {
+          console.error('YouTube iframe failed to load', { 
+            embedUrl: youtubeEmbedUrl, 
+            originalUrl: originalYouTubeUrl,
+            postData: postData
+          });
         }}
       />
     );

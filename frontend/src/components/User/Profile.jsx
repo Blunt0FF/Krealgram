@@ -5,12 +5,35 @@ import ShareModal from '../Post/ShareModal';
 import EditPostModal from '../Post/EditPostModal';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
-import { getImageUrl, getAvatarUrl } from '../../utils/imageUtils';
+import { processMediaUrl } from '../../utils/urlUtils';
+import { getAvatarUrl } from '../../utils/imageUtils';
 import { getProfileGifThumbnail, createYouTubeData } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import { formatLastSeen } from '../../utils/timeUtils';
 import './Profile.css';
+
+// Функция для получения превью поста
+const getPostThumbnail = (post) => {
+  const urls = [
+    post.thumbnailUrl,
+    post.imageUrl,
+    post.image,
+    post.youtubeData?.thumbnailUrl,
+    post.preview,
+    post.gifPreview,
+    // YouTube-превью с максимальным разрешением
+    post.videoData?.platform === 'youtube' 
+      ? `https://img.youtube.com/vi/${post.videoData.videoId}/maxresdefault.jpg`
+      : null,
+    // Если нет превью - возвращаем оригинальный файл
+    post.image,
+    '/default-post-placeholder.png'
+  ].filter(Boolean);
+
+  // Используем первый доступный URL
+  return processMediaUrl(urls[0]);
+};
 
 // Mobile navigation component
 const MobileBottomNav = ({ user }) => {
@@ -61,36 +84,46 @@ const MobileBottomNav = ({ user }) => {
 };
 
 // Component for post thumbnail with async image loading
-const PostThumbnail = ({ post, onClick }) => {
-  const getThumbnailSrc = React.useMemo(() => {
-    // Приоритет для превью, затем для основного изображения
-    const imageUrl = post.thumbnailUrl || post.image;
-    if (imageUrl) {
-      return getImageUrl(imageUrl, { isThumbnail: true });
-    }
-    // Заглушка по умолчанию
-    return '/video-placeholder.png';
-  }, [post.thumbnailUrl, post.image]);
+const PostThumbnail = React.memo(({ post, onClick }) => {
+  const thumbnailSrc = React.useMemo(() => {
+    return getPostThumbnail(post);
+  }, [post]);
 
-  // Determine if this is a video to show indicator
-  const isVideo = post.mediaType === 'video';
+  const isVideo = React.useMemo(() => {
+    const videoIndicators = [
+      post.mediaType === 'video',
+      post.videoUrl,
+      post.youtubeData,
+      post.videoData?.platform === 'youtube',
+      post.type === 'video'
+    ];
+
+    return videoIndicators.some(Boolean);
+  }, [post]);
+
+  const handleImageError = (e) => {
+    e.target.onerror = null; // Предотвращаем бесконечный цикл ошибок
+    e.target.src = '/default-post-placeholder.png';
+  };
 
   return (
     <div key={post._id} className="post-thumbnail" onClick={onClick}>
       <div className="thumbnail-container">
         <img 
-          src={getThumbnailSrc} 
+          src={thumbnailSrc} 
           alt={post.caption || 'Post'} 
           loading="lazy"
-          onError={(e) => {
-            // Если thumbnail не загрузился, показываем заглушку
-            e.target.onerror = null; // Предотвращаем бесконечный цикл ошибок
-            e.target.src = '/video-placeholder.png';
-          }}
+          onError={handleImageError}
         />
         {isVideo && (
-          <div className="video-indicator">
-            <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+          <div className="video-play-overlay">
+            <svg 
+              width="64" 
+              height="64" 
+              viewBox="0 0 24 24" 
+              fill="white" 
+              className="play-icon"
+            >
               <path d="M8 5v14l11-7z"/>
             </svg>
           </div>
@@ -114,7 +147,7 @@ const PostThumbnail = ({ post, onClick }) => {
       </div>
     </div>
   );
-};
+});
 
 // Component for followers/following modal
 const FollowersModal = ({ isOpen, onClose, title, users, loading, currentUser, onRemoveFollower }) => {
@@ -212,6 +245,15 @@ const FollowersModal = ({ isOpen, onClose, title, users, loading, currentUser, o
     </div>
   );
 };
+
+// Мемоизируем компонент PostModal
+const MemoizedPostModal = React.memo(PostModal, (prevProps, nextProps) => {
+  // Сравниваем только критичные пропсы
+  return (
+    prevProps.post?._id === nextProps.post?._id &&
+    prevProps.isOpen === nextProps.isOpen
+  );
+});
 
 const Profile = ({ user: currentUserProp }) => {
   const { username } = useParams();
@@ -568,15 +610,7 @@ const Profile = ({ user: currentUserProp }) => {
     }
   };
 
-  const getPostThumbnail = (post) => {
-    if (post.videoData && post.videoData.platform === 'youtube' && post.videoData.videoId) {
-      return `https://img.youtube.com/vi/${post.videoData.videoId}/default.jpg`;
-    }
-    return post.thumbnailUrl || post.imageUrl;
-  };
-
   useEffect(() => {
-    // Scroll to top when navigating to profile
     window.scrollTo(0, 0);
   }, []);
 
@@ -590,7 +624,6 @@ const Profile = ({ user: currentUserProp }) => {
 
     setLoadingProfile(true);
     
-    // Get token for authenticated requests
     const token = localStorage.getItem('token');
     const headers = {
       'Content-Type': 'application/json'
@@ -603,59 +636,20 @@ const Profile = ({ user: currentUserProp }) => {
     fetch(`${API_URL}/api/users/profile/${username}`, {
       headers
     })
-      .then(response => {
-        console.log('[PROFILE_FETCH_DEBUG] Response status:', response.status);
-        console.log('[PROFILE_FETCH_DEBUG] Response headers:', Object.fromEntries(response.headers.entries()));
-        return response.json();
-      })
+      .then(response => response.json())
       .then(data => {
-        console.log('[PROFILE_FETCH_DEBUG] Full response:', JSON.stringify(data, null, 2));
-        
         if (data.user) {
-          console.log('[PROFILE_FETCH_DEBUG] User details:', JSON.stringify({
-            username: data.user.username,
-            avatar: data.user.avatar,
-            postsCount: data.user.posts ? data.user.posts.length : 0,
-            posts: data.user.posts ? data.user.posts.map(post => ({
-              id: post._id,
-              image: post.image,
-              imageUrl: post.imageUrl
-            })) : []
-          }, null, 2));
-
           setProfile(data);
           setPosts(data.user.posts || []);
           
-          // Save all video data
+          // Минимальная обработка постов
           data.user.posts?.forEach(post => {
-            console.log(`[PROFILE_POST_DEBUG] Post ${post._id}:`, JSON.stringify({
-              image: post.image,
-              imageUrl: post.imageUrl,
-              thumbnailUrl: post.thumbnailUrl
-            }, null, 2));
-
-            // Check if current user liked this post
             if (currentUserProp && post.likes) {
               post.isLikedByCurrentUser = post.likes.includes(currentUserProp._id);
             }
             
-            // Handle post likes
-            if (post.likes && Array.isArray(post.likes)) {
-              post.likesCount = post.likes.length;
-            }
-
-            // Корректный подсчет комментариев
-            post.commentsCount = post.comments ? post.comments.length : 
-                                  (post.commentsCount || 0);
-
-            // Расширенный отладочный вывод для комментариев
-            console.log('Post comments debug:', JSON.stringify({
-              postId: post._id,
-              comments: post.comments,
-              commentsCount: post.commentsCount,
-              commentsType: typeof post.comments,
-              commentsIsArray: Array.isArray(post.comments)
-            }, null, 2));
+            post.likesCount = post.likes ? post.likes.length : 0;
+            post.commentsCount = post.comments ? post.comments.length : 0;
           });
 
           setFollowInfo({
@@ -664,14 +658,12 @@ const Profile = ({ user: currentUserProp }) => {
             followingCount: data.user.followingCount || 0
           });
 
-          // Check profile owner - use both currentUser and localStorage
           const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
           const userId = currentUserProp?._id || storedUser?._id;
           if (userId) {
             setIsOwner(userId === data.user._id);
           }
         } else {
-          console.error("User data not found in response:", JSON.stringify(data, null, 2));
           setProfile(null);
         }
         setLoadingProfile(false);
@@ -815,7 +807,7 @@ const Profile = ({ user: currentUserProp }) => {
         </div>
 
         {selectedPost && (
-          <PostModal
+          <MemoizedPostModal
             isOpen={isModalOpen}
             onClose={closeModal}
             post={selectedPost}

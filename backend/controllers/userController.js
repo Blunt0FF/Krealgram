@@ -182,30 +182,19 @@ exports.updateUserProfile = async (req, res) => {
       console.log(`[AVATAR_UPDATE_DEBUG] Новый аватар: ${fieldsToUpdate.avatar}`);
     } 
     // Если нужно удалить аватар
-    if (removeAvatar === 'true') {
+    else if (removeAvatar === 'true') {
       if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
-        try {
-          const fileId = currentUser.avatar.split('id=')[1];
-          if (fileId) {
-            await googleDrive.deleteFile(fileId);
-            console.log(`[AVATAR] Аватар ${fileId} удален по запросу.`);
-            
-            // Пытаемся найти и удалить превью аватара
-            const thumbFiles = await googleDrive.listFiles({
-              q: `name contains 'thumb_avatar_' and '${process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID}' in parents`
-            });
-            
-            for (const thumbFile of thumbFiles.files) {
-              await googleDrive.deleteFile(thumbFile.id);
-              console.log(`[AVATAR] Превью аватара ${thumbFile.id} удалено.`);
-            }
+           try {
+              const fileId = currentUser.avatar.split('id=')[1];
+              if (fileId) {
+                await googleDrive.deleteFile(fileId);
+                console.log(`[AVATAR] Аватар ${fileId} удален по запросу.`);
+              }
+          } catch(e) {
+              console.error(`[AVATAR] Не удалось удалить аватар по запросу: ${e.message}`);
           }
-        } catch(e) {
-          console.error(`[AVATAR] Не удалось удалить аватар по запросу: ${e.message}`);
-        }
-       
-        fieldsToUpdate.avatar = null;
       }
+      fieldsToUpdate.avatar = null;
     }
 
     if (Object.keys(fieldsToUpdate).length === 0) {

@@ -164,28 +164,34 @@ const Feed = ({ user }) => {
     } else if (hasMore && !loading) {
       // Добавляем обработку загрузки следующей страницы
       const loadNextPageAndSelectFirst = async () => {
-      setPage(p => p + 1);
-        
-        // Ожидаем загрузку следующей страницы
-        const checkPostsLoaded = () => {
-          return new Promise(resolve => {
-            const checkInterval = setInterval(() => {
-              if (posts.length > currentIndex + 1) {
-                clearInterval(checkInterval);
-                handleImageClick(posts[currentIndex + 1]);
-                resolve();
-              }
-            }, 100);
-
-            // Таймаут на случай, если загрузка не произойдет
-            setTimeout(() => {
-              clearInterval(checkInterval);
-              resolve();
-            }, 5000);
+        try {
+          // Принудительно загружаем следующую страницу
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${API_URL}/api/posts?page=${page + 1}&limit=10`, {
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-        };
-
-        await checkPostsLoaded();
+          
+          if (!response.ok) throw new Error('Network response was not ok');
+          
+          const newPosts = await response.json();
+          
+          // Обновляем посты и состояние
+          setPosts(prevPosts => {
+            const postMap = new Map(prevPosts.map(p => [p._id, p]));
+            newPosts.forEach(p => postMap.set(p._id, p));
+            return Array.from(postMap.values());
+          });
+          
+          setPage(prevPage => prevPage + 1);
+          setHasMore(newPosts.length === 10);
+          
+          // Если есть новые посты, открываем первый
+          if (newPosts.length > 0) {
+            handleImageClick(newPosts[0]);
+          }
+        } catch (error) {
+          console.error("Ошибка загрузки следующей страницы:", error);
+        }
       };
 
       loadNextPageAndSelectFirst();

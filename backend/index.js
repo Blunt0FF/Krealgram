@@ -76,7 +76,7 @@ const corsOptions = {
   origin: [
     'http://localhost:4000', 
     'https://localhost:4000', 
-    'https://krealgram.com', 
+      'https://krealgram.com',
     'https://www.krealgram.com',
     /\.krealgram\.com$/  // Поддержка поддоменов
   ],
@@ -118,8 +118,10 @@ app.use('/api/admin', adminRoutes);
 
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
+  const { type } = req.query;
   const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
+  const axios = require('axios');
 
   console.log(`[PROXY-DRIVE_FULL_DEBUG] Incoming request details:`, {
     fileId,
@@ -131,6 +133,28 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
   try {
     console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
+    
+    // Поддержка внешних URL
+    if (fileId.startsWith('http')) {
+      const decodedUrl = decodeURIComponent(fileId);
+      try {
+        const response = await axios.get(decodedUrl, { 
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0'
+          }
+        });
+        
+        res.set('Content-Type', response.headers['content-type']);
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.send(response.data);
+        return;
+      } catch (externalErr) {
+        console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr);
+        return res.status(404).send('External file not found');
+      }
+    }
+
     if (!drive.isInitialized) {
       console.error('[PROXY-DRIVE] Google Drive не инициализирован');
       return res.status(500).send('Google Drive not initialized');

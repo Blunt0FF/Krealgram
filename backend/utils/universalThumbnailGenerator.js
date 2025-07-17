@@ -62,7 +62,7 @@ class UniversalThumbnailGenerator {
       const thumbnailBuffer = await sharp(inputPath)
         .rotate()
         .resize(300, 300, { fit: 'cover', position: 'center' })
-        .webp({ quality: 75 })
+        .webp({ quality: 90 })
         .toBuffer();
 
       // Сохраняем превью локально

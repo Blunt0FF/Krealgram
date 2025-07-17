@@ -42,7 +42,7 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
         thumbnailBuffer = optimized.thumbnail.buffer;
         thumbnailUrl = await uploadThumbnailToDrive(
           thumbnailBuffer, 
-          `thumb_avatar_${originalFilename}`,
+          `thumb_${originalFilename}`,
           'image/webp',
           process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID // Используем папку аватаров
         );

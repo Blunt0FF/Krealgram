@@ -247,13 +247,18 @@ export const isVideoUrl = (url) => {
 
 // Создание данных YouTube для модальных окон
 export const createYouTubeData = (url) => {
-  const youtubeId = extractYouTubeId(url);
-  if (!youtubeId) return null;
+  if (!url) return null;
+
+  const videoId = extractYouTubeId(url);
+  if (!videoId) return null;
 
   return {
-    videoId: youtubeId,
-    thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`,
-    embedUrl: `https://www.youtube.com/embed/${youtubeId}`
+    videoId,
+    embedUrl: `https://www.youtube.com/embed/${videoId}`,
+    thumbnailUrl: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+    mobileThumbnailUrl: `https://img.youtube.com/vi/${videoId}/default.jpg`,
+    platform: 'youtube',
+    originalUrl: url
   };
 };
 
@@ -282,22 +287,4 @@ export const extractYouTubeId = (url) => {
 export const generateVideoPreviewUrl = (videoPath) => {
   // Используем processMediaUrl для получения превью
   return processMediaUrl(videoPath, 'video');
-}; 
-
-export const getYoutubeThumbnail = (youtubeUrl, isProfile = false) => {
-  if (!youtubeUrl) return null;
-
-  const videoId = extractYouTubeId(youtubeUrl);
-  if (!videoId) return youtubeUrl;
-
-  // Для профиля - оригинальная превью YouTube
-  if (isProfile) {
-    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-  }
-
-  // Пытаемся найти локальную превью
-  const localThumbUrl = `https://drive.google.com/uc?id=thumb_youtube_${videoId}`;
-
-  // Возвращаем локальную превью или стандартную YouTube-превью
-  return localThumbUrl || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 }; 
