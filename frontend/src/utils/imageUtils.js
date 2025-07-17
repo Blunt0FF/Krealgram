@@ -107,14 +107,6 @@ export const getAvatarUrl = (avatarPath) => {
 export const getVideoUrl = (videoPath, options = {}) => {
   if (!videoPath) return null;
   
-  // Для мобильных устройств используем прямые ссылки Google Drive
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  if (isMobile && videoPath.includes('drive.google.com')) {
-    // На мобильных используем прямые ссылки для лучшей производительности
-    return videoPath;
-  }
-  
-  // Для десктопа используем стандартную обработку
+  // Используем улучшенную обработку из mediaUrlResolver
   return processMediaUrl(videoPath, 'video');
 };

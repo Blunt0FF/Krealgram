@@ -3,6 +3,12 @@ import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoU
 import { getVideoUrl, getImageUrl } from '../../utils/imageUtils';
 import videoManager from '../../utils/videoManager';
 
+// Функция для определения мобильного устройства
+const isMobile = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
+};
+
 // Функция для получения превью поста (как в профиле)
 const getPostThumbnail = (post) => {
   // Используем ту же логику, что и в профиле и уведомлениях
@@ -174,7 +180,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          preload="metadata"
+          preload={isMobile() ? "metadata" : "auto"}
+          muted={isMobile()} // На мобильных начинаем с выключенным звуком
           onPlay={() => {
             setIsVideoPlaying(true);
             videoManager.setCurrentVideo(videoRef.current);

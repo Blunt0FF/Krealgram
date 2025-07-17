@@ -339,15 +339,15 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           src={videoSrc}
           className="stories-video"
           controls={true}
-          autoPlay={true}
-          muted={false}
+          autoPlay={true} // Автовоспроизведение на всех устройствах
+          muted={false} // Звук включен на всех устройствах
           playsInline={true}
           webkit-playsinline="true"
           x5-playsinline="true"
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
-          x5-video-orientation="portraint"
-          preload="auto"
+          x5-video-orientation="portrait"
+          preload="auto" // Загружаем все на всех устройствах
           style={{
             display: 'block',
             backgroundColor: '#000',
@@ -355,12 +355,19 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
             height: '100%',
             objectFit: 'contain'
           }}
-          onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+          onPlay={(e) => {
+            videoManager.setCurrentVideo(e.target);
+            console.log('Video started playing');
+          }}
           onLoadStart={() => console.log('Video loading started')}
           onLoadedData={() => {
             console.log('Video data loaded');
+            setVideoLoading(false);
           }}
-          onCanPlay={() => console.log('Video can play')}
+          onCanPlay={() => {
+            console.log('Video can play');
+            setVideoLoading(false);
+          }}
           onEnded={() => {
             console.log('🎬 Video ended, moving to next');
             // Автоматически переходим к следующему видео
@@ -373,6 +380,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           onError={(e) => {
             console.error('Video error:', e.target.error);
             console.log('Failed video src:', e.target.src);
+            setVideoLoading(false);
           }}
           onPause={(e) => {
             if (videoManager.getCurrentVideo() === e.target) {

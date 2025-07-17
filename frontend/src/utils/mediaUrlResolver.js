@@ -12,6 +12,9 @@ const ALLOWED_DOMAINS = [
 export const resolveMediaUrl = (url, type = 'image') => {
   const startTime = performance.now();
   
+  // Определяем мобильное устройство
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   try {
     // Если URL пустой - возвращаем дефолтное изображение только для определенных типов
     if (!url) {
@@ -77,6 +80,11 @@ export const resolveMediaUrl = (url, type = 'image') => {
             url.match(/\/uc\?id=([^&]+)/)?.[1];
           
           if (fileId) {
+            // На мобильных устройствах используем прямые ссылки Google Drive для лучшей производительности
+            if (isMobile && type === 'video') {
+              return `https://drive.google.com/uc?id=${fileId}`;
+            }
+            
             const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
             return proxyUrl;
           }
