@@ -4,7 +4,7 @@ import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 import LikesModal from './LikesModal';
 import { getImageUrl, getAvatarUrl, getVideoUrl } from '../../utils/imageUtils';
-import { getMediaThumbnail, extractYouTubeId } from '../../utils/videoUtils';
+import { getMediaThumbnail, extractYouTubeId, createYouTubeEmbedUrl } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';
 import { API_URL } from '../../config';
@@ -15,50 +15,37 @@ const MAX_CAPTION_LENGTH_EDIT = 500;
 const ModalMedia = memo(({ postData }) => {
   if (!postData) return null;
 
-  const checkYouTubeUrl = (url) => {
-    if (!url) return null;
-    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(youtubeRegex);
-    
-    if (match && match[1]) {
-      const videoId = match[1];
-      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-    }
-    
-    // Резервный вариант для старых URL
-    if (url.includes('youtu.be/')) {
-      const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-      return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-    }
-    
-    const videoId = url.split('v=')[1]?.split('&')[0];
-    return `https://www.youtube.com/embed/${videoId}?enablejsapi=1&origin=${window.location.origin}&rel=0&showinfo=0&modestbranding=1&iv_load_policy=3&disablekb=1`;
-  };
-
-  let youtubeEmbedUrl = null;
-  let originalYouTubeUrl = null;
-
+  // Используем существующие утилиты для определения YouTube-видео
   const urlsToCheck = [
     postData.videoUrl,
     postData.youtubeUrl,
-    postData.youtubeData?.embedUrl,
     postData.youtubeData?.originalUrl,
     postData.video,
     postData.image,
     postData.imageUrl
   ];
 
+  let youtubeEmbedUrl = null;
+  let originalYouTubeUrl = null;
+
   for (let url of urlsToCheck) {
     if (url && (url.includes('youtube') || url.includes('youtu.be'))) {
-      youtubeEmbedUrl = checkYouTubeUrl(url);
-      originalYouTubeUrl = url;
-      break;
+      const videoId = extractYouTubeId(url);
+      if (videoId) {
+        youtubeEmbedUrl = createYouTubeEmbedUrl(url);
+        originalYouTubeUrl = url;
+        break;
+      }
     }
   }
 
   // Если YouTube-видео не нашлось, но есть youtubeData
   if (!youtubeEmbedUrl && postData.youtubeData) {
-    youtubeEmbedUrl = checkYouTubeUrl(postData.youtubeData.originalUrl);
+    const videoId = extractYouTubeId(postData.youtubeData.originalUrl);
+    if (videoId) {
+      youtubeEmbedUrl = createYouTubeEmbedUrl(postData.youtubeData.originalUrl);
+      originalYouTubeUrl = postData.youtubeData.originalUrl;
+    }
   }
 
   if (youtubeEmbedUrl) {
@@ -83,6 +70,7 @@ const ModalMedia = memo(({ postData }) => {
     );
   }
 
+  // Остальная логика без изменений
   if (
     postData.mediaType === 'video' ||
     postData.imageUrl?.includes('.mp4') ||

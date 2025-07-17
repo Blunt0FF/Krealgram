@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const googleDrive = require('../config/googleDrive');
 const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerator');
 const thumbnailGenerator = new UniversalThumbnailGenerator();
@@ -10,25 +11,16 @@ const imageCompressorInstance = new imageCompressor();
 const TEMP_INPUT_DIR = path.resolve(process.cwd(), 'temp/input');
 const TEMP_OUTPUT_DIR = path.resolve(process.cwd(), 'temp/output');
 
-// Безопасное создание директории
-const ensureTempDir = (dirPath) => {
-  if (!dirPath) {
-    console.error('[UPLOAD_MIDDLEWARE] Temporary directory is undefined');
-    throw new Error('Temporary directory is not defined');
-  }
-  
+// Создаем директории при загрузке модуля
+const ensureTempDir = async (dirPath) => {
   try {
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-      console.log(`[UPLOAD_MIDDLEWARE] Created directory: ${dirPath}`);
-    }
+    await fsPromises.mkdir(dirPath, { recursive: true });
+    console.log(`[UPLOAD_MIDDLEWARE] Created directory: ${dirPath}`);
   } catch (error) {
     console.error(`[UPLOAD_MIDDLEWARE] Error creating directory ${dirPath}:`, error);
-    throw error;
   }
 };
 
-// Создаем директории при загрузке модуля
 ensureTempDir(TEMP_INPUT_DIR);
 ensureTempDir(TEMP_OUTPUT_DIR);
 
@@ -46,7 +38,7 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
     const tempInputPath = path.join(TEMP_INPUT_DIR, `temp-${Date.now()}-${originalFilename}`);
     
     // Сохраняем буфер во временный файл
-    await fs.promises.writeFile(tempInputPath, fileBuffer);
+    await fsPromises.writeFile(tempInputPath, fileBuffer);
 
     if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
       const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(fileBuffer, originalFilename);
@@ -71,7 +63,7 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
     }
 
     // Удаляем временный файл
-    await fs.promises.unlink(tempInputPath).catch(err => {
+    await fsPromises.unlink(tempInputPath).catch(err => {
       if (err.code !== 'ENOENT') {
         console.error(`Failed to clean up temp file: ${tempInputPath}`, err);
       }
@@ -181,12 +173,25 @@ const storage = multer.diskStorage({
       return cb(new Error('Invalid file upload'), null);
     }
 
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const sanitizedFileName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
-    const finalFileName = `${uniqueSuffix}-${sanitizedFileName}`;
+    // Для аватаров используем специальный формат имени
+    if (
+      req.url.includes('/avatar') || 
+      req.url.includes('/profile') || 
+      req.body.avatar || 
+      req.body.removeAvatar
+    ) {
+      const username = req.user?.username || 'unknown';
+      const safeUsername = username.replace(/[^a-zA-Z0-9]/g, '_');
+      const fileExtension = path.extname(file.originalname);
+      const avatarFilename = `avatar_${safeUsername}${fileExtension}`;
+      
+      console.log('[MULTER_DEBUG] Generated avatar filename:', avatarFilename);
+      return cb(null, avatarFilename);
+    }
 
-    console.log('[MULTER_DEBUG] Generated filename:', finalFileName);
-    cb(null, finalFileName);
+    // Для всех остальных файлов используем оригинальное имя
+    console.log('[MULTER_DEBUG] Generated filename:', file.originalname);
+    cb(null, file.originalname);
   }
 });
 
@@ -211,30 +216,21 @@ const upload = multer({
 
 // Middleware для загрузки файлов на Google Drive, работающий с файлами
 const uploadToGoogleDrive = async (req, res, next) => {
+  if (!req.file) {
+    return next();
+  }
+
   try {
-    console.log('[UPLOAD_MIDDLEWARE_FULL_DEBUG] Request details:', {
-      hasFile: !!req.file,
-      user: req.user ? req.user.username : 'No user',
-      body: req.body,
-      url: req.url,
-      messagesFolderId: process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID
-    });
-
-    if (!req.file) {
-      console.log('[UPLOAD_MIDDLEWARE] No file to upload');
-      return next();
-    }
-
+    const tempFilePath = req.file.path;
+    const fileBuffer = await fsPromises.readFile(tempFilePath);
     const originalFilename = req.file.originalname;
-    console.log(`[UPLOAD_MIDDLEWARE] Uploading file to Google Drive: ${originalFilename}`);
+    const fileMimetype = req.file.mimetype;
 
-    const fileBuffer = await fs.promises.readFile(req.file.path);
-
-    // КРИТИЧЕСКИ ВАЖНАЯ ЛОГИКА: Определяем папку для загрузки
     let context = 'post';
     let folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
+    let username = null;
 
-    // Проверяем URL и тело запроса на наличие признаков аватара или сообщения
+    // Определяем контекст загрузки
     if (
       req.url.includes('/avatar') || 
       req.url.includes('/profile') || 
@@ -243,7 +239,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
     ) {
       context = 'avatar';
       folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
-      console.log('[UPLOAD_MIDDLEWARE] Detected avatar upload context');
+      username = req.user ? req.user.username : null;
     } else if (
       req.url.includes('/messages') || 
       req.url.includes('/conversations') || 
@@ -251,62 +247,48 @@ const uploadToGoogleDrive = async (req, res, next) => {
     ) {
       context = 'message';
       folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
-      console.log('[UPLOAD_MIDDLEWARE] Detected message upload context');
     }
 
-    // Проверка наличия корректного folderId
-    if (!folderId || folderId === 'your_messages_folder_id') {
-      console.error('[UPLOAD_MIDDLEWARE] Invalid folder ID for context:', context);
-      return res.status(500).json({ 
-        message: 'Server configuration error: Invalid Google Drive folder', 
-        context: context 
-      });
-    }
+    // Создаем имя файла
+    const ext = path.extname(originalFilename);
+    const safeUsername = username ? username.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
+    const driveFilename = context === 'avatar' 
+      ? `avatar_${safeUsername}${ext}` 
+      : originalFilename;
 
-    const uploadResult = await uploadProcessedToGoogleDrive(
+    // Загрузка файла
+    const result = await googleDrive.uploadFile(
       fileBuffer, 
-      req.file.originalname, 
-      req.file.mimetype, 
-      context, 
-      folderId,
-      req.user ? req.user.username : null,
-      req.file
+      driveFilename, 
+      fileMimetype, 
+      folderId
     );
 
-    // Сохраняем результат загрузки в объекте запроса
-    req.uploadResult = uploadResult;
-    req.file.secure_url = uploadResult.secure_url;
-    req.file.public_id = uploadResult.public_id;
+    // Создаем превью только для постов
+    const thumbnailUrl = await createAndUploadThumbnail(
+      fileBuffer, 
+      originalFilename, 
+      fileMimetype, 
+      context
+    );
 
-    console.log('[UPLOAD_MIDDLEWARE] File uploaded successfully:', {
-      secureUrl: uploadResult.secure_url,
-      thumbnailUrl: uploadResult.thumbnailUrl,
-      context: context,
-      folderId: folderId
-    });
+    req.uploadResult = {
+      secure_url: result.secure_url,
+      public_id: result.fileId,
+      resource_type: fileMimetype.startsWith('video/') ? 'video' : 'image',
+      format: ext.substring(1),
+      bytes: fileBuffer.length,
+      url: result.secure_url,
+      thumbnailUrl: thumbnailUrl
+    };
 
     // Удаляем временный файл
-    await fs.promises.unlink(req.file.path).catch(err => {
-      console.error('Error deleting temp file:', err);
-    });
+    await fsPromises.unlink(tempFilePath);
 
     next();
   } catch (error) {
-    console.error('[UPLOAD_MIDDLEWARE] Upload to Google Drive error:', {
-      message: error.message,
-      stack: error.stack,
-      context: context,
-      folderId: folderId
-    });
-    return res.status(500).json({ 
-      message: 'File upload error', 
-      error: error.message,
-      details: {
-        filename: req.file?.originalname,
-        mimetype: req.file?.mimetype,
-        context: context
-      }
-    });
+    console.error('[UPLOAD_MIDDLEWARE] Ошибка загрузки:', error);
+    next(error);
   }
 };
 

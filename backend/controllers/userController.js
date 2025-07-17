@@ -154,7 +154,16 @@ exports.updateUserProfile = async (req, res) => {
     }
 
     // Если загружен новый аватар
-    if (req.uploadResult && req.uploadResult.secure_url) {
+    if (req.uploadResult) {
+      console.log('[AVATAR_UPDATE_DEBUG] Upload result:', req.uploadResult);
+
+      // Проверяем корректность URL
+      const avatarUrl = req.uploadResult.secure_url;
+      if (!avatarUrl || !avatarUrl.startsWith('http')) {
+        console.error('[AVATAR_UPDATE_ERROR] Некорректный URL аватара:', avatarUrl);
+        return res.status(400).json({ message: 'Некорректный URL аватара' });
+      }
+
       // Удаляем старый аватар, если он был и хранился на Google Drive
       if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
           try {
@@ -167,7 +176,10 @@ exports.updateUserProfile = async (req, res) => {
               console.error(`[AVATAR] Не удалось удалить старый аватар: ${e.message}`);
           }
       }
-      fieldsToUpdate.avatar = req.uploadResult.secure_url;
+      
+      // Используем только secure_url
+      fieldsToUpdate.avatar = avatarUrl;
+      console.log(`[AVATAR_UPDATE_DEBUG] Новый аватар: ${fieldsToUpdate.avatar}`);
     } 
     // Если нужно удалить аватар
     else if (removeAvatar === 'true') {

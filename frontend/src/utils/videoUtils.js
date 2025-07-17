@@ -213,32 +213,21 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
 
 // Создание встраиваемого URL для YouTube
 export const createYouTubeEmbedUrl = (url) => {
-  if (!url) return url;
+  const videoId = extractYouTubeId(url);
   
-  // Улучшенная проверка YouTube URL
-  let videoId = null;
+  if (!videoId) return url;
   
-  // Стандартный YouTube URL
-  if (url.includes('youtube.com/watch?v=')) {
-    const match = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-    videoId = match ? match[1] : null;
-  }
-  // Короткий YouTube URL
-  else if (url.includes('youtu.be/')) {
-    const match = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-    videoId = match ? match[1] : null;
-  }
-  // Embed URL
-  else if (url.includes('youtube.com/embed/')) {
-    const match = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
-    videoId = match ? match[1] : null;
-  }
-  
-  if (videoId) {
-    return `https://www.youtube.com/embed/${videoId}`;
-  }
-  
-  return url;
+  // Создаем embed URL с дополнительными параметрами
+  return `https://www.youtube.com/embed/${videoId}?` + 
+         'enablejsapi=1' +
+         '&origin=' + encodeURIComponent(window.location.origin) +
+         '&rel=0' +
+         '&showinfo=0' +
+         '&modestbranding=1' +
+         '&iv_load_policy=3' +
+         '&disablekb=1' +
+         '&autoplay=0' +
+         '&controls=1';
 };
 
 // Проверка является ли URL видео ссылкой
@@ -270,16 +259,23 @@ export const createYouTubeData = (url) => {
 
 // Извлечение YouTube ID из различных форматов URL
 export const extractYouTubeId = (url) => {
-  const youtubeMatchers = [
-    /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
-    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
-    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+  if (!url) return null;
+  
+  // Массив регулярных выражений для разных форматов YouTube URL
+  const patterns = [
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)([a-zA-Z0-9_-]{11})/,
+    /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /(?:https?:\/\/)?img\.youtube\.com\/vi\/([a-zA-Z0-9_-]{11})/
   ];
 
-  for (const matcher of youtubeMatchers) {
-    const match = url.match(matcher);
-    if (match) return match[1];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
   }
+  }
+
   return null;
 }; 
 

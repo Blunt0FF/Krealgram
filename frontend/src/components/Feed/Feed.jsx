@@ -162,7 +162,33 @@ const Feed = ({ user }) => {
     if (currentIndex < posts.length - 1) {
       handleImageClick(posts[currentIndex + 1]);
     } else if (hasMore && !loading) {
-      setPage(p => p + 1);
+      // Добавляем обработку загрузки следующей страницы
+      const loadNextPageAndSelectFirst = async () => {
+        setPage(p => p + 1);
+        
+        // Ожидаем загрузку следующей страницы
+        const checkPostsLoaded = () => {
+          return new Promise(resolve => {
+            const checkInterval = setInterval(() => {
+              if (posts.length > currentIndex + 1) {
+                clearInterval(checkInterval);
+                handleImageClick(posts[currentIndex + 1]);
+                resolve();
+              }
+            }, 100);
+
+            // Таймаут на случай, если загрузка не произойдет
+            setTimeout(() => {
+              clearInterval(checkInterval);
+              resolve();
+            }, 5000);
+          });
+        };
+
+        await checkPostsLoaded();
+      };
+
+      loadNextPageAndSelectFirst();
     }
   };
   
