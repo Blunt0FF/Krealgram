@@ -297,9 +297,12 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 1px;
+  margin-bottom: 6px;
   width: 100%;
+  overflow-y: auto;
+  min-height: 0;
+  scroll-behavior: smooth;
 }
 
 .comment {
@@ -307,7 +310,7 @@
   align-items: flex-start;
   gap: 10px;
   position: relative;
-  padding: 0 16px;
+  padding: 2px 16px;
 }
 
 /* Убраны дублирующиеся стили комментариев (.comment-avatar, .comment-author, .comment-text, 
@@ -522,11 +525,8 @@
 }
 
 .comments-and-form-wrapper {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  min-height: 0;
 }
 
 /* --- Стили для планшетов и мобильных устройств --- */
@@ -650,7 +650,7 @@
   }
 
   .post-modal-image {
-    flex: 2; /* Используем те же пропорции что и для 900px */
+    flex: 3; /* 60% (было 2, стало 3) */
     height: auto !important; /* ДИНАМИЧЕСКАЯ ВЫСОТА ПОД КОНТЕНТ */
     min-height: 160px !important; /* МИНИМАЛЬНАЯ ВЫСОТА */
     background: white; /* Белый фон для картинок */
@@ -664,7 +664,7 @@
   /* Убираем черный фон - всегда белый на мобильных */
 
   .post-modal-sidebar {
-    flex: 1; /* Сайдбар занимает все оставшееся место */
+    flex: 2; /* 40% (было 1, стало 2) */
     min-height: 0; /* Очень важно для правильного сжатия flex-item */
     width: 100%;
     min-width: unset;
@@ -718,6 +718,14 @@
   /* Специальные стили для Safari iOS */
   @supports (-webkit-touch-callout: none) {
     .post-modal-image video {
+      -webkit-appearance: none !important;
+      -webkit-transform: translateZ(0) !important;
+      transform: translateZ(0) !important;
+      -webkit-backface-visibility: hidden !important;
+      backface-visibility: hidden !important;
+    }
+    
+    .post-modal-video {
       -webkit-appearance: none !important;
       -webkit-transform: translateZ(0) !important;
       transform: translateZ(0) !important;

@@ -143,6 +143,8 @@ const PostModal = memo(({
       videoManager.pauseAllFeedVideos();
     } else {
       unlockBodyScroll();
+      // Останавливаем видео в модалке при закрытии
+      videoManager.pauseCurrentVideo();
       // Очищаем transform при закрытии модалки
       if (modalContentRef.current) {
         modalContentRef.current.style.transform = '';
@@ -154,6 +156,8 @@ const PostModal = memo(({
     
     return () => {
       unlockBodyScroll();
+      // Останавливаем видео при размонтировании
+      videoManager.pauseCurrentVideo();
       // Очищаем transform при размонтировании
       if (modalContentRef.current) {
         modalContentRef.current.style.transform = '';

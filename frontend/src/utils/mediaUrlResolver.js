@@ -80,11 +80,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
             url.match(/\/uc\?id=([^&]+)/)?.[1];
           
           if (fileId) {
-            // На мобильных устройствах используем прямые ссылки Google Drive для лучшей производительности
-            if (isMobile && type === 'video') {
-              return `https://drive.google.com/uc?id=${fileId}`;
-            }
-            
+            // Всегда используем прокси для Google Drive файлов
             const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
             return proxyUrl;
           }

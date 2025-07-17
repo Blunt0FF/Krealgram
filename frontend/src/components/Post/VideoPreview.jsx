@@ -61,7 +61,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       return;
     }
     
-    // Для загруженных видео - воспроизведение
+    // Для всех остальных видео - воспроизведение (включая мобильные)
     handleVideoPlay();
   };
 
@@ -73,8 +73,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         if (videoRef.current) {
           videoRef.current.play().catch(err => {
             console.error('Video play error:', err);
-            // Fallback: показываем модалку, если не удалось воспроизвести
-            onClick && onClick();
+            // Не открываем модалку автоматически при ошибке
+            setShowVideo(false);
+            setIsVideoPlaying(false);
           });
           setIsVideoPlaying(true);
         }
@@ -86,7 +87,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       } else {
         videoRef.current.play().catch(err => {
           console.error('Video play error:', err);
-          onClick && onClick();
+          // Не открываем модалку автоматически при ошибке
+          setShowVideo(false);
+          setIsVideoPlaying(false);
         });
         setIsVideoPlaying(true);
       }
@@ -163,7 +166,11 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={getVideoUrl(post.imageUrl || post.image)}
+          src={(() => {
+            const videoUrl = getVideoUrl(post.imageUrl || post.image);
+            console.log('Video URL resolved:', videoUrl);
+            return videoUrl;
+          })()}
           type="video/mp4"
           style={{
             width: '100%',
@@ -180,8 +187,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          preload={isMobile() ? "metadata" : "auto"}
-          muted={isMobile()} // На мобильных начинаем с выключенным звуком
+          preload="metadata"
+          muted={false}
           onPlay={() => {
             setIsVideoPlaying(true);
             videoManager.setCurrentVideo(videoRef.current);
@@ -197,8 +204,10 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           onError={(e) => {
             console.error('Video error:', e.target.error);
             console.log('Failed video src:', e.target.src);
-            // Fallback к модалке при ошибке
-            onClick && onClick();
+            console.log('Video element:', e.target);
+            // Не открываем модалку автоматически при ошибке
+            setShowVideo(false);
+            setIsVideoPlaying(false);
           }}
           onClick={(e) => e.stopPropagation()}
         />

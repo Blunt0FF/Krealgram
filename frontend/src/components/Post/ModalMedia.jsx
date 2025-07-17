@@ -57,7 +57,7 @@ const ModalMedia = memo(({ postData }) => {
 
   if (videoId) {
     originalYouTubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    youtubeEmbedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0`;
+    youtubeEmbedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1`;
   }
 
   // Fallback к youtubeData, если основной метод не сработал
@@ -110,9 +110,10 @@ const ModalMedia = memo(({ postData }) => {
         src={getVideoUrl(postData.image || postData.imageUrl || `${API_URL}/uploads/${postData.image}`)}
         className="post-modal-video"
         controls
+        autoPlay={true}
         playsInline
         muted={false}
-        preload="metadata"
+        preload="auto"
         poster={!isDesktop ? posterUrl : undefined}
         style={{
           width: '100%',

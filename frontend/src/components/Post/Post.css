@@ -330,8 +330,7 @@
   padding: 0 16px;
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
-  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .post-username-link {

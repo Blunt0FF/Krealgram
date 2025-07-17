@@ -117,6 +117,15 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Обработка OPTIONS запросов для прокси
+app.options('/api/proxy-drive/:id', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Range, Content-Range, Accept-Ranges');
+  res.header('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
+  res.sendStatus(200);
+});
+
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
   const { type } = req.query;
@@ -189,6 +198,9 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           ...headers,
           'Content-Disposition': `inline; filename="${fileName}"`,
           'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Range, Content-Range, Accept-Ranges',
+          'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
           'Cache-Control': 'public, max-age=31536000'
         });
         headersSent = true;
