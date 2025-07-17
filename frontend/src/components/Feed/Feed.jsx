@@ -164,7 +164,7 @@ const Feed = ({ user }) => {
     } else if (hasMore && !loading) {
       // Добавляем обработку загрузки следующей страницы
       const loadNextPageAndSelectFirst = async () => {
-        setPage(p => p + 1);
+      setPage(p => p + 1);
         
         // Ожидаем загрузку следующей страницы
         const checkPostsLoaded = () => {

@@ -26,11 +26,6 @@ ensureTempDir(TEMP_OUTPUT_DIR);
 
 // Специальная обработка для создания и загрузки превью
 const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimetype, context) => {
-  // Не создаем превью для сообщений
-  if (context === 'message') {
-    return null;
-  }
-
   try {
     let thumbnailUrl = null;
     let thumbnailBuffer = null;
@@ -40,7 +35,19 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
     // Сохраняем буфер во временный файл
     await fsPromises.writeFile(tempInputPath, fileBuffer);
 
-    if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
+    if (context === 'avatar') {
+      // Создаем превью для аватаров
+      const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(fileBuffer, originalFilename);
+      if (optimized.thumbnail) {
+        thumbnailBuffer = optimized.thumbnail.buffer;
+        thumbnailUrl = await uploadThumbnailToDrive(
+          thumbnailBuffer, 
+          `thumb_avatar_${originalFilename}`,
+          'image/webp',
+          process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID // Используем папку аватаров
+        );
+      }
+    } else if (context === 'post' && fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
       const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(fileBuffer, originalFilename);
       if (optimized.thumbnail) {
         thumbnailBuffer = optimized.thumbnail.buffer;
@@ -50,8 +57,8 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
           'image/webp'
         );
       }
-    } else if (fileMimetype.startsWith('video/')) {
-      const thumbnail = await imageCompressorInstance.generateVideoThumbnailFromBuffer(fileBuffer);
+    } else if (context === 'post' && fileMimetype.startsWith('video/')) {
+      const thumbnail = await thumbnailGenerator.generateVideoThumbnail(fileBuffer);
       if (thumbnail) {
         thumbnailBuffer = thumbnail.buffer;
         thumbnailUrl = await uploadThumbnailToDrive(
@@ -77,12 +84,12 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
 };
 
 // Функция для загрузки превью в папку превью
-const uploadThumbnailToDrive = async (thumbnailBuffer, filename, mimetype) => {
+const uploadThumbnailToDrive = async (thumbnailBuffer, filename, mimetype, folderId = process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID) => {
   try {
     console.log('[THUMBNAIL_UPLOAD] Загрузка превью:', {
       filename,
       mimetype,
-      previewFolderId: process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID,
+      previewFolderId: folderId,
       bufferLength: thumbnailBuffer.length
     });
 
@@ -90,7 +97,7 @@ const uploadThumbnailToDrive = async (thumbnailBuffer, filename, mimetype) => {
       thumbnailBuffer,
       filename,
       mimetype,
-      process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID // Всегда используем папку превью
+      folderId
     );
     
     console.log('[THUMBNAIL_UPLOAD] Превью загружено:', {
@@ -102,7 +109,7 @@ const uploadThumbnailToDrive = async (thumbnailBuffer, filename, mimetype) => {
     console.error('[THUMBNAIL_UPLOAD] Ошибка загрузки превью:', {
       error: error.message,
       stack: error.stack,
-      previewFolderId: process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+      previewFolderId: folderId
     });
     return null;
   }

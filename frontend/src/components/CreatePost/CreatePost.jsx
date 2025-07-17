@@ -93,7 +93,7 @@ const CreatePost = () => {
       parsedVideoData,
       caption
     });
-
+    
     if (!compressedFile && !parsedVideoData) {
       setError('Please select a file or external video first');
       return;

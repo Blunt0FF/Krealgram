@@ -283,3 +283,21 @@ export const generateVideoPreviewUrl = (videoPath) => {
   // Используем processMediaUrl для получения превью
   return processMediaUrl(videoPath, 'video');
 }; 
+
+export const getYoutubeThumbnail = (youtubeUrl, isProfile = false) => {
+  if (!youtubeUrl) return null;
+
+  const videoId = extractYouTubeId(youtubeUrl);
+  if (!videoId) return youtubeUrl;
+
+  // Для профиля - оригинальная превью YouTube
+  if (isProfile) {
+    return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+  }
+
+  // Пытаемся найти локальную превью
+  const localThumbUrl = `https://drive.google.com/uc?id=thumb_youtube_${videoId}`;
+
+  // Возвращаем локальную превью или стандартную YouTube-превью
+  return localThumbUrl || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+}; 

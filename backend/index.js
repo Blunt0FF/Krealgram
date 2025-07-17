@@ -71,40 +71,21 @@ const whitelist = [
   "www.krealgram.com"
 ];
 
+// Настройки CORS
 const corsOptions = {
-  origin: (origin, callback) => {
-    console.log('[CORS_DEBUG] Incoming origin:', origin);
-    
-    // Если origin не указан (например, для серверных запросов), пропускаем
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    // Проверяем с учетом протокола и без него
-    const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/^www\./, '');
-    const isAllowed = whitelist.some(
-      allowedOrigin => 
-        allowedOrigin === origin || 
-        allowedOrigin === normalizedOrigin ||
-        origin.includes(allowedOrigin)
-    );
-
-    if (isAllowed) {
-      console.log('[CORS_DEBUG] Origin allowed:', origin);
-      callback(null, true);
-    } else {
-      console.warn('[CORS_DEBUG] Origin blocked:', origin);
-      callback(null, false);  // Мягкое блокирование вместо ошибки
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
+  origin: [
+    'http://localhost:4000', 
+    'https://localhost:4000', 
+    'https://krealgram.com', 
+    'https://www.krealgram.com',
+    /\.krealgram\.com$/  // Поддержка поддоменов
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  maxAge: 86400
+  optionsSuccessStatus: 200
 };
 
-app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
 app.use(bodyParser.json({ limit: '50mb' }));
