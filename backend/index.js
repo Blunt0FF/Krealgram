@@ -1,13 +1,5 @@
 require('dotenv').config(); // Загружаем переменные окружения в самом начале
 
-// Принудительная установка переменных окружения для Google Drive
-process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
-process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
-process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
-process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID = process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
-process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
-process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID = process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || '1QwV41ZAO90B_zdnP9jiC4bddvZ4bS_is';
-
 const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -77,7 +69,7 @@ const corsOptions = {
   origin: [
     'http://localhost:4000', 
     'https://localhost:4000', 
-      'https://krealgram.com',
+    'https://krealgram.com',
     'https://www.krealgram.com',
     /\.krealgram\.com$/  // Поддержка поддоменов
   ],
@@ -154,7 +146,6 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
   const { type } = req.query;
-  const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
   const axios = require('axios');
 
@@ -177,7 +168,8 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           responseType: 'arraybuffer',
           headers: {
             'User-Agent': 'Mozilla/5.0'
-          }
+          },
+          timeout: 10000 // 10 секунд таймаут
         });
         
         res.set('Content-Type', response.headers['content-type']);
@@ -185,14 +177,65 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         res.send(response.data);
         return;
       } catch (externalErr) {
-        console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr);
+        console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr.message);
+        
+        // Если это Google Drive URL, пытаемся извлечь ID и использовать прямой доступ
+        if (decodedUrl.includes('drive.google.com')) {
+          try {
+            const gdriveMatch = decodedUrl.match(/[?&]id=([^&]+)/) || 
+                               decodedUrl.match(/\/file\/d\/([^/]+)/) ||
+                               decodedUrl.match(/open\?id=([^&]+)/);
+            
+            if (gdriveMatch) {
+              const directUrl = `https://drive.google.com/uc?export=download&id=${gdriveMatch[1]}`;
+              console.log('[PROXY-DRIVE] Пробуем прямой доступ к Google Drive:', directUrl);
+              
+              const directResponse = await axios.get(directUrl, {
+                responseType: 'arraybuffer',
+                headers: {
+                  'User-Agent': 'Mozilla/5.0'
+                },
+                timeout: 10000
+              });
+              
+              res.set('Content-Type', directResponse.headers['content-type']);
+              res.set('Cache-Control', 'public, max-age=31536000');
+              res.send(directResponse.data);
+              return;
+            }
+          } catch (directErr) {
+            console.error('[PROXY-DRIVE] Ошибка прямого доступа к Google Drive:', directErr.message);
+          }
+        }
+        
         return res.status(404).send('External file not found');
       }
     }
 
     if (!drive.isInitialized) {
       console.error('[PROXY-DRIVE] Google Drive не инициализирован');
-      return res.status(500).send('Google Drive not initialized');
+      
+      // Fallback: пытаемся использовать прямой доступ к Google Drive
+      try {
+        const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+        console.log('[PROXY-DRIVE] Fallback: прямой доступ к Google Drive:', directUrl);
+        
+        const directResponse = await axios.get(directUrl, {
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0'
+          },
+          timeout: 10000
+        });
+        
+        res.set('Content-Type', directResponse.headers['content-type']);
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.send(directResponse.data);
+        return;
+      } catch (fallbackErr) {
+        console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
+        return res.status(500).send('Google Drive not available');
+      }
     }
 
     const meta = await drive.drive.files.get({
@@ -279,7 +322,28 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
     if (err.message && err.message.includes('File not found')) {
       console.warn(`[PROXY-DRIVE_FULL_DEBUG] ⚠️ Файл не найден: ${fileId}`);
-      return res.status(404).send('File not found');
+      
+      // Fallback: пытаемся использовать прямой доступ к Google Drive
+      try {
+        const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+        console.log('[PROXY-DRIVE] Fallback после ошибки: прямой доступ к Google Drive:', directUrl);
+        
+        const directResponse = await axios.get(directUrl, {
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0'
+          },
+          timeout: 10000
+        });
+        
+        res.set('Content-Type', directResponse.headers['content-type']);
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.send(directResponse.data);
+        return;
+      } catch (fallbackErr) {
+        console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
+        return res.status(404).send('File not found');
+      }
     }
     res.status(500).send('Proxy error: ' + err.message);
   }

@@ -9,6 +9,37 @@ const ALLOWED_DOMAINS = [
   '127.0.0.1'
 ];
 
+// Функция для извлечения Google Drive File ID из различных форматов URL
+const extractGoogleDriveFileId = (url) => {
+  if (!url || !url.includes('drive.google.com')) return null;
+  
+  try {
+    // Формат: https://drive.google.com/uc?id=FILE_ID
+    const ucMatch = url.match(/[?&]id=([^&]+)/);
+    if (ucMatch) return ucMatch[1];
+    
+    // Формат: https://drive.google.com/file/d/FILE_ID/view
+    const fileMatch = url.match(/\/file\/d\/([^/]+)/);
+    if (fileMatch) return fileMatch[1];
+    
+    // Формат: https://drive.google.com/open?id=FILE_ID
+    const openMatch = url.match(/open\?id=([^&]+)/);
+    if (openMatch) return openMatch[1];
+    
+    // Если URL заканчивается на FILE_ID
+    const parts = url.split('/');
+    const lastPart = parts[parts.length - 1];
+    if (lastPart && lastPart.length > 20 && !lastPart.includes('.')) {
+      return lastPart;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Ошибка извлечения Google Drive ID:', error);
+    return null;
+  }
+};
+
 export const resolveMediaUrl = (url, type = 'image') => {
   const startTime = performance.now();
   
@@ -63,7 +94,8 @@ export const resolveMediaUrl = (url, type = 'image') => {
         return type === 'message' ? null : '/default-avatar.png';
       }
       
-      const proxyUrl = `${API_URL}/api/proxy-drive/${process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID}/${filename}?type=${type}`;
+      // Для сообщений используем проксирование через API
+      const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(filename)}?type=${type}`;
       
       return proxyUrl;
     }
@@ -72,20 +104,16 @@ export const resolveMediaUrl = (url, type = 'image') => {
     if (url.startsWith('http')) {
       // Google Drive обработка
       if (url.includes('drive.google.com')) {
-        try {
-          const fileId = 
-            new URL(url).searchParams.get('id') || 
-            url.split('/').pop() || 
-            url.match(/\/file\/d\/([^/]+)/)?.[1] ||
-            url.match(/\/uc\?id=([^&]+)/)?.[1];
-          
-          if (fileId) {
-            // Всегда используем прокси для Google Drive файлов
-            const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
-            return proxyUrl;
-          }
-        } catch (error) {
-          // Тихо обрабатываем ошибку
+        const fileId = extractGoogleDriveFileId(url);
+        
+        if (fileId) {
+          // Всегда используем прокси для Google Drive файлов
+          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
+          return proxyUrl;
+        } else {
+          // Если не удалось извлечь ID, возвращаем оригинальный URL как fallback
+          console.warn('Не удалось извлечь Google Drive ID из URL:', url);
+          return url;
         }
       }
 

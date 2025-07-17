@@ -30,6 +30,37 @@ export const getProfileGifThumbnail = (post) => {
   return processMediaUrl(post, 'video');
 };
 
+// Функция для извлечения Google Drive File ID из различных форматов URL
+const extractGoogleDriveFileId = (url) => {
+  if (!url || !url.includes('drive.google.com')) return null;
+  
+  try {
+    // Формат: https://drive.google.com/uc?id=FILE_ID
+    const ucMatch = url.match(/[?&]id=([^&]+)/);
+    if (ucMatch) return ucMatch[1];
+    
+    // Формат: https://drive.google.com/file/d/FILE_ID/view
+    const fileMatch = url.match(/\/file\/d\/([^/]+)/);
+    if (fileMatch) return fileMatch[1];
+    
+    // Формат: https://drive.google.com/open?id=FILE_ID
+    const openMatch = url.match(/open\?id=([^&]+)/);
+    if (openMatch) return openMatch[1];
+    
+    // Если URL заканчивается на FILE_ID
+    const parts = url.split('/');
+    const lastPart = parts[parts.length - 1];
+    if (lastPart && lastPart.length > 20 && !lastPart.includes('.')) {
+      return lastPart;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Ошибка извлечения Google Drive ID:', error);
+    return null;
+  }
+};
+
 // Получение превью для любого типа медиа (для модалки и фоновых изображений)
 export const getMediaThumbnail = (post) => {
   if (!post) return '/video-placeholder.svg';
@@ -75,21 +106,11 @@ export const getMediaThumbnail = (post) => {
 
   // Для Google Drive видео
   if (post.videoUrl && post.videoUrl.includes('drive.google.com')) {
-    try {
-      const url = new URL(post.videoUrl);
-      const fileId = url.searchParams.get('id') || 
-                     post.videoUrl.split('/').pop() || 
-                     post.videoUrl.match(/\/file\/d\/([^/]+)/)?.[1];
-      
-      if (fileId) {
-        const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
-        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
-      }
-    } catch (e) {
-      console.error("Invalid Google Drive URL", {
-        videoUrl: post.videoUrl,
-        error: e.message
-      });
+    const fileId = extractGoogleDriveFileId(post.videoUrl);
+    
+    if (fileId) {
+      const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
+      return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
     }
   }
 
@@ -145,23 +166,13 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
   
   // Для Google Drive видео
   if (videoUrl && videoUrl.includes('drive.google.com')) {
-    try {
-      const url = new URL(videoUrl);
-      const fileId = url.searchParams.get('id') || 
-                     videoUrl.split('/').pop() || 
-                     videoUrl.match(/\/file\/d\/([^/]+)/)?.[1];
+    const fileId = extractGoogleDriveFileId(videoUrl);
+    
+    if (fileId) {
+      const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
       
-      if (fileId) {
-        const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
-        
-        // Приоритет: thumbnail, затем первый кадр
-        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail,first_frame`;
-      }
-    } catch (e) {
-      console.error("Invalid Google Drive URL", {
-        videoUrl: videoUrl,
-        error: e.message
-      });
+      // Приоритет: thumbnail, затем первый кадр
+      return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail,first_frame`;
     }
   }
 

@@ -29,13 +29,22 @@ export const processMediaUrl = (url, type = 'image') => {
       null;
   }
 
-  // Для сообщений извлекаем только имя файла
+  // Для сообщений извлекаем только имя файла и используем проксирование
   if (type === 'message' && typeof url === 'string') {
-    const filename = url.split('/').pop();
-    const proxyUrl = `${API_URL}/api/proxy-drive/${process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID}/${filename}?type=${type}`;
+    // Если это уже полный URL, используем его как есть
+    if (url.startsWith('http')) {
+      const resolvedUrl = resolveMediaUrl(url, type);
+      URL_CACHE.set(cacheKey, resolvedUrl);
+      return resolvedUrl;
+    }
     
-    URL_CACHE.set(cacheKey, proxyUrl);
-    return proxyUrl;
+    // Если это локальный путь, извлекаем имя файла
+    const filename = url.split('/').pop();
+    if (filename && filename !== url) {
+      const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(filename)}?type=${type}`;
+      URL_CACHE.set(cacheKey, proxyUrl);
+      return proxyUrl;
+    }
   }
 
   const resolvedUrl = resolveMediaUrl(url, type);
@@ -44,7 +53,7 @@ export const processMediaUrl = (url, type = 'image') => {
   URL_CACHE.set(cacheKey, resolvedUrl);
 
   return resolvedUrl;
-  };
+};
 
 // Алиасы для обратной совместимости
 export const getImageUrl = processMediaUrl;
