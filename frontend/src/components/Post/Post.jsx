@@ -461,58 +461,13 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                      (post.image && (post.image.includes('.mp4') || post.image.includes('video/'))) ||
                      (post.image && (post.image.includes('.mp4') || post.image.includes('video/')))) {
              
-             // На мобильных (≤900px) используем VideoPreview для превью (НО НЕ для YouTube!)
-             if (window.innerWidth <= 900 && !(post.videoUrl && (post.videoUrl.includes('youtube') || post.videoUrl.includes('youtu.be')))) {
-               return (
-                 <VideoPreview 
-                   post={post}
-                   onClick={post.videoUrl || post.youtubeData ? () => onImageClick(post) : undefined}
-                   onDoubleClick={handleLike}
-                 />
-               );
-             }
-             
-             // На десктопе (≥901px) обычное видео с улучшенной производительностью
+             // Везде используем VideoPreview для видео (как в профиле)
              return (
-               <video 
-                 src={getVideoUrl(post.image, { mimeType: post.mimeType })}
-                 className="post-video"
-                 controls={true}
-                 muted={false}
-                 playsInline
-                 webkit-playsinline="true"
-                 x5-playsinline="true"
-                 x5-video-player-type="h5"
-                 x5-video-player-fullscreen="true"
-                 x5-video-orientation="portrait"
-                 preload="none"
-                 loading="lazy"
-                 style={{ 
-                   width: '100%', 
-                   height: 'auto', 
-                   maxHeight: '900px', 
-                   cursor: 'default',
-                   objectFit: 'contain'
-                 }}
+               <VideoPreview 
+                 post={post}
+                 onClick={() => onImageClick(post)}
                  onDoubleClick={handleLike}
-                 onPlay={(e) => videoManager.setCurrentVideo(e.target)}
-                 onPause={(e) => {
-                   if (videoManager.getCurrentVideo() === e.target) {
-                     videoManager.pauseCurrentVideo();
-                   }
-                 }}
-                 onError={(e) => {
-                   console.error('Video error in feed:', e.target.error);
-                 }}
-                 onLoadStart={() => {
-                   // Начинаем загрузку только при взаимодействии
-                   if (e.target.preload === 'none') {
-                     e.target.preload = 'metadata';
-                   }
-                 }}
-               >
-                 Your browser does not support the video tag.
-               </video>
+               />
              );
            } else if (post.image) {
             return (

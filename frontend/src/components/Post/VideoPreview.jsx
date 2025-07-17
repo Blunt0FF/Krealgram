@@ -1,7 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
-import { getVideoUrl } from '../../utils/imageUtils';
+import { getVideoUrl, getImageUrl } from '../../utils/imageUtils';
 import videoManager from '../../utils/videoManager';
+
+// Функция для получения превью поста (как в профиле)
+const getPostThumbnail = (post) => {
+  // Используем ту же логику, что и в профиле и уведомлениях
+  const urls = [
+    post.thumbnailUrl,
+    post.imageUrl,
+    post.image,
+    post.youtubeData?.thumbnailUrl,
+    post.preview,
+    post.gifPreview,
+    '/default-post-placeholder.png'
+  ].filter(Boolean);
+
+  // Используем getImageUrl как в профиле
+  return getImageUrl(urls[0]);
+};
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
   const [imageError, setImageError] = useState(false);
@@ -11,6 +28,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const [videoLoaded, setVideoLoaded] = useState(false);
   const videoRef = useRef(null);
   
+  // Используем ту же логику что и в профиле
+  const thumbnailUrl = getPostThumbnail(post);
   const gifUrl = getVideoPreviewThumbnail(post);
   const staticUrl = getStaticThumbnail(post);
 
@@ -178,10 +197,10 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         />
       )}
 
-      {/* Основное GIF превью */}
-      {!imageError && !showVideo && (
+      {/* Основное GIF превью (как в профиле) */}
+      {!imageError && !showVideo && thumbnailUrl && (
         <img
-          src={gifUrl}
+          src={thumbnailUrl}
           alt="Video preview"
           style={{
             width: '100%',
@@ -195,7 +214,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       )}
       
       {/* Fallback статичное превью */}
-      {(imageError || !gifUrl) && !showVideo && (
+      {(imageError || !thumbnailUrl) && !showVideo && (
         <img
           src={staticUrl}
           alt="Video static preview"

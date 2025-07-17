@@ -19,6 +19,7 @@ const bodyParser = require('body-parser');
 const connectDB = require('./config/db');
 const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
 const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
+require('./utils/tempCleanup'); // Автоматическая очистка temp папок
 
 // Уменьшаем количество логов
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
