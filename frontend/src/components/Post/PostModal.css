@@ -545,28 +545,38 @@
   }
 
   .post-modal-image {
-    flex-shrink: 0; /* Изображение не сжимается */
-    height: auto !important; /* ДИНАМИЧЕСКАЯ ВЫСОТА ПОД КОНТЕНТ */
-    max-height: 55vh !important; /* УМЕНЬШИЛ МАКСИМАЛЬНУЮ ВЫСОТУ */
-    min-height: 200px !important; /* МИНИМАЛЬНАЯ ВЫСОТА ДЛЯ МАЛЕНЬКИХ КАРТИНОК */
-    background: white; /* Белый фон для картинок */
+    flex: 2;
+    min-height: 160px !important;
+    height: auto !important;
+    background: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative; /* ВАЖНО ДЛЯ ABSOLUTE ПОЗИЦИОНИРОВАНИЯ ДЕТЕЙ */
-    overflow: hidden; /* ОБРЕЗАЕМ ВСЕ ЧТО ВЫХОДИТ ЗА ГРАНИЦЫ */
+    position: relative;
+    overflow: visible; /* Убираем обрезание */
   }
 
   /* Убираем черный фон - всегда белый на планшетах */
 
   .post-modal-sidebar {
-    flex: 1; /* Сайдбар занимает все оставшееся место */
-    min-height: 0; /* Очень важно для правильного сжатия flex-item */
+    flex: 1;
+    min-height: 0;
     width: 100%;
     min-width: unset;
     max-width: unset;
     border-left: none;
     border-top: 1px solid #efefef;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .comments-and-form-wrapper {
+    max-height: 25vh; /* Ограничиваем высоту секции комментариев */
+    overflow-y: auto; /* Добавляем прокрутку если нужно */
+  }
+
+  .comments-section {
+    scroll-behavior: smooth; /* Плавная прокрутка */
   }
 
   .post-content {
@@ -614,7 +624,6 @@
   .post-modal-image img {
     width: 100%;
     height: auto; /* ДИНАМИЧЕСКАЯ ВЫСОТА ДЛЯ КАРТИНОК НА ПЛАНШЕТАХ */
-    max-height: 100%;
     object-fit: contain;
     background: white;
   }
@@ -641,16 +650,15 @@
   }
 
   .post-modal-image {
-    flex-shrink: 0; /* Изображение не сжимается */
+    flex: 2; /* Используем те же пропорции что и для 900px */
     height: auto !important; /* ДИНАМИЧЕСКАЯ ВЫСОТА ПОД КОНТЕНТ */
-    max-height: 55vh !important; /* УВЕЛИЧИЛ ОБРАТНО */
-    min-height: 200px !important; /* УВЕЛИЧИЛ МИНИМАЛЬНУЮ ВЫСОТУ */
+    min-height: 160px !important; /* МИНИМАЛЬНАЯ ВЫСОТА */
     background: white; /* Белый фон для картинок */
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative; /* ВАЖНО ДЛЯ ABSOLUTE ПОЗИЦИОНИРОВАНИЯ ДЕТЕЙ */
-    overflow: hidden; /* ОБРЕЗАЕМ ВСЕ ЧТО ВЫХОДИТ ЗА ГРАНИЦЫ */
+    overflow: visible; /* Убираем обрезание */
   }
 
   /* Убираем черный фон - всегда белый на мобильных */
@@ -663,6 +671,15 @@
     max-width: unset;
     border-left: none;
     border-top: 1px solid #efefef;
+  }
+
+  .comments-and-form-wrapper {
+    max-height: 25vh; /* Ограничиваем высоту секции комментариев */
+    overflow-y: auto; /* Добавляем прокрутку если нужно */
+  }
+
+  .comments-section {
+    scroll-behavior: smooth; /* Плавная прокрутка */
   }
 
   .post-content {
@@ -724,7 +741,6 @@
   .post-modal-image img {
     width: 100%;
     height: auto; /* ДИНАМИЧЕСКАЯ ВЫСОТА ДЛЯ КАРТИНОК НА МОБИЛЬНЫХ */
-    max-height: 100%;
     object-fit: contain;
     background: white;
   }

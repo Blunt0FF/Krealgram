@@ -179,6 +179,21 @@ const PostModal = memo(({
     }
   }, [comments, topCommentId, justSubmittedComment]);
 
+  // Автоматическая прокрутка вниз для comments-section на мобильных устройствах
+  useEffect(() => {
+    if (isOpen && commentsContainerRef.current) {
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        // Небольшая задержка для полной загрузки контента
+        setTimeout(() => {
+          if (commentsContainerRef.current) {
+            commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight;
+          }
+        }, 100);
+      }
+    }
+  }, [isOpen, comments]);
+
   const handleTouchStart = (e) => {
     if (e.target.closest('.post-modal-sidebar') || e.target.closest('.modal-nav-btn')) return;
     
