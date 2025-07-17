@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 import { getVideoUrl } from '../../utils/imageUtils';
+import videoManager from '../../utils/videoManager';
 
 const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {} }) => {
   const [imageError, setImageError] = useState(false);
   const [staticError, setStaticError] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
   const videoRef = useRef(null);
   
   const gifUrl = getVideoPreviewThumbnail(post);
@@ -65,6 +67,27 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       }
     }
   };
+
+  // Обработка окончания видео
+  const handleVideoEnded = () => {
+    setIsVideoPlaying(false);
+    setShowVideo(false);
+    // Не перезапускаем автоматически - пользователь может кликнуть снова
+  };
+
+  // Обработка загрузки видео
+  const handleVideoLoaded = () => {
+    setVideoLoaded(true);
+  };
+
+  // Очистка при размонтировании
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
+    };
+  }, []);
 
   // Если обе картинки не загрузились, показываем placeholder
   if (imageError && staticError) {
@@ -132,11 +155,24 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          onPlay={() => setIsVideoPlaying(true)}
-          onPause={() => setIsVideoPlaying(false)}
-          onEnded={() => {
+          preload="metadata"
+          onPlay={() => {
+            setIsVideoPlaying(true);
+            videoManager.setCurrentVideo(videoRef.current);
+          }}
+          onPause={() => {
             setIsVideoPlaying(false);
-            setShowVideo(false);
+            if (videoManager.getCurrentVideo() === videoRef.current) {
+              videoManager.pauseCurrentVideo();
+            }
+          }}
+          onEnded={handleVideoEnded}
+          onLoadedData={handleVideoLoaded}
+          onError={(e) => {
+            console.error('Video error:', e.target.error);
+            console.log('Failed video src:', e.target.src);
+            // Fallback к модалке при ошибке
+            onClick && onClick();
           }}
           onClick={(e) => e.stopPropagation()}
         />

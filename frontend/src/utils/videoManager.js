@@ -4,6 +4,7 @@ class VideoManager {
   constructor() {
     this.currentVideo = null;
     this.observers = new Set();
+    this.feedVideos = new Set();
   }
 
   // Устанавливает текущее активное видео
@@ -47,10 +48,16 @@ class VideoManager {
       if (!video.closest('.post-modal-overlay') && 
           !video.closest('.video-stories-modal-overlay')) {
         video.pause();
+        this.feedVideos.add(video);
       }
     });
     this.currentVideo = null;
     this.notifyObservers();
+  }
+
+  // Восстанавливает воспроизведение видео в ленте
+  resumeFeedVideos() {
+    this.feedVideos.clear();
   }
 
   // Получает текущее активное видео
@@ -108,6 +115,7 @@ class VideoManager {
     });
     this.observers.clear();
     this.currentVideo = null;
+    this.feedVideos.clear();
   }
 }
 

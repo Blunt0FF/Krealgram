@@ -132,9 +132,11 @@ class UniversalThumbnailGenerator {
       return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
           .outputOptions([
-            '-vf', 'fps=30,scale=320:-1',
-            '-t', '30',  // Максимальная длительность 30 секунд
-            '-compression_level', '6'
+            // Меньше fps, лучшее сжатие, 30 секунд
+            '-vf', 'fps=8,scale=320:-1',
+            '-t', '30',
+            '-compression_level', '9',
+            '-q:v', '30'
           ])
           .toFormat('gif')
           .on('end', async () => {
@@ -153,10 +155,10 @@ class UniversalThumbnailGenerator {
                 return;
               }
 
-              // Загружаем в Google Drive
+              // Загружаем в Google Drive в папку GIF
               const fileMetadata = {
                 name: thumbnailFileName,
-                parents: [process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID]
+                parents: [process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID]
               };
 
               const result = await googleDrive.drive.files.create({

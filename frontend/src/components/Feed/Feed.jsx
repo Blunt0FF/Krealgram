@@ -4,6 +4,7 @@ import Post from '../Post/Post';
 import PostModal from '../Post/PostModal';
 import VideoStories from '../VideoStories/VideoStories';
 import Toast from '../common/Toast';
+import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import './Feed.css';
 
@@ -148,6 +149,8 @@ const Feed = ({ user }) => {
     setIsModalOpen(false);
     setSelectedPost(null);
     document.body.style.overflow = 'auto';
+    // Восстанавливаем возможность воспроизведения видео в ленте
+    videoManager.resumeFeedVideos();
   };
 
   const goToPreviousPost = () => {

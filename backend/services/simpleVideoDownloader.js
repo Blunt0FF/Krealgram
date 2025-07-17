@@ -52,7 +52,7 @@ class SimpleVideoDownloader {
       
       const fileMetadata = {
         name: `${platform}_${videoId}_preview.gif`,
-        parents: [process.env.GOOGLE_DRIVE_PREVIEW_FOLDER_ID]
+        parents: [process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID]
       };
       
       const media = {

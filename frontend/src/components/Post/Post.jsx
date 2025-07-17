@@ -472,7 +472,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                );
              }
              
-             // На десктопе (≥901px) обычное видео БЕЗ poster как в 5a528d1
+             // На десктопе (≥901px) обычное видео с улучшенной производительностью
              return (
                <video 
                  src={getVideoUrl(post.image, { mimeType: post.mimeType })}
@@ -480,7 +480,13 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                  controls={true}
                  muted={false}
                  playsInline
-                 preload="metadata"
+                 webkit-playsinline="true"
+                 x5-playsinline="true"
+                 x5-video-player-type="h5"
+                 x5-video-player-fullscreen="true"
+                 x5-video-orientation="portrait"
+                 preload="none"
+                 loading="lazy"
                  style={{ 
                    width: '100%', 
                    height: 'auto', 
@@ -493,6 +499,15 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                  onPause={(e) => {
                    if (videoManager.getCurrentVideo() === e.target) {
                      videoManager.pauseCurrentVideo();
+                   }
+                 }}
+                 onError={(e) => {
+                   console.error('Video error in feed:', e.target.error);
+                 }}
+                 onLoadStart={() => {
+                   // Начинаем загрузку только при взаимодействии
+                   if (e.target.preload === 'none') {
+                     e.target.preload = 'metadata';
                    }
                  }}
                >

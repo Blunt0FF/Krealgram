@@ -32,10 +32,10 @@ const getPostPreviewUrl = (post) => {
 
     // Создаем статичное превью для Cloudinary видео
     const videoUrl = post.imageUrl || post.image;
-    return videoUrl.replace(
-      '/video/upload/',
-      `/video/upload/w_50,h_50,c_fill,f_jpg,so_0,q_auto/`
-    );
+      return videoUrl.replace(
+        '/video/upload/',
+        `/video/upload/w_50,h_50,c_fill,f_jpg,so_0,q_auto/`
+      );
   }
 
   // Для обычных изображений

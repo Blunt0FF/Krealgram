@@ -429,10 +429,8 @@ const PostModal = memo(({
   };
 
   const requestDeletePost = () => {
-    if (window.confirm('Are you sure you want to delete this post?')) {
-      onDeletePost(postId);
-      onClose();
-    }
+    onDeletePost(postId);
+    onClose();
   };
 
   const requestEditPost = () => {

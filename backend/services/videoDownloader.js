@@ -2,7 +2,90 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const ffmpeg = require('fluent-ffmpeg');
-const { generateUniversalGifThumbnail } = require('../utils/imageCompressor');
+const axios = require('axios');
+const { generateVideoThumbnail } = require('../utils/imageCompressor');
+const googleDrive = require('../config/googleDrive');
+
+// Функция для создания GIF-превью из видео
+const generateGifThumbnail = async (videoPath) => {
+  try {
+    console.log('[GIF_THUMBNAIL] Создаем GIF-превью из видео:', videoPath);
+    
+    const tempGifPath = path.join(path.dirname(videoPath), `gif-preview-${Date.now()}.gif`);
+    
+    return new Promise((resolve, reject) => {
+      ffmpeg(videoPath)
+        .outputOptions([
+          '-vf', 'fps=15,scale=320:-1',
+          '-t', '3',  // Максимальная длительность 3 секунды
+          '-compression_level', '6'
+        ])
+        .toFormat('gif')
+        .on('end', async () => {
+          try {
+            // Читаем файл
+            const gifBuffer = await fs.promises.readFile(tempGifPath);
+            
+            // Проверяем размер GIF
+            const maxSizeMB = 2;
+            const sizeMB = gifBuffer.length / (1024 * 1024);
+            
+            if (sizeMB > maxSizeMB) {
+              console.warn(`[GIF_THUMBNAIL] GIF слишком большой (${sizeMB.toFixed(2)}MB), пропускаем`);
+              await fs.promises.unlink(tempGifPath);
+              resolve(null);
+              return;
+            }
+            
+            console.log('[GIF_THUMBNAIL] ✅ GIF-превью создано:', tempGifPath);
+            resolve({
+              buffer: gifBuffer,
+              filename: path.basename(tempGifPath),
+              path: tempGifPath
+            });
+          } catch (readError) {
+            console.error('[GIF_THUMBNAIL] Ошибка чтения GIF:', readError);
+            reject(readError);
+          }
+        })
+        .on('error', (err) => {
+          console.error('[GIF_THUMBNAIL] Ошибка создания GIF:', err);
+          reject(err);
+        })
+        .save(tempGifPath);
+    });
+  } catch (error) {
+    console.error('[GIF_THUMBNAIL] Ошибка генерации GIF-превью:', error);
+    throw error;
+  }
+};
+
+// Функция для загрузки буфера в Google Drive с правильными папками
+const uploadBufferToGoogleDrive = async (buffer, filename, mimetype, context) => {
+  try {
+    console.log(`[UPLOAD_BUFFER] Загружаем ${context}: ${filename} (${mimetype})`);
+    
+    // Выбираем папку в зависимости от контекста и типа файла
+    let folderId;
+    if (context === 'preview' || mimetype.startsWith('image/')) {
+      folderId = process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID;
+    } else if (mimetype.startsWith('video/')) {
+      folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
+    } else {
+      folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
+    }
+    
+    console.log(`[UPLOAD_BUFFER] Используем папку: ${folderId}`);
+    
+    const result = await googleDrive.uploadFile(buffer, filename, mimetype, folderId);
+    
+    console.log(`[UPLOAD_BUFFER] ✅ Файл загружен в папку ${folderId}:`, result.secure_url);
+    return result;
+  } catch (error) {
+    console.error(`[UPLOAD_BUFFER] ❌ Ошибка загрузки ${context}:`, error);
+    throw error;
+  }
+};
 
 
 class VideoDownloader {
@@ -86,20 +169,20 @@ class VideoDownloader {
 
       let generatedThumbnailUrl = null;
       try {
-        const thumbnailPath = await generateUniversalGifThumbnail(tempVideoPath);
-        console.log('🖼️ GIF Preview создан:', thumbnailPath);
+        const gifResult = await generateGifThumbnail(tempVideoPath);
+        console.log('🖼️ GIF Preview создан:', gifResult);
 
-        if (thumbnailPath) {
-          const thumbnailBuffer = await fs.readFile(thumbnailPath);
+        if (gifResult && gifResult.buffer) {
           const thumbnailDriveResult = await uploadBufferToGoogleDrive(
-            thumbnailBuffer, 
-            `preview-${path.basename(thumbnailPath)}`, 
+            gifResult.buffer, 
+            gifResult.filename, 
             'image/gif', 
             'preview'
           );
           generatedThumbnailUrl = thumbnailDriveResult.secure_url;
           
-          await fs.unlink(thumbnailPath);
+          // Удаляем временный GIF файл
+          await fs.promises.unlink(gifResult.path);
         }
       } catch (previewError) {
         console.error('❌ Ошибка создания GIF Preview:', previewError);
@@ -293,46 +376,6 @@ class VideoDownloader {
     return `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
-
-const generateVideoThumbnail = async (videoPath) => {
-  try {
-    console.log('[THUMBNAIL_GEN] Starting video thumbnail generation from path:', videoPath);
-    
-    // Проверяем существование файла
-    if (!fs.existsSync(videoPath)) {
-      throw new Error('Видео файл не найден');
-    }
-
-    const thumbnailPath = path.join(
-      path.dirname(videoPath), 
-      `thumb-${Date.now()}.jpg`
-    );
-
-    // Используем ffmpeg для генерации превью
-    await new Promise((resolve, reject) => {
-      ffmpeg(videoPath)
-        .screenshots({
-          count: 1,
-          folder: path.dirname(thumbnailPath),
-          filename: path.basename(thumbnailPath),
-          size: '320x240'
-        })
-        .on('end', () => {
-          console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
-          resolve(thumbnailPath);
-        })
-        .on('error', (err) => {
-          console.error('[THUMBNAIL_GEN] ❌ Thumbnail generation error:', err);
-          reject(err);
-        });
-    });
-
-    return thumbnailPath;
-  } catch (error) {
-    console.error('[THUMBNAIL_GEN] Ошибка генерации превью:', error);
-    throw error;
-  }
-};
 
 module.exports = VideoDownloader; 
 

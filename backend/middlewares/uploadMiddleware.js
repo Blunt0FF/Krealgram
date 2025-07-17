@@ -7,9 +7,64 @@ const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerato
 const thumbnailGenerator = new UniversalThumbnailGenerator();
 const imageCompressor = require('../utils/imageCompressor').ImageCompressor;
 const imageCompressorInstance = new imageCompressor();
+const ffmpeg = require('fluent-ffmpeg');
 
 const TEMP_INPUT_DIR = path.resolve(process.cwd(), 'temp/input');
 const TEMP_OUTPUT_DIR = path.resolve(process.cwd(), 'temp/output');
+
+// Функция для создания GIF-превью из видео
+const generateGifThumbnail = async (videoPath) => {
+  try {
+    console.log('[GIF_THUMBNAIL] Создаем GIF-превью из видео:', videoPath);
+    
+    const tempGifPath = path.join(path.dirname(videoPath), `gif-preview-${Date.now()}.gif`);
+    
+    return new Promise((resolve, reject) => {
+      ffmpeg(videoPath)
+        .outputOptions([
+          '-vf', 'fps=15,scale=320:-1',
+          '-t', '3',  // Максимальная длительность 3 секунды
+          '-compression_level', '6'
+        ])
+        .toFormat('gif')
+        .on('end', async () => {
+          try {
+            // Читаем файл
+            const gifBuffer = await fsPromises.readFile(tempGifPath);
+            
+            // Проверяем размер GIF
+            const maxSizeMB = 2;
+            const sizeMB = gifBuffer.length / (1024 * 1024);
+            
+            if (sizeMB > maxSizeMB) {
+              console.warn(`[GIF_THUMBNAIL] GIF слишком большой (${sizeMB.toFixed(2)}MB), пропускаем`);
+              await fsPromises.unlink(tempGifPath);
+              resolve(null);
+              return;
+            }
+            
+            console.log('[GIF_THUMBNAIL] ✅ GIF-превью создано:', tempGifPath);
+            resolve({
+              buffer: gifBuffer,
+              filename: path.basename(tempGifPath),
+              path: tempGifPath
+            });
+          } catch (readError) {
+            console.error('[GIF_THUMBNAIL] Ошибка чтения GIF:', readError);
+            reject(readError);
+          }
+        })
+        .on('error', (err) => {
+          console.error('[GIF_THUMBNAIL] Ошибка создания GIF:', err);
+          reject(err);
+        })
+        .save(tempGifPath);
+    });
+  } catch (error) {
+    console.error('[GIF_THUMBNAIL] Ошибка генерации GIF-превью:', error);
+    throw error;
+  }
+};
 
 // Создаем директории при загрузке модуля
 const ensureTempDir = async (dirPath) => {
@@ -58,14 +113,20 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
         );
       }
     } else if (context === 'post' && fileMimetype.startsWith('video/')) {
-      const thumbnail = await thumbnailGenerator.generateVideoThumbnail(fileBuffer);
-      if (thumbnail) {
-        thumbnailBuffer = thumbnail.buffer;
+      // Создаем GIF-превью для видео
+      const gifResult = await generateGifThumbnail(tempInputPath);
+      if (gifResult && gifResult.buffer) {
         thumbnailUrl = await uploadThumbnailToDrive(
-          thumbnailBuffer, 
-          thumbnail.filename,
-          'image/jpeg'
+          gifResult.buffer, 
+          gifResult.filename,
+          'image/gif'
         );
+        // Удаляем временный GIF файл
+        await fsPromises.unlink(gifResult.path).catch(err => {
+          if (err.code !== 'ENOENT') {
+            console.error(`Failed to clean up GIF file: ${gifResult.path}`, err);
+          }
+        });
       }
     }
 
@@ -84,7 +145,15 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
 };
 
 // Функция для загрузки превью в папку превью
-const uploadThumbnailToDrive = async (thumbnailBuffer, filename, mimetype, folderId = process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID) => {
+const uploadThumbnailToDrive = async (thumbnailBuffer, filename, mimetype, folderId = null) => {
+  // Выбираем папку в зависимости от типа файла
+  if (!folderId) {
+    if (mimetype === 'image/gif') {
+      folderId = process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID;
+    } else {
+      folderId = process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID;
+    }
+  }
   try {
     console.log('[THUMBNAIL_UPLOAD] Загрузка превью:', {
       filename,
@@ -262,6 +331,11 @@ const uploadToGoogleDrive = async (req, res, next) => {
     const driveFilename = context === 'avatar' 
       ? `avatar_${safeUsername}${ext}` 
       : originalFilename;
+
+    // Если это видео — всегда используем папку для видео
+    if (fileMimetype.startsWith('video/')) {
+      folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
+    }
 
     // Загрузка файла
     const result = await googleDrive.uploadFile(

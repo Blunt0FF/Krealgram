@@ -102,4 +102,19 @@ export const getImageUrl = processMediaUrl;
 export const getAvatarUrl = (avatarPath) => {
   return resolveAvatarUrl(avatarPath);
 };
-export const getVideoUrl = processMediaUrl;
+
+// Улучшенная функция для получения URL видео с оптимизацией для мобильных устройств
+export const getVideoUrl = (videoPath, options = {}) => {
+  if (!videoPath) return null;
+  
+  // Для мобильных устройств используем прямые ссылки Google Drive
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (isMobile && videoPath.includes('drive.google.com')) {
+    // На мобильных используем прямые ссылки для лучшей производительности
+    return videoPath;
+  }
+  
+  // Для десктопа используем стандартную обработку
+  return processMediaUrl(videoPath, 'video');
+};
