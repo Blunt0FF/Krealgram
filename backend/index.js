@@ -126,6 +126,31 @@ app.options('/api/proxy-drive/:id', (req, res) => {
   res.sendStatus(200);
 });
 
+// Обработка HEAD запросов для прокси (для получения метаданных)
+app.head('/api/proxy-drive/:id', async (req, res) => {
+  const fileId = req.params.id;
+  const drive = require('./config/googleDrive');
+  
+  try {
+    if (!drive.isInitialized) {
+      return res.status(500).send();
+    }
+
+    const meta = await drive.drive.files.get({
+      fileId,
+      fields: 'name, mimeType, size'
+    });
+    
+    res.set('Content-Type', meta.data.mimeType || 'application/octet-stream');
+    res.set('Content-Length', meta.data.size || 0);
+    res.set('Accept-Ranges', 'bytes');
+    res.set('Cache-Control', 'public, max-age=31536000');
+    res.send();
+  } catch (err) {
+    res.status(404).send();
+  }
+});
+
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
   const { type } = req.query;
@@ -201,7 +226,8 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
           'Access-Control-Allow-Headers': 'Range, Content-Range, Accept-Ranges',
           'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
-          'Cache-Control': 'public, max-age=31536000'
+          'Cache-Control': 'public, max-age=31536000',
+          'Accept-Ranges': 'bytes'
         });
         headersSent = true;
       }

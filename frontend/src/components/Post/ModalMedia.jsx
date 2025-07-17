@@ -104,6 +104,7 @@ const ModalMedia = memo(({ postData }) => {
   ) {
     const posterUrl = getMediaThumbnail(postData);
     const isDesktop = window.innerWidth >= 901;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     return (
       <video
@@ -112,9 +113,14 @@ const ModalMedia = memo(({ postData }) => {
         controls
         autoPlay={true}
         playsInline
-        muted={false}
-        preload="auto"
-        poster={!isDesktop ? posterUrl : undefined}
+        webkit-playsinline="true"
+        x5-playsinline="true"
+        x5-video-player-type="h5"
+        x5-video-player-fullscreen="true"
+        x5-video-orientation="portrait"
+        muted={isMobile ? true : false} // На мобильных сначала без звука для быстрой загрузки
+        preload={isMobile ? "metadata" : "auto"} // На мобильных загружаем только метаданные
+        poster={isMobile ? posterUrl : (!isDesktop ? posterUrl : undefined)}
         style={{
           width: '100%',
           height: 'auto',
@@ -123,10 +129,25 @@ const ModalMedia = memo(({ postData }) => {
           objectFit: 'contain',
           display: 'block'
         }}
-        onPlay={(e) => videoManager.setCurrentVideo(e.target)}
+        onPlay={(e) => {
+          videoManager.setCurrentVideo(e.target);
+          // На мобильных включаем звук после начала воспроизведения
+          if (isMobile && e.target.muted) {
+            e.target.muted = false;
+          }
+        }}
         onPause={(e) => {
           if (videoManager.getCurrentVideo() === e.target) {
             videoManager.pauseCurrentVideo();
+          }
+        }}
+        onCanPlay={() => {
+          // На мобильных начинаем воспроизведение как только видео готово
+          if (isMobile) {
+            const video = document.querySelector('.post-modal-video');
+            if (video && video.paused) {
+              video.play().catch(err => console.log('Auto-play failed:', err));
+            }
           }
         }}
       />
