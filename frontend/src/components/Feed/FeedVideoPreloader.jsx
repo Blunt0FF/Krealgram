@@ -17,11 +17,21 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
     const videosToPreload = [];
     for (let i = currentIndex; i < Math.min(currentIndex + 3, posts.length); i++) {
       const post = posts[i];
-      if (post && post.mediaType === 'video' && (post.imageUrl || post.image) && !preloadedVideos.current.has(post._id)) {
-        videosToPreload.push({
-          id: post._id,
-          url: post.imageUrl || post.image
-        });
+      if (post && (post.imageUrl || post.image) && !preloadedVideos.current.has(post._id)) {
+        // Проверяем, является ли это видео
+        const isVideo = 
+          post.mediaType === 'video' ||
+          (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
+          (post.image && (post.image.includes('.mp4') || post.image.includes('video/'))) ||
+          post.videoUrl ||
+          post.youtubeData;
+        
+        if (isVideo) {
+          videosToPreload.push({
+            id: post._id,
+            url: post.imageUrl || post.image
+          });
+        }
       }
     }
 
@@ -38,18 +48,20 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         video.playsInline = true;
         
         const handleLoadedMetadata = () => {
-          preloadedVideos.current.add(id);
-          console.log(`Video preloaded: ${id}`);
+          if (!preloadedVideos.current.has(id)) {
+            preloadedVideos.current.add(id);
+            console.log(`Video preloaded: ${id}`);
+          }
         };
 
         const handleError = (e) => {
-          console.error(`Video preload error for ${id}:`, e);
-          // Не логируем ошибки для несуществующих файлов
+          // Убираем логирование ошибок предзагрузки, так как они не критичны
+          // console.error(`Video preload error for ${id}:`, e);
         };
 
-        video.addEventListener('loadedmetadata', handleLoadedMetadata);
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
         video.addEventListener('error', handleError);
-        video.addEventListener('canplay', handleLoadedMetadata);
+        video.addEventListener('canplay', handleLoadedMetadata, { once: true });
 
         video.src = resolvedUrl;
         videoElements.current.set(id, video);

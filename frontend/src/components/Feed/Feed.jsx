@@ -66,7 +66,8 @@ const Feed = ({ user }) => {
         setHasMore(data.length === 10);
       } catch (err) {
         setError('Could not fetch feed. Please try again.');
-        console.error(err);
+        // Убираем лишнее логирование ошибок
+        // console.error(err);
       } finally {
         setLoading(false);
         isFetching.current = false;
@@ -245,12 +246,6 @@ const Feed = ({ user }) => {
           </div>
         ))}
         
-        {loading && (
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-          </div>
-        )}
-        
         {error && <div className="feed-error">{error}</div>}
         
         {!loading && !hasMore && posts.length > 0 && (
@@ -259,6 +254,13 @@ const Feed = ({ user }) => {
           </div>
         )}
       </div>
+      
+      {/* Loading spinner - вынесен из .feed для правильного центрирования */}
+      {loading && (
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+        </div>
+      )}
 
       {/* Post Modal */}
       {isModalOpen && selectedPost && (

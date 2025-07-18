@@ -178,13 +178,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
   const drive = require('./config/googleDrive');
   const axios = require('axios');
 
-  console.log(`[PROXY-DRIVE_FULL_DEBUG] Incoming request details:`, {
-    fileId,
-    headers: req.headers,
-    method: req.method,
-    url: req.url,
-    isInitialized: drive.isInitialized
-  });
+  // Убираем лишнее логирование
 
   try {
     console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
@@ -275,11 +269,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     const fileName = meta.data.name || 'file';
     const fileSize = meta.data.size || 0;
 
-    console.log(`[PROXY-DRIVE_FULL_DEBUG] File metadata:`, {
-      mimeType,
-      fileName,
-      fileSize
-    });
+    // Убираем лишнее логирование
 
     const fileRes = await drive.drive.files.get({
       fileId,
@@ -306,18 +296,32 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     };
 
     if (range) {
-      console.log(`[PROXY-DRIVE_FULL_DEBUG] Range request:`, range);
+      // Улучшенная обработка Range-запросов для видео
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = (end - start) + 1;
 
-      sendHeaders(206, {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-        'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
-        'Content-Type': mimeType
-      });
+      // Для видео добавляем дополнительную буферизацию
+      if (mimeType.startsWith('video/')) {
+        // Увеличиваем размер чанка для лучшей буферизации
+        const adjustedEnd = Math.min(end + 512 * 1024, fileSize - 1); // +512KB буфера
+        const adjustedChunksize = (adjustedEnd - start) + 1;
+        
+        sendHeaders(206, {
+          'Content-Range': `bytes ${start}-${adjustedEnd}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': adjustedChunksize,
+          'Content-Type': mimeType
+        });
+      } else {
+        sendHeaders(206, {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': mimeType
+        });
+      }
     } else {
       sendHeaders(200, {
         'Content-Length': fileSize,
@@ -325,32 +329,43 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       });
     }
 
-    fileRes.data.on('data', (chunk) => {
-      console.log(`[PROXY-DRIVE_FULL_DEBUG] Chunk received: ${chunk.length} bytes`);
-    });
-
-    fileRes.data.on('end', () => {
-      console.log(`[PROXY-DRIVE_FULL_DEBUG] Файл ${fileId} полностью отправлен на фронт`);
-    });
-
     fileRes.data.on('error', (err) => {
-      console.error('[PROXY-DRIVE_FULL_DEBUG] Ошибка при отправке файла:', err);
+      console.error('[PROXY-DRIVE] Ошибка при отправке файла:', err);
       if (!headersSent) {
-      res.status(500).send('Error streaming file');
+        res.status(500).send('Error streaming file');
       }
     });
 
-    fileRes.data.pipe(res);
+    // Улучшенная обработка потока для видео
+    if (mimeType.startsWith('video/')) {
+      // Для видео используем более надежную обработку потока
+      fileRes.data.on('data', (chunk) => {
+        if (!res.destroyed) {
+          res.write(chunk);
+        }
+      });
+      
+      fileRes.data.on('end', () => {
+        if (!res.destroyed) {
+          res.end();
+        }
+      });
+      
+      fileRes.data.on('error', (err) => {
+        console.error('[PROXY-DRIVE] Ошибка при отправке видео:', err);
+        if (!res.destroyed && !res.headersSent) {
+          res.status(500).send('Error streaming video');
+        }
+      });
+    } else {
+      // Для остальных файлов используем обычное проксирование
+      fileRes.data.pipe(res);
+    }
   } catch (err) {
-    console.error('[PROXY-DRIVE_FULL_DEBUG] Полная ошибка:', {
-      message: err.message,
-      stack: err.stack,
-      code: err.code,
-      details: err.response ? err.response.data : null
-    });
+    console.error('[PROXY-DRIVE] Ошибка:', err.message);
 
     if (err.message && err.message.includes('File not found')) {
-      console.warn(`[PROXY-DRIVE_FULL_DEBUG] ⚠️ Файл не найден: ${fileId}`);
+      console.warn(`[PROXY-DRIVE] Файл не найден: ${fileId}`);
       
       // Fallback: пытаемся использовать прямой доступ к Google Drive
       try {

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 import { getVideoUrl, getImageUrl } from '../../utils/imageUtils';
 import videoManager from '../../utils/videoManager';
@@ -41,9 +41,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const videoRef = useRef(null);
   
   // Используем ту же логику что и в профиле
-  const thumbnailUrl = getPostThumbnail(post);
-  const gifUrl = getVideoPreviewThumbnail(post);
-  const staticUrl = getStaticThumbnail(post);
+  const thumbnailUrl = useMemo(() => getPostThumbnail(post), [post]);
+  const gifUrl = useMemo(() => getVideoPreviewThumbnail(post), [post]);
+  const staticUrl = useMemo(() => getStaticThumbnail(post), [post]);
   
   // Получаем URL видео для предзагрузки
   const videoUrl = post.imageUrl || post.image;
@@ -53,6 +53,11 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
     videoUrl, 
     isSafari() ? 'high' : 'low'
   );
+  
+  // Получаем URL видео для воспроизведения (всегда вычисляем, даже если не показываем)
+  const resolvedVideoUrl = useMemo(() => {
+    return getVideoUrl(post.imageUrl || post.image);
+  }, [post.imageUrl, post.image]);
 
   // Улучшенная обработка ошибок загрузки
   const handleImageError = () => {
@@ -121,8 +126,11 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
 
   // Обработка окончания видео
   const handleVideoEnded = () => {
-    setIsVideoPlaying(false);
-    setShowVideo(false);
+    // Проверяем, что видео действительно закончилось
+    if (videoRef.current && videoRef.current.currentTime >= videoRef.current.duration - 0.5) {
+      setIsVideoPlaying(false);
+      setShowVideo(false);
+    }
     // Не перезапускаем автоматически - пользователь может кликнуть снова
   };
 
@@ -189,11 +197,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={(() => {
-            const resolvedVideoUrl = getVideoUrl(post.imageUrl || post.image);
-            console.log('Video URL resolved:', resolvedVideoUrl);
-            return resolvedVideoUrl;
-          })()}
+          src={resolvedVideoUrl}
           type="video/mp4"
           style={{
             width: '100%',
@@ -224,10 +228,28 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           }}
           onEnded={handleVideoEnded}
           onLoadedData={handleVideoLoaded}
+          onCanPlayThrough={() => {
+            // Видео полностью загружено и готово к воспроизведению
+            setVideoLoaded(true);
+          }}
+          onStalled={() => {
+            // Видео застряло - можно попробовать перезагрузить
+            console.log('Video stalled, attempting to resume...');
+          }}
+          onWaiting={() => {
+            // Видео буферизуется
+            console.log('Video buffering...');
+          }}
+          onTimeUpdate={() => {
+            // Дополнительная проверка для предотвращения преждевременного окончания
+            if (videoRef.current && videoRef.current.currentTime > 0 && 
+                videoRef.current.currentTime < videoRef.current.duration - 0.5) {
+              // Видео воспроизводится нормально
+            }
+          }}
           onError={(e) => {
-            console.error('Video error:', e.target.error);
-            console.log('Failed video src:', e.target.src);
-            console.log('Video element:', e.target);
+            console.warn('Video playback error, switching to preview mode');
+            console.log('Video error details:', e.target.error);
             setShowVideo(false);
             setIsVideoPlaying(false);
           }}

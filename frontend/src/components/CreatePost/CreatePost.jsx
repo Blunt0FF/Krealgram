@@ -220,12 +220,24 @@ const CreatePost = () => {
     setVideoUrl(videoData.originalUrl || videoData.videoUrl);
     setMediaType('video');
     
-    // Улучшенная логика превью для YouTube
+    // Улучшенная логика превью для разных платформ
     if (videoData.platform === 'youtube' && videoData.videoId) {
       const thumbnailUrl = `https://img.youtube.com/vi/${videoData.videoId}/maxresdefault.jpg`;
       setPreviewUrl(thumbnailUrl);
     } else if (videoData.thumbnailUrl) {
-      setPreviewUrl(videoData.thumbnailUrl);
+      // Для TikTok/Instagram/YouTube Shorts используем проксированный GIF
+      if (videoData.platform === 'tiktok' || videoData.platform === 'instagram' || videoData.platform === 'youtube-shorts') {
+        // Извлекаем ID файла из Google Drive URL
+        const fileId = videoData.thumbnailUrl.match(/id=([^&]+)/)?.[1];
+        if (fileId) {
+          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=image`;
+          setPreviewUrl(proxyUrl);
+        } else {
+          setPreviewUrl(videoData.thumbnailUrl);
+        }
+      } else {
+        setPreviewUrl(videoData.thumbnailUrl);
+      }
     } else {
       setPreviewUrl(`https://via.placeholder.com/300x300/000000/FFFFFF?text=${videoData.platform?.toUpperCase()}+Video`);
     }
@@ -345,9 +357,11 @@ const CreatePost = () => {
                       fontSize: '24px',
                       marginBottom: '12px'
                     }}>
-                      {parsedVideoData.platform === 'youtube' ? '📺' : '🎥'}
+                      {parsedVideoData.platform === 'youtube' ? '📺' : 
+                       parsedVideoData.platform === 'youtube-shorts' ? '📱' : '🎥'}
                       {' '}
-                      {parsedVideoData.platform?.toUpperCase()} Video
+                      {parsedVideoData.platform === 'youtube-shorts' ? 'YOUTUBE-SHORTS' : 
+                       parsedVideoData.platform?.toUpperCase()} Video
                     </div>
                     {parsedVideoData.title && (
                       <div style={{
@@ -366,15 +380,35 @@ const CreatePost = () => {
                     </div>
                   </div>
                   {previewUrl && (
-                    <img 
-                      src={previewUrl} 
-                      alt="Video preview" 
-                      style={{ 
-                        width: '100%', 
-                        height: 'auto',
-                        display: 'block'
-                      }} 
-                    />
+                    <div style={{
+                      width: '100%',
+                      height: '200px',
+                      backgroundImage: `url(${previewUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundRepeat: 'no-repeat',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        background: 'rgba(0,0,0,0.7)',
+                        borderRadius: '50%',
+                        width: '60px',
+                        height: '60px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'absolute',
+                        zIndex: 10
+                      }}>
+                        <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </div>
+                    </div>
                   )}
                 </div>
               ) : mediaType === 'video' ? (
@@ -387,29 +421,35 @@ const CreatePost = () => {
                 <img src={previewUrl} alt="Preview" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '12px' }} />
               )}
             </div>
-            <button 
-              type="button"
-              onClick={() => {
-                setPreviewUrl(null);
-                setCompressedFile(null);
-                setOriginalFileName('');
-                setParsedVideoData(null);
-                setVideoUrl('');
-                setMediaType('image');
-                setError('');
-              }}
-              style={{
-                background: '#ff4757',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                marginTop: '12px',
-                cursor: 'pointer'
-              }}
-            >
-              Remove {parsedVideoData ? 'Video' : mediaType === 'video' ? 'Video' : 'Image'}
-            </button>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginTop: '12px'
+            }}>
+              <button 
+                type="button"
+                onClick={() => {
+                  setPreviewUrl(null);
+                  setCompressedFile(null);
+                  setOriginalFileName('');
+                  setParsedVideoData(null);
+                  setVideoUrl('');
+                  setMediaType('image');
+                  setError('');
+                }}
+                style={{
+                  background: '#ff4757',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  marginBottom: '15px'
+                }}
+              >
+                Remove {parsedVideoData ? 'Video' : mediaType === 'video' ? 'Video' : 'Image'}
+              </button>
+            </div>
           </div>
         )}
 

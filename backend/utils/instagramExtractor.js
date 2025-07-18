@@ -19,17 +19,46 @@ async function extractViaInstagramAPI(url) {
     const shortcode = shortcodeMatch[1];
     console.log(`📝 Extracted shortcode: ${shortcode}`);
     
+    // Сначала получаем сессию
+    const sessionResponse = await axios.get('https://www.instagram.com/', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1'
+      },
+      timeout: 10000
+    });
+    
+    // Извлекаем csrf token
+    const csrfMatch = sessionResponse.data.match(/"csrf_token":"([^"]+)"/);
+    const csrfToken = csrfMatch ? csrfMatch[1] : '';
+    
     // Пробуем получить данные через Instagram API
     const apiUrl = `https://www.instagram.com/api/v1/media/${shortcode}/info/`;
     
     const response = await axios.get(apiUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/json',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-IG-App-ID': '936619743392459',
+        'X-IG-WWW-Claim': '0',
+        'Referer': 'https://www.instagram.com/',
+        'Origin': 'https://www.instagram.com',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-origin'
       },
       timeout: 10000
     });
@@ -68,39 +97,68 @@ async function extractViaHTMLParsing(url) {
     
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1'
       },
       timeout: 15000
     });
     
     const html = response.data;
     
-    // Ищем JSON данные в HTML
-    const jsonMatch = html.match(/window\._sharedData\s*=\s*({.+?});/);
+    // Ищем JSON данные в HTML (новый формат)
+    const jsonMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/);
     if (jsonMatch) {
-      const sharedData = JSON.parse(jsonMatch[1]);
-      const media = sharedData?.entry_data?.PostPage?.[0]?.graphql?.shortcode_media;
-      
-      if (media && media.video_url) {
-        return {
-          success: true,
-          platform: 'instagram',
-          videoUrl: media.video_url,
-          thumbnailUrl: media.display_url,
-          title: media.edge_media_to_caption?.edges?.[0]?.node?.text || 'Instagram Video',
-          author: media.owner?.username || 'Unknown',
-          duration: media.video_duration || null,
-          originalUrl: url
-        };
+      try {
+        const jsonData = JSON.parse(jsonMatch[1]);
+        if (jsonData.video && jsonData.video.contentUrl) {
+          return {
+            success: true,
+            platform: 'instagram',
+            videoUrl: jsonData.video.contentUrl,
+            thumbnailUrl: jsonData.image || null,
+            title: jsonData.name || 'Instagram Video',
+            author: jsonData.author?.name || 'Unknown',
+            originalUrl: url
+          };
+        }
+      } catch (e) {
+        console.log('Failed to parse JSON-LD:', e.message);
       }
     }
     
-    // Альтернативный поиск через meta теги
+    // Ищем старый формат JSON данных
+    const sharedDataMatch = html.match(/window\._sharedData\s*=\s*({.+?});/);
+    if (sharedDataMatch) {
+      try {
+        const sharedData = JSON.parse(sharedDataMatch[1]);
+        const media = sharedData?.entry_data?.PostPage?.[0]?.graphql?.shortcode_media;
+        
+        if (media && media.video_url) {
+          return {
+            success: true,
+            platform: 'instagram',
+            videoUrl: media.video_url,
+            thumbnailUrl: media.display_url,
+            title: media.edge_media_to_caption?.edges?.[0]?.node?.text || 'Instagram Video',
+            author: media.owner?.username || 'Unknown',
+            duration: media.video_duration || null,
+            originalUrl: url
+          };
+        }
+      } catch (e) {
+        console.log('Failed to parse _sharedData:', e.message);
+      }
+    }
+    
+    // Поиск через meta теги
     const metaVideoMatch = html.match(/<meta property="og:video" content="([^"]+)"/);
     const metaTitleMatch = html.match(/<meta property="og:title" content="([^"]+)"/);
     const metaImageMatch = html.match(/<meta property="og:image" content="([^"]+)"/);
@@ -117,6 +175,20 @@ async function extractViaHTMLParsing(url) {
       };
     }
     
+    // Поиск через дополнительные meta теги
+    const additionalVideoMatch = html.match(/<meta name="twitter:player:stream" content="([^"]+)"/);
+    if (additionalVideoMatch) {
+      return {
+        success: true,
+        platform: 'instagram',
+        videoUrl: additionalVideoMatch[1],
+        thumbnailUrl: null,
+        title: 'Instagram Video',
+        author: 'Unknown',
+        originalUrl: url
+      };
+    }
+    
     throw new Error('No video data found in HTML');
     
   } catch (error) {
@@ -125,41 +197,58 @@ async function extractViaHTMLParsing(url) {
   }
 }
 
-// Метод 3: Использование внешнего API (fallback)
-async function extractViaExternalAPI(url) {
+// Метод 3: Использование yt-dlp (fallback)
+async function extractViaYtDlp(url) {
   try {
-    console.log('🔍 Trying external API method...');
+    console.log('🔍 Trying yt-dlp method...');
     
-    // Здесь можно добавить вызов к рабочему внешнему API
-    // Например, если получим ключ от RapidAPI
+    const { spawn } = require('child_process');
+    const path = require('path');
     
-    // Пример с гипотетическим API
-    const apiResponse = await axios.post('https://api.example.com/instagram', {
-      url: url
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      timeout: 10000
+    return new Promise((resolve, reject) => {
+      const ytDlp = spawn('yt-dlp', [
+        '--print', '%(url)s|%(title)s|%(uploader)s|%(duration)s|%(thumbnail)s',
+        '--no-playlist',
+        url
+      ]);
+
+      let output = '';
+      let errorOutput = '';
+
+      ytDlp.stdout.on('data', (data) => {
+        output += data.toString();
+      });
+
+      ytDlp.stderr.on('data', (data) => {
+        errorOutput += data.toString();
+      });
+
+      ytDlp.on('close', (code) => {
+        if (code === 0 && output.trim()) {
+          const [videoUrl, title, uploader, duration, thumbnail] = output.trim().split('|');
+          
+          if (videoUrl && videoUrl !== 'NA') {
+            resolve({
+              success: true,
+              platform: 'instagram',
+              videoUrl: videoUrl,
+              thumbnailUrl: thumbnail !== 'NA' ? thumbnail : null,
+              title: title !== 'NA' ? title : 'Instagram Video',
+              author: uploader !== 'NA' ? uploader : 'Unknown',
+              duration: duration !== 'NA' ? parseInt(duration) : null,
+              originalUrl: url
+            });
+          } else {
+            reject(new Error('yt-dlp returned no video URL'));
+          }
+        } else {
+          reject(new Error(`yt-dlp failed: ${errorOutput}`));
+        }
+      });
     });
     
-    if (apiResponse.data && apiResponse.data.download_url) {
-      return {
-        success: true,
-        platform: 'instagram',
-        videoUrl: apiResponse.data.download_url,
-        thumbnailUrl: apiResponse.data.thumbnail_url || null,
-        title: apiResponse.data.title || 'Instagram Video',
-        author: apiResponse.data.author || 'Unknown',
-        originalUrl: url
-      };
-    }
-    
-    throw new Error('External API returned no data');
-    
   } catch (error) {
-    console.log('❌ External API method failed:', error.message);
+    console.log('❌ yt-dlp method failed:', error.message);
     throw error;
   }
 }
@@ -177,7 +266,7 @@ async function extractInstagramVideo(url) {
   const extractionMethods = [
     extractViaInstagramAPI,
     extractViaHTMLParsing,
-    // extractViaExternalAPI  // Закомментировано, пока нет рабочего API
+    extractViaYtDlp  // Добавляем yt-dlp как fallback
   ];
   
   let lastError = null;
@@ -226,5 +315,5 @@ module.exports = {
   // Экспортируем отдельные методы для тестирования
   extractViaInstagramAPI,
   extractViaHTMLParsing,
-  extractViaExternalAPI
+  extractViaYtDlp
 }; 

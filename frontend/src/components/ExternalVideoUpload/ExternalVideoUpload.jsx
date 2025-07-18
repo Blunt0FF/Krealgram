@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_URL } from '../../config';
 import './ExternalVideoUpload.css';
 
 const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
@@ -27,9 +28,10 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
     'YouTube'
   ];
 
-  const detectPlatform = (url) => {
+  const detectPlatformFromUrl = (url) => {
     if (url.includes('tiktok.com') || url.includes('vm.tiktok.com')) return 'tiktok';
     if (url.includes('instagram.com')) return 'instagram';
+    if (url.includes('youtube.com/shorts/') || url.includes('youtu.be/')) return 'youtube-shorts';
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     return null;
   };
@@ -40,7 +42,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
     setError('');
     
     if (inputUrl.length > 10) {
-      const detectedPlatform = detectPlatform(inputUrl);
+      const detectedPlatform = detectPlatformFromUrl(inputUrl);
       setPlatform(detectedPlatform || '');
     } else {
       setPlatform('');
@@ -55,24 +57,60 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
       return;
     }
 
-    const extractYouTubeId = (url) => {
-      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-      const match = url.match(regex);
-      return match ? match[1] : null;
-    };
-
-    const videoId = extractYouTubeId(url);
-    if (!videoId) {
-      setError('Invalid YouTube URL');
+    const detectedPlatform = detectPlatformFromUrl(url);
+    if (!detectedPlatform) {
+      setError('Unsupported platform. Please use TikTok, Instagram, or YouTube URLs.');
       return;
     }
 
-    setIsLoading(true);
-    setError('');
+    // Для YouTube Shorts скачиваем видео как TikTok/Instagram
+    if (detectedPlatform === 'youtube-shorts') {
+      setIsLoading(true);
+      setError('');
 
-    try {
-      const token = localStorage.getItem('token');
-      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/api/posts/external-video/download`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ url: url.trim() })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log('✅ YouTube Shorts downloaded successfully:', data);
+          onVideoDownloaded(data);
+          onClose();
+        } else {
+          throw new Error(data.message || 'Failed to download YouTube Shorts');
+        }
+      } catch (error) {
+        console.error('Error downloading YouTube Shorts:', error);
+        setError(error.message || 'Failed to download YouTube Shorts');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    
+    // Для обычного YouTube используем старую логику (iframe)
+    if (detectedPlatform === 'youtube') {
+      const extractYouTubeId = (url) => {
+        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = url.match(regex);
+        return match ? match[1] : null;
+      };
+
+      const videoId = extractYouTubeId(url);
+      if (!videoId) {
+        setError('Invalid YouTube URL');
+        return;
+      }
+
       const videoData = {
         platform: 'youtube',
         videoId: videoId,
@@ -88,15 +126,43 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
         videoData: videoData,
         thumbnailUrl: videoData.thumbnailUrl,
         embedUrl: videoData.embedUrl,
-        videoId: videoId
+        videoId: videoId,
+        isExternalLink: true
       };
 
       console.log('✅ YouTube Video processed:', processedData);
       onVideoDownloaded(processedData);
+      onClose();
+      return;
+    }
+
+    // Для TikTok и Instagram скачиваем видео
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/posts/external-video/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ url: url.trim() })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('✅ Video downloaded successfully:', data);
+        onVideoDownloaded(data);
         onClose();
+      } else {
+        throw new Error(data.message || 'Failed to download video');
+      }
     } catch (error) {
-      console.error('Error importing video:', error);
-      setError('Failed to import video');
+      console.error('Error downloading video:', error);
+      setError(error.message || 'Failed to download video');
     } finally {
       setIsLoading(false);
     }

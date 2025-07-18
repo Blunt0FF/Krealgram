@@ -98,7 +98,8 @@ export const uploadAvatar = async (file) => {
 };
 
 // Алиасы для обратной совместимости
-export const getImageUrl = processMediaUrl;
+import { resolveMediaUrl } from './mediaUrlResolver';
+export const getImageUrl = resolveMediaUrl;
 export const getAvatarUrl = (avatarPath) => {
   return resolveAvatarUrl(avatarPath);
 };
