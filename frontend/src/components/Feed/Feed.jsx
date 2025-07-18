@@ -236,14 +236,14 @@ const Feed = ({ user }) => {
       <div className="feed">
         {posts.map((post, index) => (
           <div key={post._id} ref={index === posts.length - 1 ? lastPostElementRef : null}>
-            <Post
-              post={post}
-              currentUser={user}
-              onPostUpdate={handlePostUpdate}
+              <Post
+                post={post}
+                currentUser={user}
+                onPostUpdate={handlePostUpdate}
               onImageClick={handleImageClick}
               onDeletePost={handleDeletePost}
-            />
-          </div>
+              />
+            </div>
         ))}
         
         {error && <div className="feed-error">{error}</div>}
@@ -254,7 +254,7 @@ const Feed = ({ user }) => {
           </div>
         )}
       </div>
-      
+
       {/* Loading spinner - вынесен из .feed для правильного центрирования */}
       {loading && (
         <div className="loading-spinner">

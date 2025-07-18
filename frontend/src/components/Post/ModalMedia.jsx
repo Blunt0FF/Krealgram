@@ -150,18 +150,7 @@ const ModalMedia = memo(({ postData }) => {
             }
           }
         }}
-        onEnded={(e) => {
-          console.log('Modal video ended at:', e.target.currentTime, '/', e.target.duration);
-        }}
-        onTimeUpdate={(e) => {
-          // Отслеживаем прогресс видео в модале
-          if (e.target.duration) {
-            const progress = (e.target.currentTime / e.target.duration) * 100;
-            if (progress >= 95 && progress < 99) {
-              console.log('Modal video near end:', progress.toFixed(1) + '%');
-            }
-          }
-        }}
+
       />
     );
   }

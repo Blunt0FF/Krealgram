@@ -178,8 +178,6 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
   const drive = require('./config/googleDrive');
   const axios = require('axios');
 
-  // Убираем лишнее логирование
-
   try {
     console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
     
@@ -192,7 +190,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           headers: {
             'User-Agent': 'Mozilla/5.0'
           },
-          timeout: 10000 // 10 секунд таймаут
+          timeout: 10000
         });
         
         res.set('Content-Type', response.headers['content-type']);
@@ -262,14 +260,12 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     }
 
     const meta = await drive.drive.files.get({
-        fileId,
+      fileId,
       fields: 'name, mimeType, size'
-      });
+    });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
     const fileName = meta.data.name || 'file';
-    const fileSize = meta.data.size || 0;
-
-    // Убираем лишнее логирование
+    const fileSize = parseInt(meta.data.size) || 0;
 
     const fileRes = await drive.drive.files.get({
       fileId,
@@ -290,9 +286,14 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
           'Cache-Control': 'public, max-age=31536000',
           'Accept-Ranges': 'bytes',
-          // Добавляем заголовки для лучшей поддержки мобильных устройств
           'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'SAMEORIGIN'
+          'X-Frame-Options': 'SAMEORIGIN',
+          // Дополнительные заголовки для лучшей поддержки видео
+          'Connection': 'keep-alive',
+          'Keep-Alive': 'timeout=30, max=1000',
+          // Заголовки для лучшей поддержки потокового видео
+          'Transfer-Encoding': 'chunked',
+          'Content-Transfer-Encoding': 'binary'
         });
         headersSent = true;
       }
@@ -303,12 +304,15 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      const chunksize = (end - start) + 1;
+      
+      // Увеличиваем размер чанка для лучшей буферизации
+      const adjustedEnd = Math.min(end + 2 * 1024 * 1024, fileSize - 1); // +2MB для буферизации
+      const adjustedChunksize = (adjustedEnd - start) + 1;
 
       sendHeaders(206, {
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Content-Range': `bytes ${start}-${adjustedEnd}/${fileSize}`,
         'Accept-Ranges': 'bytes',
-        'Content-Length': chunksize,
+        'Content-Length': adjustedChunksize,
         'Content-Type': mimeType
       });
     } else {
@@ -318,15 +322,44 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       });
     }
 
+    // Улучшенная обработка ошибок потока
     fileRes.data.on('error', (err) => {
       console.error('[PROXY-DRIVE] Ошибка при отправке файла:', err);
       if (!headersSent) {
         res.status(500).send('Error streaming file');
+      } else if (!res.headersSent) {
+        res.end();
       }
     });
 
-    // Возвращаем к простому и надежному проксированию
+    // Обработка завершения потока
+    fileRes.data.on('end', () => {
+      console.log('[PROXY-DRIVE] File stream ended');
+      if (!res.headersSent) {
+        res.end();
+      }
+    });
+
+    // Обработка ошибок ответа
+    res.on('error', (err) => {
+      console.error('[PROXY-DRIVE] Response error:', err);
+      fileRes.data.destroy();
+    });
+
+    // Улучшенное проксирование с буферизацией
     fileRes.data.pipe(res);
+
+    // Обработка закрытия соединения
+    req.on('close', () => {
+      console.log('[PROXY-DRIVE] Request closed');
+      fileRes.data.destroy();
+    });
+
+    res.on('close', () => {
+      console.log('[PROXY-DRIVE] Response closed');
+      fileRes.data.destroy();
+    });
+
   } catch (err) {
     console.error('[PROXY-DRIVE] Ошибка:', err.message);
 
@@ -352,7 +385,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         return;
       } catch (fallbackErr) {
         console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
-      return res.status(404).send('File not found');
+        return res.status(404).send('File not found');
       }
     }
     res.status(500).send('Proxy error: ' + err.message);

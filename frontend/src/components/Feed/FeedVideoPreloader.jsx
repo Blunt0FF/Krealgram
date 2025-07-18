@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { processMediaUrl } from '../../utils/urlUtils';
+import { getVideoUrl } from '../../utils/mediaUrlResolver';
 
 const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
@@ -38,7 +38,7 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
     // Предзагружаем видео
     videosToPreload.forEach(({ id, url }) => {
       try {
-        const resolvedUrl = processMediaUrl(url, 'video');
+        const resolvedUrl = getVideoUrl(url);
         
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');

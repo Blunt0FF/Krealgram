@@ -49,8 +49,8 @@ export const processMediaUrl = (url, type = 'image') => {
     const filename = url.split('/').pop();
     if (filename && filename !== url) {
       const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(filename)}?type=${type}`;
-      URL_CACHE.set(cacheKey, proxyUrl);
-      return proxyUrl;
+    URL_CACHE.set(cacheKey, proxyUrl);
+    return proxyUrl;
     }
   }
 
@@ -60,7 +60,7 @@ export const processMediaUrl = (url, type = 'image') => {
   URL_CACHE.set(cacheKey, resolvedUrl);
 
   return resolvedUrl;
-};
+  };
 
 // Алиасы для обратной совместимости
 export const getImageUrl = processMediaUrl;

@@ -105,11 +105,11 @@ export const resolveMediaUrl = (url, type = 'image') => {
       // Google Drive обработка
       if (url.includes('drive.google.com')) {
         const fileId = extractGoogleDriveFileId(url);
-        
-        if (fileId) {
-          // Всегда используем прокси для Google Drive файлов
-          const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
-          return proxyUrl;
+          
+          if (fileId) {
+            // Всегда используем прокси для Google Drive файлов
+            const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
+            return proxyUrl;
         } else {
           // Если не удалось извлечь ID, возвращаем оригинальный URL как fallback
           console.warn('Не удалось извлечь Google Drive ID из URL:', url);

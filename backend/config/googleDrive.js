@@ -25,7 +25,7 @@ class GoogleDriveManager {
         // Используем TokenManager для автоматического обновления токенов
         const tokenManager = require('../utils/tokenManager');
         await tokenManager.initialize();
-        
+
         this.auth = tokenManager.getOAuth2Client();
         
       } else if (process.env.GOOGLE_DRIVE_CREDENTIALS) {

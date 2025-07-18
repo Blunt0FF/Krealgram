@@ -139,19 +139,19 @@ async function extractViaHTMLParsing(url) {
     if (sharedDataMatch) {
       try {
         const sharedData = JSON.parse(sharedDataMatch[1]);
-        const media = sharedData?.entry_data?.PostPage?.[0]?.graphql?.shortcode_media;
-        
-        if (media && media.video_url) {
-          return {
-            success: true,
-            platform: 'instagram',
-            videoUrl: media.video_url,
-            thumbnailUrl: media.display_url,
-            title: media.edge_media_to_caption?.edges?.[0]?.node?.text || 'Instagram Video',
-            author: media.owner?.username || 'Unknown',
-            duration: media.video_duration || null,
-            originalUrl: url
-          };
+      const media = sharedData?.entry_data?.PostPage?.[0]?.graphql?.shortcode_media;
+      
+      if (media && media.video_url) {
+        return {
+          success: true,
+          platform: 'instagram',
+          videoUrl: media.video_url,
+          thumbnailUrl: media.display_url,
+          title: media.edge_media_to_caption?.edges?.[0]?.node?.text || 'Instagram Video',
+          author: media.owner?.username || 'Unknown',
+          duration: media.video_duration || null,
+          originalUrl: url
+        };
         }
       } catch (e) {
         console.log('Failed to parse _sharedData:', e.message);
@@ -226,17 +226,17 @@ async function extractViaYtDlp(url) {
       ytDlp.on('close', (code) => {
         if (code === 0 && output.trim()) {
           const [videoUrl, title, uploader, duration, thumbnail] = output.trim().split('|');
-          
+    
           if (videoUrl && videoUrl !== 'NA') {
             resolve({
-              success: true,
-              platform: 'instagram',
+        success: true,
+        platform: 'instagram',
               videoUrl: videoUrl,
               thumbnailUrl: thumbnail !== 'NA' ? thumbnail : null,
               title: title !== 'NA' ? title : 'Instagram Video',
               author: uploader !== 'NA' ? uploader : 'Unknown',
               duration: duration !== 'NA' ? parseInt(duration) : null,
-              originalUrl: url
+        originalUrl: url
             });
           } else {
             reject(new Error('yt-dlp returned no video URL'));

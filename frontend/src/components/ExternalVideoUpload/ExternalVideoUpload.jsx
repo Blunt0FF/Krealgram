@@ -99,18 +99,18 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
     
     // Для обычного YouTube используем старую логику (iframe)
     if (detectedPlatform === 'youtube') {
-      const extractYouTubeId = (url) => {
-        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-        const match = url.match(regex);
-        return match ? match[1] : null;
-      };
+    const extractYouTubeId = (url) => {
+      const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    };
 
-      const videoId = extractYouTubeId(url);
-      if (!videoId) {
-        setError('Invalid YouTube URL');
-        return;
-      }
-
+    const videoId = extractYouTubeId(url);
+    if (!videoId) {
+      setError('Invalid YouTube URL');
+      return;
+    }
+      
       const videoData = {
         platform: 'youtube',
         videoId: videoId,
@@ -132,7 +132,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
 
       console.log('✅ YouTube Video processed:', processedData);
       onVideoDownloaded(processedData);
-      onClose();
+        onClose();
       return;
     }
 
