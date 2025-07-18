@@ -289,7 +289,10 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           'Access-Control-Allow-Headers': 'Range, Content-Range, Accept-Ranges',
           'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
           'Cache-Control': 'public, max-age=31536000',
-          'Accept-Ranges': 'bytes'
+          'Accept-Ranges': 'bytes',
+          // Добавляем заголовки для лучшей поддержки мобильных устройств
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'SAMEORIGIN'
         });
         headersSent = true;
       }
@@ -302,26 +305,12 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = (end - start) + 1;
 
-      // Для видео добавляем дополнительную буферизацию
-      if (mimeType.startsWith('video/')) {
-        // Увеличиваем размер чанка для лучшей буферизации
-        const adjustedEnd = Math.min(end + 512 * 1024, fileSize - 1); // +512KB буфера
-        const adjustedChunksize = (adjustedEnd - start) + 1;
-        
-        sendHeaders(206, {
-          'Content-Range': `bytes ${start}-${adjustedEnd}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': adjustedChunksize,
-          'Content-Type': mimeType
-        });
-      } else {
-        sendHeaders(206, {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunksize,
-          'Content-Type': mimeType
-        });
-      }
+      sendHeaders(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': mimeType
+      });
     } else {
       sendHeaders(200, {
         'Content-Length': fileSize,
@@ -336,31 +325,8 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       }
     });
 
-    // Улучшенная обработка потока для видео
-    if (mimeType.startsWith('video/')) {
-      // Для видео используем более надежную обработку потока
-      fileRes.data.on('data', (chunk) => {
-        if (!res.destroyed) {
-          res.write(chunk);
-        }
-      });
-      
-      fileRes.data.on('end', () => {
-        if (!res.destroyed) {
-          res.end();
-        }
-      });
-      
-      fileRes.data.on('error', (err) => {
-        console.error('[PROXY-DRIVE] Ошибка при отправке видео:', err);
-        if (!res.destroyed && !res.headersSent) {
-          res.status(500).send('Error streaming video');
-        }
-      });
-    } else {
-      // Для остальных файлов используем обычное проксирование
-      fileRes.data.pipe(res);
-    }
+    // Возвращаем к простому и надежному проксированию
+    fileRes.data.pipe(res);
   } catch (err) {
     console.error('[PROXY-DRIVE] Ошибка:', err.message);
 

@@ -108,7 +108,7 @@ const ModalMedia = memo(({ postData }) => {
 
     return (
       <video
-        src={getVideoUrl(postData.image || postData.imageUrl || `${API_URL}/uploads/${postData.image}`)}
+        src={getVideoUrl(postData.image || postData.imageUrl)}
         className="post-modal-video"
         controls
         autoPlay={true}
@@ -150,13 +150,25 @@ const ModalMedia = memo(({ postData }) => {
             }
           }
         }}
+        onEnded={(e) => {
+          console.log('Modal video ended at:', e.target.currentTime, '/', e.target.duration);
+        }}
+        onTimeUpdate={(e) => {
+          // Отслеживаем прогресс видео в модале
+          if (e.target.duration) {
+            const progress = (e.target.currentTime / e.target.duration) * 100;
+            if (progress >= 95 && progress < 99) {
+              console.log('Modal video near end:', progress.toFixed(1) + '%');
+            }
+          }
+        }}
       />
     );
   }
 
   return (
     <img
-      src={getImageUrl(postData.image || postData.imageUrl || `${API_URL}/uploads/${postData.image}`)}
+      src={getImageUrl(postData.image || postData.imageUrl)}
       alt="Post"
       className="post-modal-image"
       onError={(e) => {

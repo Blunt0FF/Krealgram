@@ -81,7 +81,13 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       return;
     }
     
-    // Для всех остальных видео - воспроизведение (включая мобильные)
+    // Для мобильных устройств - открываем модалку для лучшей совместимости
+    if (isMobile()) {
+      onClick && onClick();
+      return;
+    }
+    
+    // Для десктопа - воспроизведение
     handleVideoPlay();
   };
 
@@ -127,9 +133,21 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   // Обработка окончания видео
   const handleVideoEnded = () => {
     // Проверяем, что видео действительно закончилось
-    if (videoRef.current && videoRef.current.currentTime >= videoRef.current.duration - 0.5) {
-      setIsVideoPlaying(false);
-      setShowVideo(false);
+    if (videoRef.current && videoRef.current.duration) {
+      const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      
+      if (progress >= 98) {
+        console.log('Video ended naturally at:', progress.toFixed(1) + '%', 
+          videoRef.current.currentTime.toFixed(1) + 's / ' + 
+          videoRef.current.duration.toFixed(1) + 's');
+        setIsVideoPlaying(false);
+        setShowVideo(false);
+      } else {
+        console.log('Video ended prematurely at:', progress.toFixed(1) + '%', 
+          videoRef.current.currentTime.toFixed(1) + 's / ' + 
+          videoRef.current.duration.toFixed(1) + 's');
+        // Если видео прервалось раньше времени, не скрываем его
+      }
     }
     // Не перезапускаем автоматически - пользователь может кликнуть снова
   };
@@ -228,9 +246,13 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           }}
           onEnded={handleVideoEnded}
           onLoadedData={handleVideoLoaded}
+          onLoadedMetadata={() => {
+            console.log('Video metadata loaded, duration:', videoRef.current?.duration);
+          }}
           onCanPlayThrough={() => {
             // Видео полностью загружено и готово к воспроизведению
             setVideoLoaded(true);
+            console.log('Video can play through, duration:', videoRef.current?.duration);
           }}
           onStalled={() => {
             // Видео застряло - можно попробовать перезагрузить
@@ -241,15 +263,24 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             console.log('Video buffering...');
           }}
           onTimeUpdate={() => {
-            // Дополнительная проверка для предотвращения преждевременного окончания
-            if (videoRef.current && videoRef.current.currentTime > 0 && 
-                videoRef.current.currentTime < videoRef.current.duration - 0.5) {
-              // Видео воспроизводится нормально
+            // Отслеживаем прогресс видео
+            if (videoRef.current && videoRef.current.duration) {
+              const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+              
+              // Если видео близко к концу (95% и больше), но не достигло конца
+              if (progress >= 95 && progress < 99) {
+                console.log('Video near end:', progress.toFixed(1) + '%', 
+                  videoRef.current.currentTime.toFixed(1) + 's / ' + 
+                  videoRef.current.duration.toFixed(1) + 's');
+              }
             }
           }}
           onError={(e) => {
             console.warn('Video playback error, switching to preview mode');
             console.log('Video error details:', e.target.error);
+            console.log('Video src:', e.target.src);
+            console.log('Video current time:', e.target.currentTime);
+            console.log('Video duration:', e.target.duration);
             setShowVideo(false);
             setIsVideoPlaying(false);
           }}
