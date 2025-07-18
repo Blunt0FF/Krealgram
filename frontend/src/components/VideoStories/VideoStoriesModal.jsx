@@ -104,18 +104,15 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📹 Fetched user videos:', data);
-        console.log('📹 Videos array:', data.posts);
-        if (data.posts && data.posts.length > 0) {
-          console.log('📹 First video data:', data.posts[0]);
-        }
         setVideos(data.posts || []);
+        // Сразу убираем loading, так как видео уже загружены
+        setLoading(false);
       } else {
         console.error('Failed to fetch videos:', response.status, response.statusText);
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error fetching user videos:', error);
-    } finally {
       setLoading(false);
     }
   };
@@ -288,15 +285,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   const renderVideo = () => {
     if (!currentVideo) return null;
 
-    console.log('🎬 Current video data:', {
-      currentVideo,
-      youtubeData: currentVideo?.youtubeData,
-      videoUrl: currentVideo?.videoUrl,
-      imageUrl: currentVideo?.imageUrl,
-      image: currentVideo?.image,
-      mediaType: currentVideo?.mediaType
-    });
-
     // Определяем источник видео - ПРАВИЛЬНАЯ ЛОГИКА ДЛЯ ВИДЕО
     let videoSrc = null;
     
@@ -321,16 +309,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     // Для обычных видео используем videoUrl или image, пропуская через getVideoUrl для проксирования
     videoSrc = getVideoUrl(currentVideo?.videoUrl || currentVideo?.image);
     
-    console.log('🎥 Video source determined:', { 
-      videoSrc, 
-      originalImage: currentVideo?.image,
-      videoUrl: currentVideo?.videoUrl,
-      imageUrl: currentVideo?.imageUrl,
-      mediaType: currentVideo?.mediaType,
-      videoData: currentVideo?.videoData,
-      hasVideoData: !!currentVideo?.videoData,
-      platform: currentVideo?.videoData?.platform
-    });
+
     
     if (videoSrc) {
       return (
@@ -339,15 +318,10 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           src={videoSrc}
           className="stories-video"
           controls={true}
-          autoPlay={true} // Автовоспроизведение на всех устройствах
-          muted={false} // Звук включен на всех устройствах
+          autoPlay={true}
+          muted={false}
           playsInline={true}
-          webkit-playsinline="true"
-          x5-playsinline="true"
-          x5-video-player-type="h5"
-          x5-video-player-fullscreen="true"
-          x5-video-orientation="portrait"
-          preload="auto" // Загружаем все на всех устройствах
+          preload="metadata"
           style={{
             display: 'block',
             backgroundColor: '#000',
@@ -357,19 +331,11 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           }}
           onPlay={(e) => {
             videoManager.setCurrentVideo(e.target);
-            console.log('Video started playing');
-          }}
-          onLoadStart={() => console.log('Video loading started')}
-          onLoadedData={() => {
-            console.log('Video data loaded');
-            setVideoLoading(false);
           }}
           onCanPlay={() => {
-            console.log('Video can play');
             setVideoLoading(false);
           }}
           onEnded={() => {
-            console.log('🎬 Video ended, moving to next');
             // Автоматически переходим к следующему видео
             if (currentIndex < videos.length - 1) {
               handleNext();
@@ -379,7 +345,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           }}
           onError={(e) => {
             console.error('Video error:', e.target.error);
-            console.log('Failed video src:', e.target.src);
             setVideoLoading(false);
           }}
           onPause={(e) => {
@@ -393,47 +358,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
       );
     }
 
-    return (
-      <div className="stories-no-video">
-        <p>Video not available</p>
-        <div style={{ fontSize: '12px', color: '#a8a8a8', marginTop: '10px' }}>
-          Debug info: mediaType={currentVideo?.mediaType}, 
-          hasImage={!!currentVideo?.image}, 
-          hasImageUrl={!!currentVideo?.imageUrl}, 
-          hasVideoUrl={!!currentVideo?.videoUrl},
-          hasYoutubeData={!!currentVideo?.youtubeData},
-          imageValue={currentVideo?.image}
-        </div>
-        
-        {/* Дополнительная диагностическая информация */}
-        <div style={{ fontSize: '10px', color: '#666', marginTop: '10px', textAlign: 'left' }}>
-          <div>Image: {currentVideo?.image || 'null'}</div>
-          <div>VideoUrl: {currentVideo?.videoUrl || 'null'}</div>
-          <div>ImageUrl: {currentVideo?.imageUrl || 'null'}</div>
-          <div>MediaType: {currentVideo?.mediaType || 'null'}</div>
-          <div>YoutubeData: {currentVideo?.youtubeData ? 'exists' : 'null'}</div>
-          <div>Caption: {currentVideo?.caption || 'null'}</div>
-          <div>ID: {currentVideo?._id || 'null'}</div>
-        </div>
-        
-        {/* Если есть image, попробуем показать как картинку для проверки */}
-        {currentVideo?.image && (
-          <div style={{ marginTop: '20px' }}>
-            <p style={{ color: '#a8a8a8', fontSize: '12px' }}>Trying to display as image:</p>
-            <img 
-              src={currentVideo.image.startsWith('http') ? currentVideo.image : getImageUrl(`${API_URL}/uploads/${currentVideo.image}`, { mimeType: currentVideo.mimeType })}
-              alt="Debug preview"
-              style={{ maxWidth: '200px', maxHeight: '200px', border: '1px solid #333' }}
-              onError={(e) => {
-                console.log('Image also failed to load:', e.target.src);
-                e.target.style.display = 'none';
-              }}
-              onLoad={() => console.log('Image loaded successfully')}
-            />
-          </div>
-        )}
-      </div>
-    );
+    return null;
   };
 
   if (!isOpen) return null;
@@ -483,11 +408,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           <span className="stories-time">{formatStoryTime(currentVideo?.createdAt)}</span>
         </div>
 
-        {loading ? (
-          <div className="stories-loading">Loading...</div>
-        ) : videos.length === 0 ? (
-          <div className="stories-no-videos">No videos found</div>
-        ) : (
+        {videos.length > 0 && (
           <>
             {currentIndex > 0 && (
               <button className="stories-nav-btn stories-prev-btn" onClick={handlePrevious}>
@@ -503,97 +424,97 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
             <div className="stories-video-container">
               {renderVideo()}
             </div>
-
-            <div className="stories-bottom-interface">
-              <div className="stories-actions">
-                <div className="stories-actions-left">
-                  <button 
-                    className={`stories-like-btn ${isLiked ? 'liked' : ''}`}
-                    onClick={handleLike}
-                  >
-                    <svg width="24" height="24" fill={isLiked ? "#ed4956" : "none"} stroke={isLiked ? "#ed4956" : "white"} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  </button>
-                  
-                  {likesCount > 0 && (
-                    <span className="stories-likes-count">
-                      {likesCount} {likesCount === 1 ? 'like' : 'likes'}
-                    </span>
-                  )}
-                </div>
-
-                <button 
-                  className="stories-share-btn"
-                  onClick={() => setShowShareModal(true)}
-                >
-                  <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
-                    <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </button>
-              </div>
-
-              {currentVideo?.caption && (
-                <div className="stories-description">
-                  {currentVideo.caption}
-                </div>
-              )}
-
-              {comments.length > 0 && (
-                <div className="stories-comments-list">
-                  {showComments && comments.map((comment, index) => {
-                    const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
-                    return (
-                      <div key={comment._id || index} className="stories-comment">
-                        <span 
-                          className="comment-username clickable-username"
-                          onClick={() => {
-                            if (username !== 'Unknown User') {
-                              window.location.href = `/profile/${username}`;
-                            }
-                          }}
-                        >
-                          {username}
-                        </span>
-                        <span className="stories-comment-text">{comment.text}</span>
-                      </div>
-                    );
-                  })}
-                  
-                  <button 
-                    className="stories-view-comments"
-                    onClick={() => setShowComments(!showComments)}
-                  >
-                    {showComments 
-                      ? 'Hide comments' 
-                      : `Show comments (${comments.length})`
-                    }
-                  </button>
-                </div>
-              )}
-
-              <form className="stories-add-comment" onSubmit={handleAddComment}>
-                <input
-                  type="text"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="stories-comment-input"
-                  disabled={isSubmittingComment}
-                />
-                {newComment.trim() && (
-                  <button 
-                    type="submit" 
-                    className="stories-comment-submit"
-                    disabled={isSubmittingComment}
-                  >
-                    {isSubmittingComment ? '...' : 'Post'}
-                  </button>
-                )}
-              </form>
-            </div>
           </>
         )}
+
+        <div className="stories-bottom-interface">
+          <div className="stories-actions">
+            <div className="stories-actions-left">
+              <button 
+                className={`stories-like-btn ${isLiked ? 'liked' : ''}`}
+                onClick={handleLike}
+              >
+                <svg width="24" height="24" fill={isLiked ? "#ed4956" : "none"} stroke={isLiked ? "#ed4956" : "white"} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </button>
+              
+              {likesCount > 0 && (
+                <span className="stories-likes-count">
+                  {likesCount} {likesCount === 1 ? 'like' : 'likes'}
+                </span>
+              )}
+            </div>
+
+            <button 
+              className="stories-share-btn"
+              onClick={() => setShowShareModal(true)}
+            >
+              <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          {currentVideo?.caption && (
+            <div className="stories-description">
+              {currentVideo.caption}
+            </div>
+          )}
+
+          {comments.length > 0 && (
+            <div className="stories-comments-list">
+              {showComments && comments.map((comment, index) => {
+                const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
+                return (
+                  <div key={comment._id || index} className="stories-comment">
+                    <span 
+                      className="comment-username clickable-username"
+                      onClick={() => {
+                        if (username !== 'Unknown User') {
+                          window.location.href = `/profile/${username}`;
+                        }
+                      }}
+                    >
+                      {username}
+                    </span>
+                    <span className="stories-comment-text">{comment.text}</span>
+                  </div>
+                );
+              })}
+              
+              <button 
+                className="stories-view-comments"
+                onClick={() => setShowComments(!showComments)}
+              >
+                {showComments 
+                  ? 'Hide comments' 
+                  : `Show comments (${comments.length})`
+                }
+              </button>
+            </div>
+          )}
+
+          <form className="stories-add-comment" onSubmit={handleAddComment}>
+            <input
+              type="text"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment..."
+              className="stories-comment-input"
+              disabled={isSubmittingComment}
+            />
+            {newComment.trim() && (
+              <button 
+                type="submit" 
+                className="stories-comment-submit"
+                disabled={isSubmittingComment}
+              >
+                {isSubmittingComment ? '...' : 'Post'}
+              </button>
+            )}
+          </form>
+        </div>
       </div>
 
       {showShareModal && currentVideo && (

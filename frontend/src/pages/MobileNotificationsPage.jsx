@@ -143,18 +143,18 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
           <div className="notification-time-mobile">{timeAgo(createdAt)}</div>
         </div>
         {post && (type === 'like' || type === 'comment') && (
-          <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
-            <img 
-              src={getPostPreviewUrl(post)} 
-              alt="Post thumbnail" 
-              className="notification-post-image-mobile"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/default-post-placeholder.png';
-              }}
-            />
-          </Link>
-        )}
+  <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
+    <img 
+      src={getPostPreviewUrl(post)} 
+      alt="Post thumbnail" 
+      className="notification-post-image-mobile"
+      onError={(e) => {
+        e.target.onerror = null;
+        e.target.src = '/default-post-placeholder.png';
+      }}
+    />
+  </Link>
+)}
         <button className="notification-delete-btn" onClick={handleDelete}>×</button>
       </div>
     </div>

@@ -82,18 +82,7 @@ const VideoStories = () => {
     setSelectedUser(null);
   };
 
-  if (loading) {
-    return (
-      <div className="video-stories-container">
-        <div className="video-stories-header">
-          <h3>Latest Videos</h3>
-        </div>
-        <div className="video-stories-loading">
-          Loading...
-        </div>
-      </div>
-    );
-  }
+
 
   // Временно отключаем VideoStories если есть проблемы с API
   if (videoUsers.length === 0) {
