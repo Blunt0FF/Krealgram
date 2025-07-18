@@ -59,6 +59,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   
   // Share modal
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const currentVideo = videos[currentIndex];
 
@@ -124,16 +125,42 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   };
 
   const handleNext = () => {
+    if (isNavigating) return; // Защита от множественных вызовов
+    
+    setIsNavigating(true);
     markVideoAsViewed();
-    if (currentIndex < videos.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
+    
+    setCurrentIndex(prevIndex => {
+      const newIndex = prevIndex + 1;
+      if (newIndex < videos.length) {
+        return newIndex;
+      } else {
+        // Достигнут конец, закрываем модалку
+        setTimeout(() => handleClose(), 0);
+        return prevIndex;
+      }
+    });
+    
+    // Сбрасываем флаг через небольшую задержку
+    setTimeout(() => setIsNavigating(false), 100);
   };
 
   const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
+    if (isNavigating) return; // Защита от множественных вызовов
+    
+    setIsNavigating(true);
+    
+    setCurrentIndex(prevIndex => {
+      const newIndex = prevIndex - 1;
+      if (newIndex >= 0) {
+        return newIndex;
+      } else {
+        return prevIndex; // Остаемся на первом видео
+      }
+    });
+    
+    // Сбрасываем флаг через небольшую задержку
+    setTimeout(() => setIsNavigating(false), 100);
   };
 
   const handleClose = () => {
@@ -143,6 +170,8 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   };
 
   const handleKeyDown = (e) => {
+    if (e.repeat) return; // Игнорируем повторные события при зажатой клавише
+    
     if (e.key === 'ArrowRight') handleNext();
     if (e.key === 'ArrowLeft') handlePrevious();
     if (e.key === 'Escape') handleClose();
@@ -427,94 +456,94 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           </>
         )}
 
-        <div className="stories-bottom-interface">
-          <div className="stories-actions">
-            <div className="stories-actions-left">
-              <button 
-                className={`stories-like-btn ${isLiked ? 'liked' : ''}`}
-                onClick={handleLike}
-              >
-                <svg width="24" height="24" fill={isLiked ? "#ed4956" : "none"} stroke={isLiked ? "#ed4956" : "white"} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </button>
-              
-              {likesCount > 0 && (
-                <span className="stories-likes-count">
-                  {likesCount} {likesCount === 1 ? 'like' : 'likes'}
-                </span>
-              )}
-            </div>
-
-            <button 
-              className="stories-share-btn"
-              onClick={() => setShowShareModal(true)}
-            >
-              <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
-                <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          </div>
-
-          {currentVideo?.caption && (
-            <div className="stories-description">
-              {currentVideo.caption}
-            </div>
-          )}
-
-          {comments.length > 0 && (
-            <div className="stories-comments-list">
-              {showComments && comments.map((comment, index) => {
-                const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
-                return (
-                  <div key={comment._id || index} className="stories-comment">
-                    <span 
-                      className="comment-username clickable-username"
-                      onClick={() => {
-                        if (username !== 'Unknown User') {
-                          window.location.href = `/profile/${username}`;
-                        }
-                      }}
-                    >
-                      {username}
+            <div className="stories-bottom-interface">
+              <div className="stories-actions">
+                <div className="stories-actions-left">
+                  <button 
+                    className={`stories-like-btn ${isLiked ? 'liked' : ''}`}
+                    onClick={handleLike}
+                  >
+                    <svg width="24" height="24" fill={isLiked ? "#ed4956" : "none"} stroke={isLiked ? "#ed4956" : "white"} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </button>
+                  
+                  {likesCount > 0 && (
+                    <span className="stories-likes-count">
+                      {likesCount} {likesCount === 1 ? 'like' : 'likes'}
                     </span>
-                    <span className="stories-comment-text">{comment.text}</span>
-                  </div>
-                );
-              })}
-              
-              <button 
-                className="stories-view-comments"
-                onClick={() => setShowComments(!showComments)}
-              >
-                {showComments 
-                  ? 'Hide comments' 
-                  : `Show comments (${comments.length})`
-                }
-              </button>
-            </div>
-          )}
+                  )}
+                </div>
 
-          <form className="stories-add-comment" onSubmit={handleAddComment}>
-            <input
-              type="text"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
-              className="stories-comment-input"
-              disabled={isSubmittingComment}
-            />
-            {newComment.trim() && (
-              <button 
-                type="submit" 
-                className="stories-comment-submit"
-                disabled={isSubmittingComment}
-              >
-                {isSubmittingComment ? '...' : 'Post'}
-              </button>
-            )}
-          </form>
-        </div>
+                <button 
+                  className="stories-share-btn"
+                  onClick={() => setShowShareModal(true)}
+                >
+                  <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                    <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              {currentVideo?.caption && (
+                <div className="stories-description">
+                  {currentVideo.caption}
+                </div>
+              )}
+
+              {comments.length > 0 && (
+                <div className="stories-comments-list">
+                  {showComments && comments.map((comment, index) => {
+                    const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
+                    return (
+                      <div key={comment._id || index} className="stories-comment">
+                        <span 
+                          className="comment-username clickable-username"
+                          onClick={() => {
+                            if (username !== 'Unknown User') {
+                              window.location.href = `/profile/${username}`;
+                            }
+                          }}
+                        >
+                          {username}
+                        </span>
+                        <span className="stories-comment-text">{comment.text}</span>
+                      </div>
+                    );
+                  })}
+                  
+                  <button 
+                    className="stories-view-comments"
+                    onClick={() => setShowComments(!showComments)}
+                  >
+                    {showComments 
+                      ? 'Hide comments' 
+                      : `Show comments (${comments.length})`
+                    }
+                  </button>
+                </div>
+              )}
+
+              <form className="stories-add-comment" onSubmit={handleAddComment}>
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="stories-comment-input"
+                  disabled={isSubmittingComment}
+                />
+                {newComment.trim() && (
+                  <button 
+                    type="submit" 
+                    className="stories-comment-submit"
+                    disabled={isSubmittingComment}
+                  >
+                    {isSubmittingComment ? '...' : 'Post'}
+                  </button>
+                )}
+              </form>
+            </div>
       </div>
 
       {showShareModal && currentVideo && (
