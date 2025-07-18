@@ -5,24 +5,8 @@ const User = require('../models/userModel');
 const processNotificationPost = (post) => {
   if (!post) return null;
 
-  const debugPost = {
-    _id: post._id,
-    mediaType: post.mediaType,
-    image: post.image,
-    imageUrl: post.imageUrl,
-    videoUrl: post.videoUrl,
-    thumbnailUrl: post.thumbnailUrl,
-    preview: post.preview,
-    gifPreview: post.gifPreview,
-    youtubeData: post.youtubeData ? { 
-      thumbnailUrl: post.youtubeData.thumbnailUrl 
-    } : null,
-    type: post.type
-  };
-
-  console.log('[NOTIFICATION_DEBUG] Post Details:', JSON.stringify(debugPost, null, 2));
-
-  return debugPost;
+  // Убрана отладочная информация для чистоты логов
+  return post;
 };
 
 // Get all notifications for the current user (with pagination)
@@ -37,7 +21,7 @@ exports.getNotifications = async (req, res) => {
       .populate('notifications.sender', 'username avatar')
       .populate({
         path: 'notifications.post',
-        select: '_id caption image imageUrl videoUrl mediaType thumbnailUrl youtubeData author',
+        select: '_id caption image imageUrl videoUrl mediaType thumbnailUrl gifPreview preview youtubeData author',
         populate: [
           {
             path: 'author',

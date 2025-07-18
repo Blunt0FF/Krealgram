@@ -299,19 +299,10 @@ const Feed = ({ user }) => {
         
         {error && <div className="feed-error">{error}</div>}
         
-        {!loading && !hasMore && posts.length > 0 && (
-          <div className="end-of-feed">
-            <p>You've reached the end of your feed!</p>
-          </div>
-        )}
+        {/* Удален блок end-of-feed */}
       </div>
 
-      {/* Loading spinner - вынесен из .feed для правильного центрирования */}
-      {loading && (
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-        </div>
-      )}
+      {/* Убран спиннер загрузки */}
 
       {/* Post Modal */}
       {isModalOpen && selectedPost && (

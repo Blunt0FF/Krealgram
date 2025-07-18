@@ -22,34 +22,15 @@ const timeAgo = (date) => {
   return Math.floor(seconds) + 's ago';
 };
 
-// Обновленная логика получения превью
+// Логика получения превью (точно как в десктопных уведомлениях)
 const getPostPreviewUrl = (post) => {
-  // Для видео постов используем статичное превью
-  if (post.mediaType === 'video' || post.videoUrl) {
-    // Используем thumbnailUrl если есть
-    if (post.thumbnailUrl) return post.thumbnailUrl;
-    if (post.mobileThumbnailUrl) return post.mobileThumbnailUrl;
-
-    // Создаем статичное превью для Cloudinary видео
-    const videoUrl = post.imageUrl || post.image;
-      return videoUrl.replace(
-        '/video/upload/',
-        `/video/upload/w_50,h_50,c_fill,f_jpg,so_0,q_auto/`
-      );
+  // Приоритет для превью, затем для основного изображения
+  const imageUrl = post.thumbnailUrl || post.image;
+  if (imageUrl) {
+    return getImageUrl(imageUrl);
   }
-
-  // Для обычных изображений
-  const urls = [
-    post.thumbnailUrl,
-    post.imageUrl,
-    post.image,
-    post.youtubeData?.thumbnailUrl,
-    post.preview,
-    post.gifPreview,
-    '/default-post-placeholder.png'
-  ].filter(Boolean);
-
-  return getImageUrl(urls[0]);
+  // Заглушка по умолчанию
+  return '/default-post-placeholder.png';
 };
 
 // Компонент элемента уведомления (тот же, что и в NotificationsPanel)
@@ -161,19 +142,19 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
           <div className="notification-text-mobile">{content}</div>
           <div className="notification-time-mobile">{timeAgo(createdAt)}</div>
         </div>
-        {post && (post.image || post.imageUrl) && (type === 'like' || type === 'comment') && (
-  <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
-    <img 
-      src={getPostPreviewUrl(post)} 
-      alt="Post thumbnail" 
-      className="notification-post-image-mobile"
-      onError={(e) => {
-        e.target.onerror = null;
-        e.target.src = '/default-post-placeholder.png';
-      }}
-    />
-  </Link>
-)}
+        {post && (type === 'like' || type === 'comment') && (
+          <Link to={linkTo} onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(linkTo); }}>
+            <img 
+              src={getPostPreviewUrl(post)} 
+              alt="Post thumbnail" 
+              className="notification-post-image-mobile"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/default-post-placeholder.png';
+              }}
+            />
+          </Link>
+        )}
         <button className="notification-delete-btn" onClick={handleDelete}>×</button>
       </div>
     </div>

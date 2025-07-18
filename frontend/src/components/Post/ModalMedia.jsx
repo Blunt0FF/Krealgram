@@ -12,7 +12,7 @@ import './PostModal.css';
 
 const MAX_CAPTION_LENGTH_EDIT = 500;
 
-const ModalMedia = memo(({ postData }) => {
+const ModalMedia = memo(({ postData, onLoad, onError }) => {
   if (!postData) return null;
 
   // Расширенная функция извлечения YouTube ID
@@ -85,13 +85,8 @@ const ModalMedia = memo(({ postData }) => {
           display: 'block',
           backgroundColor: '#000'
         }}
-        onError={() => {
-          console.error('YouTube iframe failed to load', { 
-            embedUrl: youtubeEmbedUrl, 
-            originalUrl: originalYouTubeUrl,
-            postData: postData
-          });
-        }}
+        onLoad={onLoad}
+        onError={onError}
       />
     );
   }
@@ -129,6 +124,9 @@ const ModalMedia = memo(({ postData }) => {
           objectFit: 'contain',
           display: 'block'
         }}
+        onLoad={onLoad}
+        onLoadedData={onLoad}
+        onError={onError}
         onPlay={(e) => {
           videoManager.setCurrentVideo(e.target);
           // На мобильных включаем звук после начала воспроизведения
@@ -160,8 +158,10 @@ const ModalMedia = memo(({ postData }) => {
       src={getImageUrl(postData.image || postData.imageUrl)}
       alt="Post"
       className="post-modal-image"
+      onLoad={onLoad}
       onError={(e) => {
         e.target.style.display = 'none';
+        onError && onError();
       }}
     />
   );
