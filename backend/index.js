@@ -175,8 +175,17 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
   const { type } = req.query;
+  const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
   const axios = require('axios');
+
+  console.log(`[PROXY-DRIVE_FULL_DEBUG] Incoming request details:`, {
+    fileId,
+    headers: req.headers,
+    method: req.method,
+    url: req.url,
+    isInitialized: drive.isInitialized
+  });
 
   try {
     console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
@@ -189,8 +198,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           responseType: 'arraybuffer',
           headers: {
             'User-Agent': 'Mozilla/5.0'
-          },
-          timeout: 10000
+          }
         });
         
         res.set('Content-Type', response.headers['content-type']);
@@ -198,74 +206,29 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         res.send(response.data);
         return;
       } catch (externalErr) {
-        console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr.message);
-        
-        // Если это Google Drive URL, пытаемся извлечь ID и использовать прямой доступ
-        if (decodedUrl.includes('drive.google.com')) {
-          try {
-            const gdriveMatch = decodedUrl.match(/[?&]id=([^&]+)/) || 
-                               decodedUrl.match(/\/file\/d\/([^/]+)/) ||
-                               decodedUrl.match(/open\?id=([^&]+)/);
-            
-            if (gdriveMatch) {
-              const directUrl = `https://drive.google.com/uc?export=download&id=${gdriveMatch[1]}`;
-              console.log('[PROXY-DRIVE] Пробуем прямой доступ к Google Drive:', directUrl);
-              
-              const directResponse = await axios.get(directUrl, {
-                responseType: 'arraybuffer',
-                headers: {
-                  'User-Agent': 'Mozilla/5.0'
-                },
-                timeout: 10000
-              });
-              
-              res.set('Content-Type', directResponse.headers['content-type']);
-              res.set('Cache-Control', 'public, max-age=31536000');
-              res.send(directResponse.data);
-              return;
-            }
-          } catch (directErr) {
-            console.error('[PROXY-DRIVE] Ошибка прямого доступа к Google Drive:', directErr.message);
-          }
-        }
-        
+        console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr);
         return res.status(404).send('External file not found');
       }
     }
 
     if (!drive.isInitialized) {
       console.error('[PROXY-DRIVE] Google Drive не инициализирован');
-      
-      // Fallback: пытаемся использовать прямой доступ к Google Drive
-      try {
-        const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-        console.log('[PROXY-DRIVE] Fallback: прямой доступ к Google Drive:', directUrl);
-        
-        const directResponse = await axios.get(directUrl, {
-          responseType: 'arraybuffer',
-          headers: {
-            'User-Agent': 'Mozilla/5.0'
-          },
-          timeout: 10000
-        });
-        
-        res.set('Content-Type', directResponse.headers['content-type']);
-        res.set('Cache-Control', 'public, max-age=31536000');
-        res.send(directResponse.data);
-        return;
-      } catch (fallbackErr) {
-        console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
-        return res.status(500).send('Google Drive not available');
-      }
+      return res.status(500).send('Google Drive not initialized');
     }
 
     const meta = await drive.drive.files.get({
-      fileId,
+        fileId,
       fields: 'name, mimeType, size'
-    });
+      });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
     const fileName = meta.data.name || 'file';
-    const fileSize = parseInt(meta.data.size) || 0;
+    const fileSize = meta.data.size || 0;
+
+    console.log(`[PROXY-DRIVE_FULL_DEBUG] File metadata:`, {
+      mimeType,
+      fileName,
+      fileSize
+    });
 
     const fileRes = await drive.drive.files.get({
       fileId,
@@ -281,38 +244,23 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           ...headers,
           'Content-Disposition': `inline; filename="${fileName}"`,
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-          'Access-Control-Allow-Headers': 'Range, Content-Range, Accept-Ranges',
-          'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
-          'Cache-Control': 'public, max-age=31536000',
-          'Accept-Ranges': 'bytes',
-          'X-Content-Type-Options': 'nosniff',
-          'X-Frame-Options': 'SAMEORIGIN',
-          // Дополнительные заголовки для лучшей поддержки видео
-          'Connection': 'keep-alive',
-          'Keep-Alive': 'timeout=30, max=1000',
-          // Заголовки для лучшей поддержки потокового видео
-          'Transfer-Encoding': 'chunked',
-          'Content-Transfer-Encoding': 'binary'
+          'Cache-Control': 'public, max-age=31536000'
         });
         headersSent = true;
       }
     };
 
     if (range) {
-      // Улучшенная обработка Range-запросов для видео
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Range request:`, range);
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      
-      // Увеличиваем размер чанка для лучшей буферизации
-      const adjustedEnd = Math.min(end + 2 * 1024 * 1024, fileSize - 1); // +2MB для буферизации
-      const adjustedChunksize = (adjustedEnd - start) + 1;
+      const chunksize = (end - start) + 1;
 
       sendHeaders(206, {
-        'Content-Range': `bytes ${start}-${adjustedEnd}/${fileSize}`,
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
-        'Content-Length': adjustedChunksize,
+        'Content-Length': chunksize,
         'Content-Type': mimeType
       });
     } else {
@@ -322,71 +270,33 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       });
     }
 
-    // Улучшенная обработка ошибок потока
-    fileRes.data.on('error', (err) => {
-      console.error('[PROXY-DRIVE] Ошибка при отправке файла:', err);
-      if (!headersSent) {
-        res.status(500).send('Error streaming file');
-      } else if (!res.headersSent) {
-        res.end();
-      }
+    fileRes.data.on('data', (chunk) => {
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Chunk received: ${chunk.length} bytes`);
     });
 
-    // Обработка завершения потока
     fileRes.data.on('end', () => {
-      console.log('[PROXY-DRIVE] File stream ended');
-      if (!res.headersSent) {
-        res.end();
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Файл ${fileId} полностью отправлен на фронт`);
+    });
+
+    fileRes.data.on('error', (err) => {
+      console.error('[PROXY-DRIVE_FULL_DEBUG] Ошибка при отправке файла:', err);
+      if (!headersSent) {
+      res.status(500).send('Error streaming file');
       }
     });
 
-    // Обработка ошибок ответа
-    res.on('error', (err) => {
-      console.error('[PROXY-DRIVE] Response error:', err);
-      fileRes.data.destroy();
-    });
-
-    // Улучшенное проксирование с буферизацией
     fileRes.data.pipe(res);
-
-    // Обработка закрытия соединения
-    req.on('close', () => {
-      console.log('[PROXY-DRIVE] Request closed');
-      fileRes.data.destroy();
-    });
-
-    res.on('close', () => {
-      console.log('[PROXY-DRIVE] Response closed');
-      fileRes.data.destroy();
-    });
-
   } catch (err) {
-    console.error('[PROXY-DRIVE] Ошибка:', err.message);
+    console.error('[PROXY-DRIVE_FULL_DEBUG] Полная ошибка:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+      details: err.response ? err.response.data : null
+    });
 
     if (err.message && err.message.includes('File not found')) {
-      console.warn(`[PROXY-DRIVE] Файл не найден: ${fileId}`);
-      
-      // Fallback: пытаемся использовать прямой доступ к Google Drive
-      try {
-        const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-        console.log('[PROXY-DRIVE] Fallback после ошибки: прямой доступ к Google Drive:', directUrl);
-        
-        const directResponse = await axios.get(directUrl, {
-          responseType: 'arraybuffer',
-          headers: {
-            'User-Agent': 'Mozilla/5.0'
-          },
-          timeout: 10000
-        });
-        
-        res.set('Content-Type', directResponse.headers['content-type']);
-        res.set('Cache-Control', 'public, max-age=31536000');
-        res.send(directResponse.data);
-        return;
-      } catch (fallbackErr) {
-        console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
-        return res.status(404).send('File not found');
-      }
+      console.warn(`[PROXY-DRIVE_FULL_DEBUG] ⚠️ Файл не найден: ${fileId}`);
+      return res.status(404).send('File not found');
     }
     res.status(500).send('Proxy error: ' + err.message);
   }

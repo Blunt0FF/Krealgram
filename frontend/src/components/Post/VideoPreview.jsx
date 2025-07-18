@@ -1,18 +1,12 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 import { getVideoUrl, getImageUrl } from '../../utils/imageUtils';
 import videoManager from '../../utils/videoManager';
-import useVideoPreloader from '../../hooks/useVideoPreloader';
 
 // Функция для определения мобильного устройства
 const isMobile = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
          (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
-};
-
-// Функция для определения Safari
-const isSafari = () => {
-  return navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
 };
 
 // Функция для получения превью поста (как в профиле)
@@ -41,23 +35,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const videoRef = useRef(null);
   
   // Используем ту же логику что и в профиле
-  const thumbnailUrl = useMemo(() => getPostThumbnail(post), [post]);
-  const gifUrl = useMemo(() => getVideoPreviewThumbnail(post), [post]);
-  const staticUrl = useMemo(() => getStaticThumbnail(post), [post]);
-  
-  // Получаем URL видео для предзагрузки
-  const videoUrl = post.imageUrl || post.image;
-  
-  // Предзагрузка видео с высоким приоритетом для Safari
-  const { isPreloaded, error: preloadError } = useVideoPreloader(
-    videoUrl, 
-    isSafari() ? 'high' : 'low'
-  );
-  
-  // Получаем URL видео для воспроизведения (всегда вычисляем, даже если не показываем)
-  const resolvedVideoUrl = useMemo(() => {
-    return getVideoUrl(post.imageUrl || post.image);
-  }, [post.imageUrl, post.image]);
+  const thumbnailUrl = getPostThumbnail(post);
+  const gifUrl = getVideoPreviewThumbnail(post);
+  const staticUrl = getStaticThumbnail(post);
 
   // Улучшенная обработка ошибок загрузки
   const handleImageError = () => {
@@ -81,7 +61,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       return;
     }
     
-    // Для всех остальных видео - воспроизведение
+    // Для загруженных видео - воспроизведение
     handleVideoPlay();
   };
 
@@ -91,36 +71,12 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       setShowVideo(true);
       setTimeout(() => {
         if (videoRef.current) {
-          // Проверяем готовность видео перед воспроизведением
-          if (videoRef.current.readyState >= 2 && !videoRef.current.error) { // HAVE_CURRENT_DATA
-            videoRef.current.play().catch(err => {
-              console.error('Video play error:', err);
-              // Fallback: показываем модалку, если не удалось воспроизвести
-              onClick && onClick();
-            });
-            setIsVideoPlaying(true);
-          } else {
-            console.log('Video not ready, waiting for data...', {
-              readyState: videoRef.current?.readyState,
-              error: videoRef.current?.error
-            });
-            // Ждем загрузки данных
-            const checkReady = () => {
-              if (videoRef.current && videoRef.current.readyState >= 2 && !videoRef.current.error) {
-                videoRef.current.play().catch(err => {
-                  console.error('Video play error after waiting:', err);
-                  onClick && onClick();
-                });
-                setIsVideoPlaying(true);
-              } else if (videoRef.current && videoRef.current.error) {
-                console.error('Video has error, cannot play');
-                onClick && onClick();
-              } else {
-                setTimeout(checkReady, 100);
-              }
-            };
-            checkReady();
-          }
+          videoRef.current.play().catch(err => {
+            console.error('Video play error:', err);
+            // Fallback: показываем модалку, если не удалось воспроизвести
+            onClick && onClick();
+          });
+          setIsVideoPlaying(true);
         }
       }, 100);
     } else if (videoRef.current) {
@@ -128,11 +84,6 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         videoRef.current.pause();
         setIsVideoPlaying(false);
       } else {
-        // Если видео закончилось, перезапускаем его
-        if (videoRef.current.ended) {
-          videoRef.current.currentTime = 0;
-          console.log('Restarting ended video');
-        }
         videoRef.current.play().catch(err => {
           console.error('Video play error:', err);
           onClick && onClick();
@@ -144,12 +95,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
 
   // Обработка окончания видео
   const handleVideoEnded = () => {
-    console.log('Video ended naturally');
     setIsVideoPlaying(false);
-    // Не скрываем видео сразу, даем пользователю возможность перезапустить
-    setTimeout(() => {
-      setShowVideo(false);
-    }, 2000); // Показываем видео еще 2 секунды после окончания
+    setShowVideo(false);
+    // Не перезапускаем автоматически - пользователь может кликнуть снова
   };
 
   // Обработка загрузки видео
@@ -215,7 +163,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={resolvedVideoUrl}
+          src={getVideoUrl(post.imageUrl || post.image)}
           type="video/mp4"
           style={{
             width: '100%',
@@ -232,8 +180,8 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          preload={isSafari() ? 'auto' : 'metadata'}
-          muted={false}
+          preload={isMobile() ? "metadata" : "auto"}
+          muted={false} // Звук всегда включен
           onPlay={() => {
             setIsVideoPlaying(true);
             videoManager.setCurrentVideo(videoRef.current);
@@ -246,112 +194,13 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           }}
           onEnded={handleVideoEnded}
           onLoadedData={handleVideoLoaded}
-          onCanPlay={() => {
-            console.log('Video can play');
-            setVideoLoaded(true);
-          }}
-          onCanPlayThrough={() => {
-            console.log('Video can play through');
-            // Убеждаемся, что видео без звука для избежания проблем с декодированием
-            if (videoRef.current) {
-              videoRef.current.muted = true;
-            }
-          }}
-          onWaiting={() => {
-            console.log('Video is waiting for data...');
-          }}
-          onStalled={() => {
-            console.warn('Video playback stalled');
-          }}
-          onSuspend={() => {
-            console.log('Video loading suspended');
-          }}
-          onLoadStart={() => {
-            console.log('Video load started');
-          }}
-          onLoadedMetadata={() => {
-            console.log('Video metadata loaded');
-          }}
-          onAbort={() => {
-            console.warn('Video loading aborted');
-          }}
-          onEmptied={() => {
-            console.warn('Video source emptied');
-          }}
           onError={(e) => {
-            console.warn('Video playback error, switching to preview mode', e);
-            const video = e.target;
-            console.log('Video error details:', {
-              error: video.error,
-              networkState: video.networkState,
-              readyState: video.readyState,
-              src: video.src,
-              currentTime: video.currentTime,
-              duration: video.duration,
-              paused: video.paused,
-              ended: video.ended
-            });
-            
-            // Проверяем тип ошибки
-            if (video.error) {
-              console.log('Media error code:', video.error.code);
-              console.log('Media error message:', video.error.message);
-            }
-            
-            // Не скрываем видео сразу, пытаемся исправить
-            if (video.networkState === 3) { // NETWORK_NO_SOURCE
-              console.log('Network error, trying to reload video');
-              setTimeout(() => {
-                if (videoRef.current) {
-                  videoRef.current.load();
-                }
-              }, 2000);
-            } else if (video.readyState >= 2) {
-              // Видео загружено, но произошла ошибка воспроизведения
-              console.log('Playback error, trying to restart video');
-              
-              // Если это ошибка декодирования аудио, пытаемся воспроизвести без аудио
-              if (video.error && video.error.code === 3 && video.error.message.includes('audio')) {
-                console.log('Audio decode error, trying to play without audio');
-                if (videoRef.current) {
-                  videoRef.current.muted = true;
-                  videoRef.current.currentTime = 0;
-                  videoRef.current.play().catch(err => {
-                    console.error('Failed to restart video without audio:', err);
-                    setShowVideo(false);
-                    setIsVideoPlaying(false);
-                  });
-                }
-              } else {
-                // Для других ошибок пытаемся обычный перезапуск
-                setTimeout(() => {
-                  if (videoRef.current) {
-                    videoRef.current.currentTime = 0;
-                    videoRef.current.play().catch(err => {
-                      console.error('Failed to restart video:', err);
-                      setShowVideo(false);
-                      setIsVideoPlaying(false);
-                    });
-                  }
-                }, 1000);
-              }
-            } else {
-              // Для других ошибок переключаемся на превью
-              setShowVideo(false);
-              setIsVideoPlaying(false);
-            }
+            console.error('Video error:', e.target.error);
+            console.log('Failed video src:', e.target.src);
+            // Fallback к модалке при ошибке
+            onClick && onClick();
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            // Если видео закончилось, перезапускаем его при клике
-            if (videoRef.current && videoRef.current.ended) {
-              videoRef.current.currentTime = 0;
-              videoRef.current.play().catch(err => {
-                console.error('Video restart error:', err);
-              });
-              setIsVideoPlaying(true);
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
         />
       )}
 
@@ -390,16 +239,15 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {/* Кнопка воспроизведения */}
       {!showVideo && (
         <div 
-          className="play-button"
           style={{
             position: 'absolute',
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
+            background: 'rgba(0,0,0,0.5)',
+            borderRadius: '50%',
             width: '60px',
             height: '60px',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -408,12 +256,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           }}
           onClick={handleVideoClick}
         >
-          <svg 
-            width="24" 
-            height="24" 
-            viewBox="0 0 24 24" 
-            fill="white"
-          >
+          <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
             <path d="M8 5v14l11-7z"/>
           </svg>
         </div>

@@ -60,7 +60,14 @@ const Feed = ({ user }) => {
         setPosts(prevPosts => {
           const postMap = new Map(prevPosts.map(p => [p._id, p]));
           data.forEach(p => postMap.set(p._id, p));
-          return Array.from(postMap.values());
+          const newPosts = Array.from(postMap.values());
+          
+          // Если это первая загрузка (page === 1), устанавливаем currentIndex в 0
+          if (page === 1) {
+            setCurrentPostIndex(0);
+          }
+          
+          return newPosts;
         });
 
         setHasMore(data.length === 10);
@@ -87,6 +94,50 @@ const Feed = ({ user }) => {
     });
     if (node) observer.current.observe(node);
   }, [loading, hasMore]);
+
+  // Отслеживаем видимые посты для предзагрузки видео
+  useEffect(() => {
+    const handleScroll = () => {
+      const posts = document.querySelectorAll('.feed > div');
+      const windowHeight = window.innerHeight;
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      
+      // Находим центральный видимый пост
+      let centerIndex = 0;
+      let minDistance = Infinity;
+      
+      posts.forEach((postElement, index) => {
+        const rect = postElement.getBoundingClientRect();
+        const postCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(postCenter - windowHeight / 2);
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          centerIndex = index;
+        }
+      });
+      
+      // Обновляем currentIndex только если он значительно изменился
+      if (Math.abs(centerIndex - currentPostIndex) > 2) {
+        setCurrentPostIndex(centerIndex);
+      }
+    };
+
+    // Добавляем throttling для производительности
+    let ticking = false;
+    const throttledHandleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledHandleScroll);
+    return () => window.removeEventListener('scroll', throttledHandleScroll);
+  }, [currentPostIndex]);
 
   const handlePostUpdate = (postId, updates) => {
     setPosts(prevPosts =>

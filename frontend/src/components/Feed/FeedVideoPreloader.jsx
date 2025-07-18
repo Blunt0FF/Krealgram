@@ -13,9 +13,14 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
   useEffect(() => {
     if (!posts || posts.length === 0) return;
 
-    // Предзагружаем только видео файлы (не изображения)
+    // Предзагружаем видео только для видимых постов (текущая страница)
     const videosToPreload = [];
-    for (let i = currentIndex; i < Math.min(currentIndex + 3, posts.length); i++) {
+    const startIndex = Math.max(0, currentIndex - 3); // Начинаем с 3 постов назад
+    const endIndex = Math.min(posts.length, currentIndex + 7); // Заканчиваем на 7 постов вперед
+    
+    console.log(`[VIDEO_PRELOADER] Диапазон предзагрузки: ${startIndex} - ${endIndex} (всего постов: ${posts.length})`);
+    
+    for (let i = startIndex; i < endIndex; i++) {
       const post = posts[i];
       if (post && (post.imageUrl || post.image) && !preloadedVideos.current.has(post._id)) {
         // Проверяем, является ли это видео
@@ -29,28 +34,39 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         if (isVideo) {
           videosToPreload.push({
             id: post._id,
-            url: post.imageUrl || post.image
+            url: post.imageUrl || post.image,
+            index: i
           });
         }
       }
     }
 
-    // Предзагружаем видео
-    videosToPreload.forEach(({ id, url }) => {
+    // Сортируем по приоритету: сначала ближайшие к текущему индексу
+    videosToPreload.sort((a, b) => {
+      const aDistance = Math.abs(a.index - currentIndex);
+      const bDistance = Math.abs(b.index - currentIndex);
+      return aDistance - bDistance;
+    });
+
+    // Предзагружаем видео с приоритетом
+    console.log(`[VIDEO_PRELOADER] Начинаем предзагрузку ${videosToPreload.length} видео`);
+    videosToPreload.forEach(({ id, url, index }) => {
       try {
         const resolvedUrl = getVideoUrl(url);
+        console.log(`[VIDEO_PRELOADER] Предзагружаем видео ${id} (индекс: ${index})`);
         
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        video.preload = isSafari() ? 'auto' : 'metadata';
+        // Более агрессивная предзагрузка для первых постов
+        video.preload = index < 5 ? 'auto' : (isSafari() ? 'auto' : 'metadata');
         video.muted = true;
         video.playsInline = true;
         
         const handleLoadedMetadata = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
-            console.log(`Video preloaded: ${id}`);
+            console.log(`[VIDEO_PRELOADER] ✅ Видео предзагружено: ${id}`);
           }
         };
 
@@ -80,6 +96,25 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         }, 30000);
       } catch (error) {
         console.error(`Error setting up video preload for ${id}:`, error);
+      }
+    });
+
+    // Очистка старых предзагруженных видео
+    const currentRange = new Set();
+    for (let i = startIndex; i < endIndex; i++) {
+      if (posts[i]) {
+        currentRange.add(posts[i]._id);
+      }
+    }
+    
+    // Удаляем видео, которые больше не в диапазоне
+    videoElements.current.forEach((video, id) => {
+      if (!currentRange.has(id)) {
+        console.log(`[VIDEO_PRELOADER] 🗑️ Удаляем предзагруженное видео: ${id}`);
+        video.src = '';
+        video.load();
+        videoElements.current.delete(id);
+        preloadedVideos.current.delete(id);
       }
     });
 
