@@ -145,7 +145,7 @@ class UniversalThumbnailGenerator {
               const gifBuffer = await fs.promises.readFile(tempThumbPath);
 
               // Проверяем размер GIF
-              const maxSizeMB = 2;
+              const maxSizeMB = 5;
               const sizeMB = gifBuffer.length / (1024 * 1024);
               
               if (sizeMB > maxSizeMB) {

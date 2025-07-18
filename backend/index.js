@@ -89,6 +89,35 @@ app.get('/', (req, res) => {
   res.send('Krealgram API is working!');
 });
 
+// Роут для обработки Google OAuth callback
+app.get('/auth/google/callback', (req, res) => {
+  const { code } = req.query;
+  
+  if (code) {
+    res.send(`
+      <html>
+        <head><title>Google Drive Authorization</title></head>
+        <body>
+          <h2>✅ Код авторизации получен!</h2>
+          <p>Код: <code>${code}</code></p>
+          <p>Теперь запустите в терминале:</p>
+          <pre>node simple-token.js "${code}"</pre>
+        </body>
+      </html>
+    `);
+  } else {
+    res.send(`
+      <html>
+        <head><title>Google Drive Authorization</title></head>
+        <body>
+          <h2>❌ Ошибка авторизации</h2>
+          <p>Код авторизации не получен.</p>
+        </body>
+      </html>
+    `);
+  }
+});
+
 const authRoutes = require('./routes/authRoutes');
 const postRoutes = require('./routes/postRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -342,12 +371,14 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         return;
       } catch (fallbackErr) {
         console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
-        return res.status(404).send('File not found');
+      return res.status(404).send('File not found');
       }
     }
     res.status(500).send('Proxy error: ' + err.message);
   }
 });
+
+
 
 io.on('connection', async (socket) => {
   const userId = socket.handshake.query.userId;

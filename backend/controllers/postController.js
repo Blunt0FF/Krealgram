@@ -50,7 +50,7 @@ exports.createPost = async (req, res) => {
         };
 
         imagePath = youtubeData.thumbnailUrl;
-      mediaType = 'video';
+        mediaType = 'video';
         thumbnailUrl = youtubeData.thumbnailUrl;
       } catch (error) {
         console.error('YouTube URL processing error:', error);

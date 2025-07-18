@@ -29,6 +29,13 @@ export const processMediaUrl = (url, type = 'image') => {
       null;
   }
 
+  // Если URL уже полный (начинается с http или /uploads), используем как есть
+  if (typeof url === 'string' && (url.startsWith('http') || url.startsWith('/uploads/'))) {
+    const resolvedUrl = resolveMediaUrl(url, type);
+    URL_CACHE.set(cacheKey, resolvedUrl);
+    return resolvedUrl;
+  }
+
   // Для сообщений извлекаем только имя файла и используем проксирование
   if (type === 'message' && typeof url === 'string') {
     // Если это уже полный URL, используем его как есть

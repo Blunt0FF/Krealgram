@@ -4,6 +4,7 @@ import Post from '../Post/Post';
 import PostModal from '../Post/PostModal';
 import VideoStories from '../VideoStories/VideoStories';
 import Toast from '../common/Toast';
+import FeedVideoPreloader from './FeedVideoPreloader';
 import videoManager from '../../utils/videoManager';
 import { API_URL } from '../../config';
 import './Feed.css';
@@ -17,6 +18,7 @@ const Feed = ({ user }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
+  const [currentPostIndex, setCurrentPostIndex] = useState(0);
   const location = useLocation();
   const [toast, setToast] = useState(null);
 
@@ -102,6 +104,10 @@ const Feed = ({ user }) => {
     videos.forEach(video => {
       video.pause();
     });
+
+    // Обновляем индекс текущего поста для предзагрузки
+    const postIndex = posts.findIndex(p => p._id === post._id);
+    setCurrentPostIndex(postIndex);
 
     setIsModalOpen(true);
     setIsModalLoading(true);
@@ -216,31 +222,45 @@ const Feed = ({ user }) => {
 
   return (
     <div className="feed-container">
-      {toast && <Toast message={toast.message} type={toast.type} onDone={() => setToast(null)} />}
-      <VideoStories />
+      {/* Предзагрузка видео */}
+      <FeedVideoPreloader 
+        posts={posts} 
+        currentIndex={currentPostIndex}
+      />
+      
+      {/* Video Stories */}
+      <VideoStories user={user} />
+      
+      {/* Posts */}
       <div className="feed">
-        {posts.length > 0 ? (
-          posts.map((post, index) => (
-            <div ref={posts.length === index + 1 ? lastPostElementRef : null} key={post._id}>
-              <Post
-                post={post}
-                currentUser={user}
-                onPostUpdate={handlePostUpdate}
-                onImageClick={() => handleImageClick(post)}
-              />
-            </div>
-          ))
-        ) : (
-          !loading && (
-            <div className="no-posts">
-              <h2>No posts yet</h2>
-              <p>Be the first to share something!</p>
-            </div>
-          )
+        {posts.map((post, index) => (
+          <div key={post._id} ref={index === posts.length - 1 ? lastPostElementRef : null}>
+            <Post
+              post={post}
+              currentUser={user}
+              onPostUpdate={handlePostUpdate}
+              onImageClick={handleImageClick}
+              onDeletePost={handleDeletePost}
+            />
+          </div>
+        ))}
+        
+        {loading && (
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+          </div>
         )}
+        
         {error && <div className="feed-error">{error}</div>}
+        
+        {!loading && !hasMore && posts.length > 0 && (
+          <div className="end-of-feed">
+            <p>You've reached the end of your feed!</p>
+          </div>
+        )}
       </div>
 
+      {/* Post Modal */}
       {isModalOpen && selectedPost && (
         <PostModal
           post={selectedPost}
@@ -249,10 +269,19 @@ const Feed = ({ user }) => {
           currentUser={user}
           onPostUpdate={handlePostUpdate}
           onDeletePost={handleDeletePost}
-          onNext={goToNextPost}
           onPrevious={goToPreviousPost}
+          onNext={goToNextPost}
           canGoPrevious={canGoPrevious}
           canGoNext={canGoNext}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
     </div>

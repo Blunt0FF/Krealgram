@@ -135,6 +135,16 @@ export const resolveMediaUrl = (url, type = 'image') => {
     }
 
     // Локальные пути
+    if (url.startsWith('/uploads/')) {
+      // Если URL уже содержит /uploads/, просто добавляем API_URL
+      return `${API_URL}${url}`;
+    }
+    
+    // Проверяем, не содержит ли URL уже полный путь
+    if (url.includes('/uploads/')) {
+      return `${API_URL}${url}`;
+    }
+    
     const localUrlMap = {
       'image': `${API_URL}/uploads/${url}`,
       'video': `${API_URL}/uploads/${url}`,

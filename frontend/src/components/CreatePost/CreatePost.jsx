@@ -6,6 +6,56 @@ import { API_URL } from '../../config';
 import ExternalVideoUpload from '../ExternalVideoUpload/ExternalVideoUpload';
 import './CreatePost.css';
 
+// Функция для сжатия изображений
+const compressImage = async (file) => {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      // Устанавливаем размеры canvas
+      const maxWidth = 1920;
+      const maxHeight = 1080;
+      let { width, height } = img;
+      
+      if (width > height) {
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      
+      // Рисуем изображение на canvas
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Конвертируем в blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+          resolve(compressedFile);
+        } else {
+          reject(new Error('Failed to compress image'));
+        }
+      }, 'image/jpeg', 0.8);
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(file);
+  });
+};
+
 const CreatePost = () => {
   const navigate = useNavigate();
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -26,52 +76,43 @@ const CreatePost = () => {
     window.scrollTo(0, 0);
   }, []);
 
-  const handleImageChange = useCallback(async (e) => {
-    let file = e.target.files[0];
+  const handleImageChange = useCallback(async (event) => {
+    const file = event.target.files[0];
     if (!file) return;
 
+    console.log('📸 File Details:', {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+
+    setCompressing(true);
+    setError('');
+
     try {
-      setCompressing(true);
-      setError('');
-      setParsedVideoData(null);
-      setVideoUrl('');
+      // Определяем тип медиа
+      const isVideo = file.type.startsWith('video/');
+      setMediaType(isVideo ? 'video' : 'image');
 
-      // HEIC конвертация
-      if (file.type === 'image/heic' || file.type === 'image/heif' || 
-          file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
-        try {
-          const convertedBlob = await heic2any({
-            blob: file,
-            toType: 'image/jpeg',
-            quality: 0.9,
-          });
-          const fileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
-          file = new File([convertedBlob], fileName, { type: 'image/jpeg' });
-        } catch (conversionError) {
-          console.error('HEIC conversion failed:', conversionError);
-          setError('Failed to convert HEIC image.');
-          setCompressing(false);
-          return;
-        }
+      if (isVideo) {
+        // Для видео создаем превью
+        const videoUrl = URL.createObjectURL(file);
+        setPreviewUrl(videoUrl);
+        setCompressedFile(file);
+        setOriginalFileName(file.name);
+      } else {
+        // Для изображений сжимаем
+        const compressed = await compressImage(file);
+        setCompressedFile(compressed);
+        setOriginalFileName(file.name);
+        
+        // Создаем превью для изображения
+        const imageUrl = URL.createObjectURL(compressed);
+        setPreviewUrl(imageUrl);
       }
-
-      const fileType = file.type.startsWith('video/') ? 'video' : 'image';
-      setMediaType(fileType);
-
-      // Создаем превью с мемоизацией
-      const previewDataUrl = await ImageProcessor.createTemporaryPreview(file);
-      setPreviewUrl(previewDataUrl);
-      setOriginalFileName(file.name);
-      
-      // Сжатие с мемоизацией
-      const compressedFile = fileType === 'image' 
-        ? await ImageProcessor.compressImage(file) 
-        : file; // Для видео оставляем оригинальный файл
-      
-      setCompressedFile(compressedFile);
-    } catch (err) {
-      console.error('File processing error:', err);
-      setError('Error processing file');
+    } catch (error) {
+      console.error('Error processing file:', error);
+      setError('Error processing file. Please try again.');
     } finally {
       setCompressing(false);
     }
@@ -141,9 +182,8 @@ const CreatePost = () => {
         responseData = await response.json();
       } catch (jsonError) {
         console.error('❌ JSON Parsing Error:', jsonError);
-        const responseText = await response.text();
-        console.error('❌ Response Text:', responseText);
-        throw new Error('Invalid server response');
+        // Не пытаемся читать response.text() повторно
+        throw new Error('Invalid server response - not JSON');
       }
 
       if (!response.ok) {

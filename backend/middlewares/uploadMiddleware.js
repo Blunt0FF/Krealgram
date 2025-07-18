@@ -33,7 +33,7 @@ const generateGifThumbnail = async (videoPath) => {
             const gifBuffer = await fsPromises.readFile(tempGifPath);
             
             // Проверяем размер GIF
-            const maxSizeMB = 2;
+            const maxSizeMB = 5;
             const sizeMB = gifBuffer.length / (1024 * 1024);
             
             if (sizeMB > maxSizeMB) {
@@ -337,7 +337,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
       folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
     }
 
-    // Загрузка файла
+    // Загрузка файла на Google Drive
     const result = await googleDrive.uploadFile(
       fileBuffer, 
       driveFilename, 

@@ -107,10 +107,10 @@ export const getMediaThumbnail = (post) => {
   // Для Google Drive видео
   if (post.videoUrl && post.videoUrl.includes('drive.google.com')) {
     const fileId = extractGoogleDriveFileId(post.videoUrl);
-    
-    if (fileId) {
-      const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
-      return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
+      
+      if (fileId) {
+        const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
+        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
     }
   }
 
@@ -167,12 +167,12 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
   // Для Google Drive видео
   if (videoUrl && videoUrl.includes('drive.google.com')) {
     const fileId = extractGoogleDriveFileId(videoUrl);
-    
-    if (fileId) {
-      const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
       
-      // Приоритет: thumbnail, затем первый кадр
-      return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail,first_frame`;
+      if (fileId) {
+        const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
+        
+        // Приоритет: thumbnail, затем первый кадр
+        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail,first_frame`;
     }
   }
 

@@ -6,8 +6,14 @@ const getMediaUrl = (imagePath, type = 'image') => {
     return imagePath;
   }
 
-  if (process.env.USE_GOOGLE_DRIVE === 'true') {
-    // Проксируем запрос через сервер
+  // Для видео используем прямые ссылки на Google Drive
+  if (type === 'video' && imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
+    return `https://drive.google.com/uc?export=download&id=${imagePath}`;
+  }
+  
+  // Для изображений используем проксирование
+  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
+    // Это похоже на Google Drive ID
     return `/api/proxy-drive/${imagePath}`;
   }
 
@@ -21,7 +27,8 @@ const getVideoThumbnailUrl = (imagePath) => {
     return imagePath;
   }
 
-  if (process.env.USE_GOOGLE_DRIVE === 'true') {
+  // Всегда используем проксирование для Google Drive файлов
+  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
     return `/api/proxy-drive/${imagePath}`;
   }
 
@@ -35,7 +42,8 @@ const getMobileThumbnailUrl = (imagePath) => {
     return imagePath;
   }
 
-  if (process.env.USE_GOOGLE_DRIVE === 'true') {
+  // Всегда используем проксирование для Google Drive файлов
+  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
     return `/api/proxy-drive/${imagePath}`;
   }
 
@@ -49,7 +57,8 @@ const getReliableThumbnailUrl = (imagePath) => {
     return imagePath;
   }
 
-  if (process.env.USE_GOOGLE_DRIVE === 'true') {
+  // Всегда используем проксирование для Google Drive файлов
+  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
     return `/api/proxy-drive/${imagePath}`;
   }
 

@@ -2,11 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 import { getVideoUrl, getImageUrl } from '../../utils/imageUtils';
 import videoManager from '../../utils/videoManager';
+import useVideoPreloader from '../../hooks/useVideoPreloader';
 
 // Функция для определения мобильного устройства
 const isMobile = () => {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
          (navigator.maxTouchPoints && navigator.maxTouchPoints > 2 && /MacIntel/.test(navigator.platform));
+};
+
+// Функция для определения Safari
+const isSafari = () => {
+  return navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
 };
 
 // Функция для получения превью поста (как в профиле)
@@ -38,6 +44,15 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const thumbnailUrl = getPostThumbnail(post);
   const gifUrl = getVideoPreviewThumbnail(post);
   const staticUrl = getStaticThumbnail(post);
+  
+  // Получаем URL видео для предзагрузки
+  const videoUrl = post.imageUrl || post.image;
+  
+  // Предзагрузка видео с высоким приоритетом для Safari
+  const { isPreloaded, error: preloadError } = useVideoPreloader(
+    videoUrl, 
+    isSafari() ? 'high' : 'low'
+  );
 
   // Улучшенная обработка ошибок загрузки
   const handleImageError = () => {
@@ -69,29 +84,37 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   const handleVideoPlay = () => {
     if (!showVideo) {
       setShowVideo(true);
+      // Увеличиваем задержку для Safari
+      const delay = isSafari() ? 200 : 100;
       setTimeout(() => {
         if (videoRef.current) {
-          videoRef.current.play().catch(err => {
-            console.error('Video play error:', err);
-            // Не открываем модалку автоматически при ошибке
-            setShowVideo(false);
-            setIsVideoPlaying(false);
-          });
-          setIsVideoPlaying(true);
+          const playPromise = videoRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              setIsVideoPlaying(true);
+            }).catch(err => {
+              console.error('Video play error:', err);
+              setShowVideo(false);
+              setIsVideoPlaying(false);
+            });
+          }
         }
-      }, 100);
+      }, delay);
     } else if (videoRef.current) {
       if (isVideoPlaying) {
         videoRef.current.pause();
         setIsVideoPlaying(false);
       } else {
-        videoRef.current.play().catch(err => {
-          console.error('Video play error:', err);
-          // Не открываем модалку автоматически при ошибке
-          setShowVideo(false);
-          setIsVideoPlaying(false);
-        });
-        setIsVideoPlaying(true);
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            setIsVideoPlaying(true);
+          }).catch(err => {
+            console.error('Video play error:', err);
+            setShowVideo(false);
+            setIsVideoPlaying(false);
+          });
+        }
       }
     }
   };
@@ -167,9 +190,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         <video
           ref={videoRef}
           src={(() => {
-            const videoUrl = getVideoUrl(post.imageUrl || post.image);
-            console.log('Video URL resolved:', videoUrl);
-            return videoUrl;
+            const resolvedVideoUrl = getVideoUrl(post.imageUrl || post.image);
+            console.log('Video URL resolved:', resolvedVideoUrl);
+            return resolvedVideoUrl;
           })()}
           type="video/mp4"
           style={{
@@ -187,7 +210,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          preload="metadata"
+          preload={isSafari() ? 'auto' : 'metadata'}
           muted={false}
           onPlay={() => {
             setIsVideoPlaying(true);
@@ -205,7 +228,6 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             console.error('Video error:', e.target.error);
             console.log('Failed video src:', e.target.src);
             console.log('Video element:', e.target);
-            // Не открываем модалку автоматически при ошибке
             setShowVideo(false);
             setIsVideoPlaying(false);
           }}
@@ -248,15 +270,16 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {/* Кнопка воспроизведения */}
       {!showVideo && (
         <div 
+          className="play-button"
           style={{
             position: 'absolute',
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            background: 'rgba(0,0,0,0.5)',
-            borderRadius: '50%',
             width: '60px',
             height: '60px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -265,7 +288,12 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           }}
           onClick={handleVideoClick}
         >
-          <svg width="32" height="32" fill="white" viewBox="0 0 24 24">
+          <svg 
+            width="24" 
+            height="24" 
+            viewBox="0 0 24 24" 
+            fill="white"
+          >
             <path d="M8 5v14l11-7z"/>
           </svg>
         </div>
