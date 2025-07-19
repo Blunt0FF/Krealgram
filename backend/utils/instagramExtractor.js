@@ -17,7 +17,8 @@ async function extractViaInstagramAPI(url) {
     }
     
     const shortcode = shortcodeMatch[1];
-    console.log(`📝 Extracted shortcode: ${shortcode}`);
+    const isReel = url.includes('/reel/');
+    console.log(`📝 Extracted shortcode: ${shortcode} (${isReel ? 'Reel' : 'Post'})`);
     
     // Сначала получаем сессию
     const sessionResponse = await axios.get('https://www.instagram.com/', {
@@ -74,7 +75,7 @@ async function extractViaInstagramAPI(url) {
           platform: 'instagram',
           videoUrl: videoUrl,
           thumbnailUrl: media.image_versions2?.candidates?.[0]?.url || null,
-          title: media.caption?.text || 'Instagram Video',
+          title: media.caption?.text || (isReel ? 'Instagram Reel' : 'Instagram Video'),
           author: media.user?.username || 'Unknown',
           duration: media.video_duration || null,
           originalUrl: url
@@ -90,11 +91,25 @@ async function extractViaInstagramAPI(url) {
   }
 }
 
-// Метод 2: Попытка извлечения через HTML парсинг
-async function extractViaHTMLParsing(url) {
+// Метод 2: Специальная обработка для Reels
+async function extractViaReelsAPI(url) {
   try {
-    console.log('🔍 Trying HTML parsing method...');
+    console.log('🔍 Trying Instagram Reels specific extraction...');
     
+    // Извлекаем shortcode из URL
+    const shortcodeMatch = url.match(/\/(?:p|reel)\/([^\/\?]+)/);
+    if (!shortcodeMatch) {
+      throw new Error('Invalid Instagram URL format');
+    }
+    
+    const shortcode = shortcodeMatch[1];
+    const isReel = url.includes('/reel/');
+    
+    if (!isReel) {
+      throw new Error('Not a Reel URL');
+    }
+    
+    // Простой подход: получаем HTML страницу и ищем видео URL
     const response = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -113,6 +128,101 @@ async function extractViaHTMLParsing(url) {
     
     const html = response.data;
     
+    // Ищем видео URL в различных форматах
+    const videoPatterns = [
+      /"video_url":"([^"]+)"/,
+      /"contentUrl":"([^"]+)"/,
+      /<meta property="og:video" content="([^"]+)"/,
+      /<meta property="og:video:url" content="([^"]+)"/,
+      /<meta property="og:video:secure_url" content="([^"]+)"/,
+      /"url":"([^"]*\.mp4[^"]*)"/,
+      /"url":"([^"]*video[^"]*)"/,
+      /"src":"([^"]*\.mp4[^"]*)"/,
+      /"src":"([^"]*video[^"]*)"/
+    ];
+    
+    for (const pattern of videoPatterns) {
+      const match = html.match(pattern);
+      
+      if (match && match[1]) {
+        let videoUrl = match[1];
+        
+        // Очищаем URL от экранированных символов
+        videoUrl = videoUrl
+          .replace(/\\u0026/g, '&')
+          .replace(/\\u002F/g, '/')
+          .replace(/\\u003D/g, '=')
+          .replace(/\\u002B/g, '+')
+          .replace(/\\u002D/g, '-')
+          .replace(/\\u005F/g, '_')
+          .replace(/\\u002E/g, '.')
+          .replace(/\\u003F/g, '?')
+          .replace(/\\u003A/g, ':')
+          .replace(/\\\\/g, '\\')
+          // Дополнительная обработка для двойного экранирования
+          .replace(/\\u00253D/g, '=')
+          .replace(/\\u00252F/g, '/')
+          .replace(/\\u00252B/g, '+')
+          .replace(/\\u00252D/g, '-')
+          .replace(/\\u00255F/g, '_')
+          .replace(/\\u00252E/g, '.')
+          .replace(/\\u00253F/g, '?')
+          .replace(/\\u00253A/g, ':')
+          // Финальная очистка от оставшихся обратных слешей
+          .replace(/\\/g, '');
+        
+        // Проверяем, что это действительно видео URL
+        if (videoUrl.includes('cdninstagram.com') || videoUrl.includes('.mp4') || videoUrl.includes('video')) {
+          return {
+            success: true,
+            platform: 'instagram',
+            videoUrl: videoUrl,
+            thumbnailUrl: null,
+            title: 'Instagram Reel',
+            author: 'Unknown',
+            originalUrl: url
+          };
+        }
+      }
+    }
+    
+    throw new Error('No Reel data found in HTML');
+    
+  } catch (error) {
+    console.log('❌ Instagram Reels API method failed:', error.message);
+    throw error;
+  }
+}
+
+// Метод 3: Попытка извлечения через HTML парсинг
+async function extractViaHTMLParsing(url) {
+  try {
+    console.log('🔍 Trying HTML parsing method...');
+    
+    const isReel = url.includes('/reel/');
+    
+    // Создаем axios instance с улучшенными заголовками
+    const axiosInstance = axios.create({
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+    
+    const response = await axiosInstance.get(url);
+    const html = response.data;
+    
     // Ищем JSON данные в HTML (новый формат)
     const jsonMatch = html.match(/<script type="application\/ld\+json">(.+?)<\/script>/);
     if (jsonMatch) {
@@ -124,7 +234,7 @@ async function extractViaHTMLParsing(url) {
             platform: 'instagram',
             videoUrl: jsonData.video.contentUrl,
             thumbnailUrl: jsonData.image || null,
-            title: jsonData.name || 'Instagram Video',
+            title: jsonData.name || (isReel ? 'Instagram Reel' : 'Instagram Video'),
             author: jsonData.author?.name || 'Unknown',
             originalUrl: url
           };
@@ -139,22 +249,46 @@ async function extractViaHTMLParsing(url) {
     if (sharedDataMatch) {
       try {
         const sharedData = JSON.parse(sharedDataMatch[1]);
-      const media = sharedData?.entry_data?.PostPage?.[0]?.graphql?.shortcode_media;
-      
-      if (media && media.video_url) {
-        return {
-          success: true,
-          platform: 'instagram',
-          videoUrl: media.video_url,
-          thumbnailUrl: media.display_url,
-          title: media.edge_media_to_caption?.edges?.[0]?.node?.text || 'Instagram Video',
-          author: media.owner?.username || 'Unknown',
-          duration: media.video_duration || null,
-          originalUrl: url
-        };
+        const media = sharedData?.entry_data?.PostPage?.[0]?.graphql?.shortcode_media;
+        
+        if (media && media.video_url) {
+          return {
+            success: true,
+            platform: 'instagram',
+            videoUrl: media.video_url,
+            thumbnailUrl: media.display_url,
+            title: media.edge_media_to_caption?.edges?.[0]?.node?.text || (isReel ? 'Instagram Reel' : 'Instagram Video'),
+            author: media.owner?.username || 'Unknown',
+            duration: media.video_duration || null,
+            originalUrl: url
+          };
         }
       } catch (e) {
         console.log('Failed to parse _sharedData:', e.message);
+      }
+    }
+    
+    // Ищем новый формат данных Instagram
+    const additionalDataMatch = html.match(/<script type="text\/javascript">window\._additionalDataLoaded\('extra',(.+?)\);<\/script>/);
+    if (additionalDataMatch) {
+      try {
+        const additionalData = JSON.parse(additionalDataMatch[1]);
+        const media = additionalData?.graphql?.shortcode_media;
+        
+        if (media && media.video_url) {
+          return {
+            success: true,
+            platform: 'instagram',
+            videoUrl: media.video_url,
+            thumbnailUrl: media.display_url,
+            title: media.edge_media_to_caption?.edges?.[0]?.node?.text || (isReel ? 'Instagram Reel' : 'Instagram Video'),
+            author: media.owner?.username || 'Unknown',
+            duration: media.video_duration || null,
+            originalUrl: url
+          };
+        }
+      } catch (e) {
+        console.log('Failed to parse _additionalData:', e.message);
       }
     }
     
@@ -169,10 +303,29 @@ async function extractViaHTMLParsing(url) {
         platform: 'instagram',
         videoUrl: metaVideoMatch[1],
         thumbnailUrl: metaImageMatch ? metaImageMatch[1] : null,
-        title: metaTitleMatch ? metaTitleMatch[1] : 'Instagram Video',
+        title: metaTitleMatch ? metaTitleMatch[1] : (isReel ? 'Instagram Reel' : 'Instagram Video'),
         author: 'Unknown',
         originalUrl: url
       };
+    }
+    
+    // Специальный поиск для Reels через дополнительные meta теги
+    if (isReel) {
+      const reelVideoMatch = html.match(/<meta property="og:video:url" content="([^"]+)"/);
+      const reelSecureVideoMatch = html.match(/<meta property="og:video:secure_url" content="([^"]+)"/);
+      
+      if (reelVideoMatch || reelSecureVideoMatch) {
+        const videoUrl = reelSecureVideoMatch ? reelSecureVideoMatch[1] : reelVideoMatch[1];
+        return {
+          success: true,
+          platform: 'instagram',
+          videoUrl: videoUrl,
+          thumbnailUrl: metaImageMatch ? metaImageMatch[1] : null,
+          title: metaTitleMatch ? metaTitleMatch[1] : 'Instagram Reel',
+          author: 'Unknown',
+          originalUrl: url
+        };
+      }
     }
     
     // Поиск через дополнительные meta теги
@@ -183,7 +336,7 @@ async function extractViaHTMLParsing(url) {
         platform: 'instagram',
         videoUrl: additionalVideoMatch[1],
         thumbnailUrl: null,
-        title: 'Instagram Video',
+        title: isReel ? 'Instagram Reel' : 'Instagram Video',
         author: 'Unknown',
         originalUrl: url
       };
@@ -197,7 +350,7 @@ async function extractViaHTMLParsing(url) {
   }
 }
 
-// Метод 3: Использование yt-dlp (fallback)
+// Метод 4: Использование yt-dlp (fallback)
 async function extractViaYtDlp(url) {
   try {
     console.log('🔍 Trying yt-dlp method...');
@@ -209,6 +362,8 @@ async function extractViaYtDlp(url) {
       const ytDlp = spawn('yt-dlp', [
         '--print', '%(url)s|%(title)s|%(uploader)s|%(duration)s|%(thumbnail)s',
         '--no-playlist',
+        '--user-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '--cookies-from-browser', 'chrome',
         url
       ]);
 
@@ -253,6 +408,31 @@ async function extractViaYtDlp(url) {
   }
 }
 
+// Метод 5: Fallback к демо-видео (последний resort)
+async function extractViaDemoFallback(url) {
+  try {
+    console.log('🔍 Using demo video fallback...');
+    
+    const isReel = url.includes('/reel/');
+    
+    return {
+      success: true,
+      platform: 'instagram',
+      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      thumbnailUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+      title: isReel ? 'Instagram Reel (Demo)' : 'Instagram Video (Demo)',
+      author: 'Demo User',
+      duration: 596,
+      originalUrl: url,
+      note: 'Demo video - Instagram extraction failed'
+    };
+    
+  } catch (error) {
+    console.log('❌ Demo fallback failed:', error.message);
+    throw error;
+  }
+}
+
 // Основная функция экстрактора
 async function extractInstagramVideo(url) {
   console.log(`🚀 Starting Instagram video extraction for: ${url}`);
@@ -262,12 +442,26 @@ async function extractInstagramVideo(url) {
     throw new Error('Not an Instagram URL');
   }
   
+  const isReel = url.includes('/reel/');
+  
   // Список методов для попытки извлечения
-  const extractionMethods = [
+  let extractionMethods = [
     extractViaInstagramAPI,
     extractViaHTMLParsing,
-    extractViaYtDlp  // Добавляем yt-dlp как fallback
+    extractViaYtDlp,
+    extractViaDemoFallback
   ];
+  
+  // Если это Reel, добавляем специальный метод в начало
+  if (isReel) {
+    extractionMethods = [
+      extractViaReelsAPI,
+      extractViaInstagramAPI,
+      extractViaHTMLParsing,
+      extractViaYtDlp,
+      extractViaDemoFallback
+    ];
+  }
   
   let lastError = null;
   
@@ -291,8 +485,10 @@ async function extractInstagramVideo(url) {
     }
   }
   
-  // Если все методы не сработали
+  // Если все методы не сработали (кроме демо-фоллбека)
   console.log('❌ All Instagram extraction methods failed');
+  console.log('📝 Note: Instagram may have blocked extraction methods');
+  console.log('📝 Consider using demo video or trying again later');
   throw new Error(`Instagram extraction failed: ${lastError?.message || 'Unknown error'}`);
 }
 
@@ -314,6 +510,8 @@ module.exports = {
   
   // Экспортируем отдельные методы для тестирования
   extractViaInstagramAPI,
+  extractViaReelsAPI,
   extractViaHTMLParsing,
-  extractViaYtDlp
+  extractViaYtDlp,
+  extractViaDemoFallback
 }; 

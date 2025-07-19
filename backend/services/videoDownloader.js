@@ -280,11 +280,20 @@ class VideoDownloader {
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || result.thumbnailUrl || driveResult.thumbnailUrl, 
         fileId: driveResult.public_id,
-        originalUrl: url
+        originalUrl: url,
+        note: result.note || null // Добавляем заметку о демо-видео
       };
 
     } catch (error) {
-      console.error('❌ Instagram download error:', error);
+      console.error('❌ Instagram download error:', error.message);
+      
+      // Если это ошибка экстракции, добавляем дополнительную информацию
+      if (error.message.includes('Instagram extraction failed')) {
+        console.log('📝 Instagram may have blocked extraction methods');
+        console.log('📝 This is normal - Instagram frequently changes their protection');
+        console.log('📝 The system will try again with different methods');
+      }
+      
       throw error;
     }
   }

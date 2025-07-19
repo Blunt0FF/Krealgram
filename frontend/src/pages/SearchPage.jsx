@@ -141,7 +141,7 @@ const SearchPage = () => {
               />
               <div className="search-result-info">
                 <div className="search-result-username">{user.username}</div>
-                <div className="search-result-bio">{user.bio || 'No bio'}</div>
+                {user.bio && <div className="search-result-bio">{user.bio}</div>}
               </div>
             </Link>
           ))}
@@ -168,7 +168,7 @@ const SearchPage = () => {
                   />
                   <div className="search-result-info">
                     <div className="search-result-username">{user.username}</div>
-                    <div className="search-result-bio">{user.bio || 'No bio'}</div>
+                    {user.bio && <div className="search-result-bio">{user.bio}</div>}
                   </div>
                 </Link>
               ))}

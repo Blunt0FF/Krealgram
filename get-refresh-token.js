@@ -3,9 +3,11 @@ const http = require('http');
 const url = require('url');
 const open = require('open');
 
-// Замените эти значения на ваши
-const CLIENT_ID = 'ВАШ_CLIENT_ID';
-const CLIENT_SECRET = 'ВАШ_CLIENT_SECRET';
+// Загружаем из .env
+require('dotenv').config();
+
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const REDIRECT_URI = 'http://localhost:3000/auth/google/callback';
 
 const oauth2Client = new google.auth.OAuth2(

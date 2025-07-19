@@ -372,12 +372,14 @@ const CreatePost = () => {
                         {parsedVideoData.title}
                       </div>
                     )}
-                    <div style={{
-                      fontSize: '14px',
-                      opacity: 0.7
-                    }}>
-                      {parsedVideoData.description || 'No description available'}
-                    </div>
+                    {parsedVideoData.description && (
+                      <div style={{
+                        fontSize: '14px',
+                        opacity: 0.7
+                      }}>
+                        {parsedVideoData.description}
+                      </div>
+                    )}
                   </div>
                   {previewUrl && (
                     <div style={{
