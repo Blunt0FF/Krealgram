@@ -185,15 +185,6 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-orientation="portrait"
           preload={isMobile() ? "metadata" : "auto"}
           muted={false} // Звук всегда включен
-          onWaiting={() => {
-            console.log('Video waiting for data...');
-          }}
-          onStalled={() => {
-            console.log('Video stalled, trying to resume...');
-          }}
-          onSuspend={() => {
-            console.log('Video suspended...');
-          }}
           onPlay={() => {
             setIsVideoPlaying(true);
             videoManager.setCurrentVideo(videoRef.current);

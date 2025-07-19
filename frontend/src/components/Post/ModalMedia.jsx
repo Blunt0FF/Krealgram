@@ -116,15 +116,6 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
         muted={isMobile ? true : false} // На мобильных сначала без звука для быстрой загрузки
         preload={isMobile ? "metadata" : "auto"} // На мобильных загружаем только метаданные
         poster={isMobile ? posterUrl : (!isDesktop ? posterUrl : undefined)}
-        onWaiting={() => {
-          console.log('Modal video waiting for data...');
-        }}
-        onStalled={() => {
-          console.log('Modal video stalled, trying to resume...');
-        }}
-        onSuspend={() => {
-          console.log('Modal video suspended...');
-        }}
         style={{
           width: '100%',
           height: 'auto',
