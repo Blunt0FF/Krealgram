@@ -73,8 +73,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
         if (videoRef.current) {
           videoRef.current.play().catch(err => {
             console.error('Video play error:', err);
-            // Fallback: показываем модалку, если не удалось воспроизвести
-            onClick && onClick();
+            // Просто сбрасываем состояние при ошибке воспроизведения
+            setShowVideo(false);
+            setIsVideoPlaying(false);
           });
           setIsVideoPlaying(true);
         }
@@ -86,7 +87,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       } else {
         videoRef.current.play().catch(err => {
           console.error('Video play error:', err);
-          onClick && onClick();
+          // Просто сбрасываем состояние при ошибке воспроизведения
+          setShowVideo(false);
+          setIsVideoPlaying(false);
         });
         setIsVideoPlaying(true);
       }
@@ -182,6 +185,15 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-orientation="portrait"
           preload={isMobile() ? "metadata" : "auto"}
           muted={false} // Звук всегда включен
+          onWaiting={() => {
+            console.log('Video waiting for data...');
+          }}
+          onStalled={() => {
+            console.log('Video stalled, trying to resume...');
+          }}
+          onSuspend={() => {
+            console.log('Video suspended...');
+          }}
           onPlay={() => {
             setIsVideoPlaying(true);
             videoManager.setCurrentVideo(videoRef.current);
@@ -197,8 +209,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           onError={(e) => {
             console.error('Video error:', e.target.error);
             console.log('Failed video src:', e.target.src);
-            // Fallback к модалке при ошибке
-            onClick && onClick();
+            // Просто скрываем видео и показываем превью при ошибке
+            setShowVideo(false);
+            setIsVideoPlaying(false);
           }}
           onClick={(e) => e.stopPropagation()}
         />

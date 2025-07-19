@@ -227,7 +227,10 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     const fileRes = await drive.drive.files.get({
       fileId,
       alt: 'media'
-    }, { responseType: 'stream' });
+    }, { 
+      responseType: 'stream',
+      timeout: 30000 // 30 секунд таймаут для больших файлов
+    });
 
     const range = req.headers.range;
     let headersSent = false;
@@ -250,12 +253,52 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = (end - start) + 1;
 
+      // Проверяем валидность range
+      if (start >= fileSize || end >= fileSize || start > end) {
+        return res.status(416).send('Range Not Satisfiable');
+      }
+
       sendHeaders(206, {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunksize,
         'Content-Type': mimeType
       });
+
+      // Для Range requests нужно передать range в Google Drive API
+      const rangeFileRes = await drive.drive.files.get({
+        fileId,
+        alt: 'media',
+        headers: {
+          'Range': `bytes=${start}-${end}`
+        }
+      }, { 
+        responseType: 'stream',
+        timeout: 30000 // 30 секунд таймаут для Range requests
+      });
+
+      rangeFileRes.data.on('error', (err) => {
+        console.error('[PROXY-DRIVE] Range stream error:', err);
+        if (!headersSent) {
+          res.status(500).send('Error streaming range');
+        }
+      });
+
+      rangeFileRes.data.on('end', () => {
+        if (rangeFileRes.data && !rangeFileRes.data.destroyed) {
+          rangeFileRes.data.destroy();
+        }
+      });
+
+      res.on('error', (err) => {
+        console.error('[PROXY-DRIVE] Range response error:', err);
+        if (rangeFileRes.data && !rangeFileRes.data.destroyed) {
+          rangeFileRes.data.destroy();
+        }
+      });
+
+      rangeFileRes.data.pipe(res);
+      return;
     } else {
       sendHeaders(200, {
         'Content-Length': fileSize,
@@ -266,6 +309,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
 
     fileRes.data.on('error', (err) => {
+      console.error('[PROXY-DRIVE] Stream error:', err);
       if (!headersSent) {
         res.status(500).send('Error streaming file');
       }
@@ -273,7 +317,17 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
     fileRes.data.on('end', () => {
       // Очищаем ресурсы после завершения стрима
-      fileRes.data.destroy();
+      if (fileRes.data && !fileRes.data.destroyed) {
+        fileRes.data.destroy();
+      }
+    });
+
+    // Добавляем обработку ошибок для res
+    res.on('error', (err) => {
+      console.error('[PROXY-DRIVE] Response error:', err);
+      if (fileRes.data && !fileRes.data.destroyed) {
+        fileRes.data.destroy();
+      }
     });
 
     fileRes.data.pipe(res);
@@ -282,6 +336,13 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     req.on('close', () => {
       if (fileRes.data && !fileRes.data.destroyed) {
         fileRes.data.destroy();
+      }
+    });
+
+    // Обработка отключения клиента для Range requests
+    req.on('close', () => {
+      if (rangeFileRes && rangeFileRes.data && !rangeFileRes.data.destroyed) {
+        rangeFileRes.data.destroy();
       }
     });
   } catch (err) {
