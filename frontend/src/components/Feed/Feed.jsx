@@ -166,14 +166,6 @@ const Feed = ({ user }) => {
     setSelectedPost(post);
     document.body.style.overflow = 'hidden';
 
-    // Если пост уже есть в кэше, не делаем запрос
-    const cachedPost = window.postCache?.get(post._id);
-    if (cachedPost) {
-      setSelectedPost(cachedPost);
-      setIsModalLoading(false);
-      return;
-    }
-
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/api/posts/${post._id}`, {
@@ -181,23 +173,14 @@ const Feed = ({ user }) => {
           'Authorization': `Bearer ${token}`
         }
       });
-      
       if (!response.ok) {
         throw new Error('Failed to fetch full post data');
       }
-      
       const data = await response.json();
-      
-      // Кэшируем пост
-      if (!window.postCache) {
-        window.postCache = new Map();
-      }
-      window.postCache.set(post._id, data.post);
-      
       setSelectedPost(data.post);
     } catch (error) {
       console.error("Error fetching full post:", error);
-      // Используем initialPost если не удалось загрузить
+      closeModal();
     } finally {
       setIsModalLoading(false);
     }
@@ -223,39 +206,7 @@ const Feed = ({ user }) => {
     if (currentIndex < posts.length - 1) {
       handleImageClick(posts[currentIndex + 1]);
     } else if (hasMore && !loading) {
-      // Добавляем обработку загрузки следующей страницы
-      const loadNextPageAndSelectFirst = async () => {
-        try {
-          // Принудительно загружаем следующую страницу
-          const token = localStorage.getItem('token');
-          const response = await fetch(`${API_URL}/api/posts?page=${page + 1}&limit=10`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          
-          if (!response.ok) throw new Error('Network response was not ok');
-          
-          const newPosts = await response.json();
-          
-          // Обновляем посты и состояние
-          setPosts(prevPosts => {
-            const postMap = new Map(prevPosts.map(p => [p._id, p]));
-            newPosts.forEach(p => postMap.set(p._id, p));
-            return Array.from(postMap.values());
-          });
-          
-          setPage(prevPage => prevPage + 1);
-          setHasMore(newPosts.length === 10);
-          
-          // Если есть новые посты, открываем первый
-          if (newPosts.length > 0) {
-            handleImageClick(newPosts[0]);
-          }
-        } catch (error) {
-          console.error("Ошибка загрузки следующей страницы:", error);
-        }
-      };
-
-      loadNextPageAndSelectFirst();
+      setPage(p => p + 1);
     }
   };
   

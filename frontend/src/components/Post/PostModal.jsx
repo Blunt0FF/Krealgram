@@ -1,11 +1,4 @@
-import React, { 
-  useState, 
-  useEffect, 
-  useRef, 
-  useMemo, 
-  useCallback, 
-  memo 
-} from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
@@ -21,7 +14,7 @@ import ModalMedia from './ModalMedia';
 
 const MAX_CAPTION_LENGTH_EDIT = 500; // Максимальная длина описания при редактировании
 
-const PostModal = memo(({
+const PostModal = ({
   post: initialPost,
   isOpen,
   onClose,
@@ -64,18 +57,6 @@ const PostModal = memo(({
   const commentInputRef = useRef(null);
 
   const token = localStorage.getItem('token');
-
-  // Мемоизируем сложные вычисления
-  const needsMoreButton = useMemo(() => {
-    const caption = postData?.caption;
-    if (!caption) return false;
-    return caption.length > 50 || caption.includes('\n') || caption.includes('<br');
-  }, [postData?.caption]);
-
-  // Кэшируем автора поста
-  const postAuthor = useMemo(() => {
-    return postData?.author || postData?.user || {};
-  }, [postData]);
 
   // Обновляем состояние только при изменении initialPost
   useEffect(() => {
@@ -272,6 +253,15 @@ const PostModal = memo(({
   if (!isOpen || !postData) return null;
 
   const { _id: postId, author, caption } = postData;
+  
+  // Fallback для author если не определен
+  const postAuthor = author || postData.user || postData.author;
+
+  // Логика для "more/less" кнопки
+  const needsMoreButton = useMemo(() => {
+    if (!caption) return false;
+    return caption.length > 50 || caption.includes('\n') || caption.includes('<br');
+  }, [caption]);
 
   const formatDateTime = (dateString) => {
     const date = new Date(dateString);
@@ -525,14 +515,18 @@ const PostModal = memo(({
       >
         <div className="post-modal-image">
           {/* Кнопки навигации */}
-          {canGoPrevious && (
+                    {canGoPrevious && (
             <button className="modal-nav-btn modal-prev-btn" onClick={onPrevious} onTouchStart={(e) => e.stopPropagation()}>
-              ‹
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+              </svg>
             </button>
           )}
           {canGoNext && (
             <button className="modal-nav-btn modal-next-btn" onClick={onNext} onTouchStart={(e) => e.stopPropagation()}>
-              ›
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+              </svg>
             </button>
           )}
           {<ModalMedia postData={postData} />}
@@ -776,13 +770,6 @@ const PostModal = memo(({
       )}
     </div>
   );
-}, (prevProps, nextProps) => {
-  // Кастомное сравнение пропсов для предотвращения лишних рендеров
-  return (
-    prevProps.isOpen === nextProps.isOpen &&
-    prevProps.post?._id === nextProps.post?._id &&
-    prevProps.currentUser?._id === nextProps.currentUser?._id
-  );
-});
+};
 
 export default PostModal;

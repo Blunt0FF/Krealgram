@@ -460,20 +460,42 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.3); /* Немного фона для видимости */
+  background: rgba(0, 0, 0, 0.3);
   color: white;
   border: none;
-  border-radius: 50%; /* Сделаем их круглыми */
-  width: 40px; /* Уменьшим размер */
+  border-radius: 50%;
+  width: 40px;
   height: 40px;
-  font-size: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   z-index: 1000;
-  opacity: 0.7; /* Сделаем их полупрозрачными по умолчанию */
+  opacity: 0.7;
+  padding: 0;
+  margin: 0;
+}
+
+.modal-nav-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Мобильные стили для SVG */
+@media (max-width: 900px) {
+  .modal-nav-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-nav-btn svg {
+    width: 14px;
+    height: 14px;
+  }
 }
 
 .post-modal-image:hover .modal-nav-btn {

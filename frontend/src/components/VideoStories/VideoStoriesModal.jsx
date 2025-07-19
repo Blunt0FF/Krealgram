@@ -125,7 +125,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   };
 
   const handleNext = () => {
-    if (isNavigating) return; // Защита от множественных вызовов
+    if (isNavigating || !videos.length) return; // Защита от множественных вызовов
     
     setIsNavigating(true);
     markVideoAsViewed();
@@ -142,11 +142,11 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     });
     
     // Сбрасываем флаг через небольшую задержку
-    setTimeout(() => setIsNavigating(false), 100);
+    setTimeout(() => setIsNavigating(false), 150);
   };
 
   const handlePrevious = () => {
-    if (isNavigating) return; // Защита от множественных вызовов
+    if (isNavigating || !videos.length) return; // Защита от множественных вызовов
     
     setIsNavigating(true);
     
@@ -160,7 +160,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     });
     
     // Сбрасываем флаг через небольшую задержку
-    setTimeout(() => setIsNavigating(false), 100);
+    setTimeout(() => setIsNavigating(false), 150);
   };
 
   const handleClose = () => {
@@ -170,7 +170,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   };
 
   const handleKeyDown = (e) => {
-    if (e.repeat) return; // Игнорируем повторные события при зажатой клавише
+    if (e.repeat || isNavigating) return; // Игнорируем повторные события при зажатой клавише
     
     if (e.key === 'ArrowRight') handleNext();
     if (e.key === 'ArrowLeft') handlePrevious();

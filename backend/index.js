@@ -161,6 +161,9 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
       fileId,
       fields: 'name, mimeType, size'
     });
+    const mimeType = meta.data.mimeType || 'application/octet-stream';
+    const fileName = meta.data.name || 'file';
+    const fileSize = meta.data.size || 0;
     
     res.set('Content-Type', meta.data.mimeType || 'application/octet-stream');
     res.set('Content-Length', meta.data.size || 0);
@@ -179,10 +182,11 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
   const drive = require('./config/googleDrive');
   const axios = require('axios');
 
-
-
   try {
-    console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
+    // Убираем избыточное логирование в продакшене
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
+    }
     
     // Поддержка внешних URL
     if (fileId.startsWith('http')) {
@@ -211,9 +215,9 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     }
 
     const meta = await drive.drive.files.get({
-        fileId,
+      fileId,
       fields: 'name, mimeType, size'
-      });
+    });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
     const fileName = meta.data.name || 'file';
     const fileSize = meta.data.size || 0;
@@ -263,11 +267,23 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
     fileRes.data.on('error', (err) => {
       if (!headersSent) {
-      res.status(500).send('Error streaming file');
+        res.status(500).send('Error streaming file');
       }
     });
 
+    fileRes.data.on('end', () => {
+      // Очищаем ресурсы после завершения стрима
+      fileRes.data.destroy();
+    });
+
     fileRes.data.pipe(res);
+
+    // Обработка отключения клиента
+    req.on('close', () => {
+      if (fileRes.data && !fileRes.data.destroyed) {
+        fileRes.data.destroy();
+      }
+    });
   } catch (err) {
     if (err.message && err.message.includes('File not found')) {
       return res.status(404).send('File not found');
