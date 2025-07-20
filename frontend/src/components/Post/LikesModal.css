@@ -120,8 +120,8 @@
   .likes-tooltip {
     width: 90vw;
     height: auto;
-    max-height: 70vh;
-    min-height: 200px;
+    max-height: 60vh;
+    min-height: auto;
     border-radius: 12px;
   }
   
@@ -130,11 +130,15 @@
   }
   
   .likes-tooltip-user {
-    padding: 12px;
+    padding: 8px 12px;
   }
   
   .likes-tooltip-avatar {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .likes-tooltip-username {
+    font-size: 13px;
   }
 }

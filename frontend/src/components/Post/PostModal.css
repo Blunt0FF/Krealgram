@@ -29,6 +29,7 @@
   margin: auto;
   border: none;
   box-sizing: border-box;
+  flex-wrap: nowrap;
 }
 
 
@@ -75,6 +76,7 @@
   overflow: hidden;
   position: relative;
   border-radius: 0 !important;
+  box-sizing: border-box;
 }
 
 .post-modal-image img {
@@ -91,13 +93,15 @@
 }
 
 .post-modal-image iframe {
-  width: 100%;
-  height: 100%; /* ПОЛНАЯ ВЫСОТА КОНТЕЙНЕРА */
-  max-width: 100%;
-  max-height: 100%;
-  border: none;
-  background: black;
-  min-width: 800px; /* МИНИМАЛЬНАЯ ШИРИНА ДЛЯ YOUTUBE */
+  width: 100% !important;
+  height: 100% !important; /* ПОЛНАЯ ВЫСОТА КОНТЕЙНЕРА */
+  max-width: 100% !important;
+  max-height: 100% !important;
+  border: none !important;
+  background: black !important;
+  box-sizing: border-box !important;
+  min-width: unset !important;
+  min-height: unset !important;
 }
 
 .post-modal-image video,
@@ -161,9 +165,9 @@
 }
 
 .post-modal-sidebar {
-  width: 450px; /* Фиксированная ширина сайдбара */
-  min-width: 400px;
-  max-width: 500px;
+  width: 360px; /* Уменьшили на 20% с 450px */
+  min-width: 320px;
+  max-width: 330px;
   display: flex;
   flex-direction: column;
   border-left: 1px solid #efefef;
@@ -172,6 +176,7 @@
   max-height: 95vh; /* Максимальная высота */
   position: relative;
   overflow: hidden; /* Для прокрутки содержимого, если оно не помещается */
+  box-sizing: border-box;
 }
 
 .post-header {
@@ -564,6 +569,7 @@
     max-height: 100vh;
     border-radius: 0;
     flex-direction: column;
+    box-sizing: border-box;
   }
 
   .post-modal-image {
@@ -575,7 +581,8 @@
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: visible; /* Убираем обрезание */
+    overflow: hidden; /* Скрываем выплывающий контент */
+    box-sizing: border-box;
   }
 
   /* Убираем черный фон - всегда белый на планшетах */
@@ -585,11 +592,12 @@
     min-height: 0;
     width: 100%;
     min-width: unset;
-    max-width: unset;
+    max-width: 100%;
     border-left: none;
     border-top: 1px solid #efefef;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
   }
 
   .comments-and-form-wrapper {
@@ -634,13 +642,16 @@
   .post-modal-image iframe {
     width: 100% !important;
     height: auto !important;
+    max-width: 100% !important;
     max-height: 100% !important;
     min-height: 250px !important;
+    min-width: unset !important;
     aspect-ratio: 16/9 !important;
     background: #000 !important;
     display: block !important;
     border: none !important;
     outline: none !important;
+    box-sizing: border-box !important;
   }
 
   .post-modal-image img {
@@ -664,6 +675,7 @@
     max-height: calc(110vh - 60px);
     border-radius: 0;
     flex-direction: column;
+    box-sizing: border-box;
 
     @supports (height: 1dvh) {
       height: calc(110dvh - 60px);
@@ -680,7 +692,8 @@
     align-items: center;
     justify-content: center;
     position: relative; /* ВАЖНО ДЛЯ ABSOLUTE ПОЗИЦИОНИРОВАНИЯ ДЕТЕЙ */
-    overflow: visible; /* Убираем обрезание */
+    overflow: hidden; /* Скрываем выплывающий контент */
+    box-sizing: border-box;
   }
 
   /* Убираем черный фон - всегда белый на мобильных */
@@ -690,9 +703,10 @@
     min-height: 0; /* Очень важно для правильного сжатия flex-item */
     width: 100%;
     min-width: unset;
-    max-width: unset;
+    max-width: 100%;
     border-left: none;
     border-top: 1px solid #efefef;
+    box-sizing: border-box;
   }
 
   .comments-and-form-wrapper {
@@ -759,13 +773,16 @@
   .post-modal-image iframe {
     width: 100% !important;
     height: auto !important;
+    max-width: 100% !important;
     max-height: 100% !important;
     min-height: 200px !important;
+    min-width: unset !important;
     aspect-ratio: 16/9 !important;
     background: #000 !important;
     display: block !important;
     border: none !important;
     outline: none !important;
+    box-sizing: border-box !important;
   }
 
   .post-modal-image img {

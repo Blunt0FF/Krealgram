@@ -80,7 +80,10 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
         loading="eager"
         style={{
           border: 'none',
-          minWidth: window.innerWidth <= 768 ? '100%' : '900px',
+          width: '100%',
+          maxWidth: '100%',
+          height: '100%',
+          maxHeight: '100%',
           aspectRatio: '16/9',
           display: 'block',
           backgroundColor: '#000'
