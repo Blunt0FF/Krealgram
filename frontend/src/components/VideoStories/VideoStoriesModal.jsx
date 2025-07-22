@@ -169,6 +169,17 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     onClose(allViewed);
   };
 
+  const handleProgressSegmentClick = (index) => {
+    if (index !== currentIndex) {
+      // Добавляем небольшую задержку для визуальной обратной связи
+      setTimeout(() => {
+        setCurrentIndex(index);
+        // Сбрасываем состояние видео при переходе
+        setVideoLoading(true);
+      }, 100);
+    }
+  };
+
   const handleKeyDown = (e) => {
     if (e.repeat || isNavigating) return; // Игнорируем повторные события при зажатой клавише
     
@@ -417,6 +428,8 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
             <div 
               key={index} 
               className={`progress-segment ${index <= currentIndex ? 'active' : ''}`}
+              onClick={() => handleProgressSegmentClick(index)}
+              style={{ cursor: 'pointer' }}
             />
           ))}
         </div>

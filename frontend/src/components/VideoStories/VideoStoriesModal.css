@@ -39,7 +39,7 @@
 .stories-close-btn {
   position: absolute;
   top: 20px;
-  right: 20px;
+  right: 10px;
   background: rgba(0, 0, 0, 0.7);
   color: white;
   border: none;
@@ -62,9 +62,9 @@
 /* Progress bar как в Instagram */
 .stories-progress-bar {
   position: absolute;
-  top: 20px;
+  top: 10px;
   left: 20px;
-  right: 60px;
+  right: 20px;
   height: 2px;
   display: flex;
   gap: 2px;
@@ -76,16 +76,27 @@
   height: 100%;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 1px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.progress-segment:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scaleY(1.2);
 }
 
 .progress-segment.active {
   background: rgba(255, 255, 255, 0.9);
 }
 
+.progress-segment.active:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
 /* Header с пользователем */
 .stories-header {
   position: absolute;
-  top: 50px;
+  top: 20px;
   left: 20px;
   display: flex;
   align-items: center;
@@ -154,7 +165,7 @@
   align-items: center;
   justify-content: center;
   background: #000;
-  padding: 60px 20px 120px 20px; /* Отступы для интерфейса */
+  padding: 20px 15px 160px 15px;
 }
 
 .stories-video {
@@ -177,60 +188,58 @@
 /* Адаптивные размеры видео */
 /* Стили для планшетов и средних экранов */
 @media (min-width: 769px) and (max-width: 1199px) {
-  .stories-video-container {
-    padding-top: 1px;
-  }
+
   
   .stories-video {
     max-width: 700px;
-    max-height: 70vh;
+    max-height: 75vh;
 
     /* Исправление для Safari с использованием dvh */
     @supports (height: 1dvh) {
-      max-height: 70dvh;
+      max-height: 75dvh;
     }
   }
   
   .stories-video[src*="youtube.com"] {
     max-width: 800px;
-    height: 65vh;
+    height: 75vh;
 
     /* Исправление для Safari с использованием dvh */
     @supports (height: 1dvh) {
-      height: 65dvh;
+      height: 75dvh;
     }
   }
 }
 
 @media (min-width: 1200px) {
   .stories-video-container {
-    padding: 80px 20px 200px 20px; /* Увеличил отступ снизу для интерфейса */
-  }
+    padding: 20px 15px 160px 15px;
+    }
   
   .stories-video {
     max-width: 900px;
-    max-height: 70vh; /* Уменьшил высоту для интерфейса */
+    max-height: 75vh; 
 
     /* Исправление для Safari с использованием dvh */
     @supports (height: 1dvh) {
-      max-height: 70dvh;
+      max-height: 75dvh;
     }
   }
   
   .stories-video[src*="youtube.com"] {
     max-width: 1000px;
-    height: 70vh; /* Уменьшил высоту для интерфейса */
+    height: 75vh; /* Уменьшил высоту для интерфейса */
 
     /* Исправление для Safari с использованием dvh */
     @supports (height: 1dvh) {
-      height: 70dvh;
+      height: 75dvh;
     }
   }
 }
 
 @media (max-width: 768px) {
   .stories-video-container {
-    padding: 50px 15px 180px 15px; /* Больше места снизу для интерфейса */
+    padding: 50px 15px 160px 15px;
     height: 100vh;
     display: flex;
     align-items: center;
@@ -270,7 +279,7 @@
 /* Instagram-style интерфейс внизу */
 .stories-bottom-interface {
   position: absolute;
-  bottom: 20px;
+  bottom: 5px;
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 40px);
@@ -323,6 +332,7 @@
   line-height: 1.4;
   margin-bottom: 8px;
   color: white;
+  margin-left: 10px;
 }
 
 .stories-username-bold {
@@ -456,22 +466,31 @@
 
 /* Мобильная адаптация */
 @media (max-width: 768px) {
+  .progress-segment {
+    /* Убираем hover эффекты на мобильных */
+    transition: background-color 0.2s ease;
+  }
+  
+  .progress-segment:hover {
+    transform: none;
+  }
+  
   .stories-close-btn {
     top: 15px;
-    right: 15px;
+    right: 8px;
     width: 32px;
     height: 32px;
     font-size: 16px;
   }
 
   .stories-progress-bar {
-    top: 15px;
+    top: 8px;
     left: 15px;
-    right: 55px;
+    right: 15px;
   }
 
   .stories-header {
-    top: 40px;
+    top: 20px;
     left: 15px;
   }
 
@@ -500,7 +519,7 @@
   }
 
   .stories-bottom-interface {
-    bottom: 15px;
+    bottom: 5px;
     left: 15px;
     right: 15px;
     transform: none;
@@ -509,7 +528,7 @@
   }
   
   .stories-actions {
-    margin-bottom: 10px;
+    margin-bottom: -5px;
   }
   
   .stories-actions-left {
@@ -526,7 +545,7 @@
      max-height: 80px;
      max-width: none;
      width: auto;
-     padding: 8px;
+
    }
   
   .stories-comment {
@@ -559,5 +578,5 @@
   }
 
   .stories-bottom-interface {
-    bottom: 10px;
+    bottom: 5px;
   }} 
