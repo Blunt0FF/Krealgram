@@ -1,4 +1,4 @@
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto;">
   <img src="https://krealgram.com/logo.png" alt="Krealgram Logo" style="max-width: 150px; margin-bottom: 20px;" />
   <h2 style="color: #262626;">New Message from {{senderName}}</h2>
   
@@ -6,23 +6,43 @@
   
   {{#if messageText}}
     <div style="background-color: #f8f9fa; border-left: 4px solid #0095f6; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #262626; font-style: italic;">"{{messageText}}"</p>
+      <p style="margin: 0; color: #262626; font-style: italic; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">"{{messageText}}"</p>
     </div>
   {{/if}}
   
   {{#if sharedPost}}
     <div style="background-color: #f8f9fa; border: 1px solid #dbdbdb; border-radius: 4px; margin: 20px 0; overflow: hidden;">
+      {{#if sharedPost.gif}}
+        <img src="{{sharedPost.gif}}" alt="Video preview" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" onerror="this.style.display='none'" />
+      {{/if}}
+      {{#if sharedPost.image}}
+        {{#unless sharedPost.gif}}
+          <img src="{{sharedPost.image}}" alt="Shared post" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" onerror="this.style.display='none'" />
+        {{/unless}}
+      {{/if}}
       <div style="padding: 15px;">
-        <p style="margin: 0 0 10px 0; color: #262626;">{{sharedPostCaption}}</p>
-        <p style="margin: 0; color: #8e8e8e; font-size: 12px;">— {{sharedPostAuthor}}</p>
+        {{#if sharedPost.caption}}
+          <p style="margin: 0 0 10px 0; color: #262626; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">{{sharedPost.caption}}</p>
+        {{/if}}
+        {{#if sharedPost.author}}
+          <p style="margin: 0; color: #8e8e8e; font-size: 12px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">— {{sharedPost.author}}</p>
+        {{/if}}
       </div>
     </div>
   {{/if}}
   
-  {{#if hasMedia}}
-    <div style="background-color: #f8f9fa; border: 1px solid #dbdbdb; border-radius: 4px; padding: 15px; margin: 20px 0; text-align: center;">
-      <p style="margin: 0; color: #8e8e8e;">📎 Media attachment</p>
+  {{#if mediaImage}}
+    <div style="background-color: #f8f9fa; border: 1px solid #dbdbdb; border-radius: 4px; margin: 20px 0; overflow: hidden;">
+      <img src="{{mediaImage}}" alt="Media attachment" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" onerror="this.style.display='none'" />
     </div>
+  {{/if}}
+  
+  {{#if hasMedia}}
+    {{#unless mediaImage}}
+      <div style="background-color: #f8f9fa; border: 1px solid #dbdbdb; border-radius: 4px; padding: 15px; margin: 20px 0; text-align: center;">
+        <p style="margin: 0; color: #8e8e8e;">📎 Media attachment</p>
+      </div>
+    {{/unless}}
   {{/if}}
   
   <a href="{{appUrl}}/messages" style="display: inline-block; background-color: #0095f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 20px 0;">Reply on Krealgram</a>

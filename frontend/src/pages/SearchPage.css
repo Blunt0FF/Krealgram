@@ -3,6 +3,10 @@
   max-width: 600px;
   margin: 0 auto;
   min-height: calc(100vh - 60px);
+
+  @supports (height: 1dvh) {
+    min-height: calc(100dvh - 60px);
+  }
 }
 
 .search-container {

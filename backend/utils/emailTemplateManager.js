@@ -37,42 +37,87 @@ class EmailTemplateManager {
   async renderTemplate(templateName, data) {
     let template = await this.loadTemplate(templateName);
     
-    // Обработка условных блоков {{#if condition}}...{{/if}}
-    template = template.replace(/\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, condition, content) => {
-      return data[condition] ? content : '';
-    });
-
-    // Обработка вложенных условных блоков для sharedPost
-    template = template.replace(/\{\{#if\s+sharedPost\.(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, field, content) => {
-      return (data.sharedPost && data.sharedPost[field]) ? content : '';
-    });
-
-    // Обработка циклов {{#each array}}...{{/each}}
-    template = template.replace(/\{\{#each\s+(\w+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (match, arrayKey, content) => {
-      const array = data[arrayKey];
-      if (!Array.isArray(array)) return '';
-      
-      return array.map(item => {
-        let itemContent = content;
-        // Заменяем переменные в контексте элемента массива
-        itemContent = itemContent.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-          return item[key] || '';
-        });
-        return itemContent;
-      }).join('');
-    });
-
-    // Простая подстановка переменных {{variable}}
-    template = template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      return data[key] || '';
-    });
-
-    // Обработка вложенных переменных для sharedPost
-    template = template.replace(/\{\{sharedPost\.(\w+)\}\}/g, (match, field) => {
-      return (data.sharedPost && data.sharedPost[field]) ? data.sharedPost[field] : '';
-    });
-
+    console.log('📧 Rendering template with data:', JSON.stringify(data, null, 2));
+    
+    // Сначала обрабатываем условные блоки
+    template = this.processConditionalBlocks(template, data);
+    
+    // Затем подставляем переменные
+    template = this.processVariables(template, data);
+    
+    console.log('📧 Final rendered template length:', template.length);
+    
     return template;
+  }
+
+  /**
+   * Обрабатывает условные блоки в шаблоне
+   * @param {string} template - исходный шаблон
+   * @param {Object} data - данные
+   * @returns {string} обработанный шаблон
+   */
+  processConditionalBlocks(template, data) {
+    // Обрабатываем вложенные условные блоки
+    let processed = template;
+    let maxIterations = 10; // Защита от бесконечного цикла
+    
+    while (maxIterations > 0 && (processed.includes('{{#if') || processed.includes('{{#unless'))) {
+      // Обрабатываем {{#if nested.field}}...{{/if}} (сначала вложенные)
+      processed = processed.replace(/\{\{#if\s+(\w+)\.(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, object, field, content) => {
+        const value = (data[object] && data[object][field]) ? data[object][field] : null;
+        console.log(`📧 Condition "if ${object}.${field}":`, value);
+        return value ? content : '';
+      });
+      
+      // Обрабатываем {{#unless nested.field}}...{{/unless}} (сначала вложенные)
+      processed = processed.replace(/\{\{#unless\s+(\w+)\.(\w+)\}\}([\s\S]*?)\{\{\/unless\}\}/g, (match, object, field, content) => {
+        const value = (data[object] && data[object][field]) ? data[object][field] : null;
+        console.log(`📧 Condition "unless ${object}.${field}":`, value);
+        return !value ? content : '';
+      });
+      
+      // Обрабатываем {{#if condition}}...{{/if}} (простые)
+      processed = processed.replace(/\{\{#if\s+(\w+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (match, condition, content) => {
+        const value = data[condition];
+        console.log(`📧 Condition "if ${condition}":`, value);
+        return value ? content : '';
+      });
+      
+      // Обрабатываем {{#unless condition}}...{{/unless}} (простые)
+      processed = processed.replace(/\{\{#unless\s+(\w+)\}\}([\s\S]*?)\{\{\/unless\}\}/g, (match, condition, content) => {
+        const value = data[condition];
+        console.log(`📧 Condition "unless ${condition}":`, value);
+        return !value ? content : '';
+      });
+      
+      maxIterations--;
+    }
+    
+    return processed;
+  }
+
+  /**
+   * Обрабатывает переменные в шаблоне
+   * @param {string} template - исходный шаблон
+   * @param {Object} data - данные
+   * @returns {string} обработанный шаблон
+   */
+  processVariables(template, data) {
+    // Подставляем простые переменные {{variable}}
+    let processed = template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      const value = data[key];
+      console.log(`📧 Variable "${key}":`, value);
+      return value || '';
+    });
+    
+    // Обрабатываем вложенные переменные для sharedPost
+    processed = processed.replace(/\{\{sharedPost\.(\w+)\}\}/g, (match, field) => {
+      const value = (data.sharedPost && data.sharedPost[field]) ? data.sharedPost[field] : '';
+      console.log(`📧 Nested variable "sharedPost.${field}":`, value);
+      return value;
+    });
+    
+    return processed;
   }
 
   /**
@@ -107,9 +152,15 @@ class EmailTemplateManager {
           : message.sharedPost;
 
         data.sharedPost = true; // Флаг для показа блока
-        data.sharedPostImage = post.image || post.imageUrl || post.thumbnailUrl;
+        data.sharedPostImage = this.getProxiedImageUrl(post.image || post.imageUrl || post.thumbnailUrl || post.gifUrl);
         data.sharedPostCaption = post.caption || '';
         data.sharedPostAuthor = post.author || 'Unknown';
+        
+        console.log('📧 Template shared post data:', {
+          image: data.sharedPostImage,
+          caption: data.sharedPostCaption,
+          author: data.sharedPostAuthor
+        });
       } catch (error) {
         console.error('Error parsing shared post:', error);
       }
@@ -146,7 +197,9 @@ class EmailTemplateManager {
     if (originalUrl.includes('drive.google.com')) {
       const fileId = this.extractGoogleDriveId(originalUrl);
       if (fileId) {
-        return `${process.env.BACKEND_URL || 'https://krealgram-backend.onrender.com'}/api/proxy-drive/${fileId}?type=image`;
+        const backendUrl = 'https://krealgram-backend.onrender.com';
+        console.log(`📧 Proxying image: ${originalUrl} -> ${backendUrl}/api/proxy-drive/${fileId}?type=image`);
+        return `${backendUrl}/api/proxy-drive/${fileId}?type=image`;
       }
     }
 

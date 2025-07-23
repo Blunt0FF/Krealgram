@@ -70,7 +70,16 @@ const sendEmailVerificationEmail = async (to, verificationToken, username) => {
 const sendNewMessageNotification = async (recipientEmail, message, sender, recipient) => {
   try {
     // Подготавливаем данные для шаблона
-    const templateData = emailTemplateManager.prepareMessageNotificationData(message, sender, recipient);
+    const templateData = {
+      senderName: sender.username || 'Unknown User',
+      messageText: message.text || '',
+      sharedPost: message.sharedPost,
+      mediaImage: message.mediaImage,
+      hasMedia: message.hasMedia || false,
+      appUrl: 'https://krealgram.com'
+    };
+    
+    console.log('📧 Email service template data:', JSON.stringify(templateData, null, 2));
     
     // Рендерим HTML шаблон
     const htmlContent = await emailTemplateManager.renderTemplate('new-message-notification', templateData);

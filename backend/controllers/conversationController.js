@@ -325,15 +325,67 @@ exports.sendMessage = async (req, res) => {
       
       if (recipient && recipient.email) {
         // Подготавливаем данные для email
+        console.log('📧 Email data preparation:', {
+          sentMessage: JSON.stringify(sentMessage, null, 2),
+          sharedPost: sentMessage.sharedPost,
+          media: sentMessage.media
+        });
+
         const messageData = {
           text: sentMessage.text,
           media: sentMessage.media,
-          sharedPost: sentMessage.sharedPost ? {
-            image: sentMessage.sharedPost.post?.image || sentMessage.sharedPost.post?.imageUrl,
-            caption: sentMessage.sharedPost.post?.caption,
-            author: sentMessage.sharedPost.post?.author?.username || 'Unknown'
-          } : null
+          sharedPost: null
         };
+
+        // Обрабатываем пересланный пост
+        if (sentMessage.sharedPost && sentMessage.sharedPost.post) {
+          const post = sentMessage.sharedPost.post;
+          
+          // Определяем, что показывать для видео
+          let imageUrl = post.image || post.imageUrl || post.thumbnailUrl;
+          let gifUrl = null;
+          
+          // Для видео постов используем gifPreview если есть
+          if (post.mediaType === 'video') {
+            gifUrl = post.gifPreview || post.youtubeData?.thumbnailUrl;
+            // Если нет gif, используем thumbnail как fallback
+            if (!gifUrl) {
+              gifUrl = post.thumbnailUrl || post.youtubeData?.thumbnailUrl;
+            }
+          }
+          
+          messageData.sharedPost = {
+            image: imageUrl,
+            gif: gifUrl,
+            caption: post.caption || '',
+            author: post.author?.username || 'Unknown'
+          };
+          console.log('📧 Shared post data:', messageData.sharedPost);
+        }
+
+        // Обрабатываем медиа вложения
+        if (sentMessage.media) {
+          if (sentMessage.media.type === 'image') {
+            messageData.mediaImage = sentMessage.media.url;
+          }
+          messageData.hasMedia = true;
+        }
+
+        // Проксируем изображения через наш сервер для email
+        const emailTemplateManager = require('../utils/emailTemplateManager');
+        
+        if (messageData.sharedPost) {
+          if (messageData.sharedPost.image) {
+            messageData.sharedPost.image = emailTemplateManager.getProxiedImageUrl(messageData.sharedPost.image);
+          }
+          if (messageData.sharedPost.gif) {
+            messageData.sharedPost.gif = emailTemplateManager.getProxiedImageUrl(messageData.sharedPost.gif);
+          }
+        }
+        
+        if (messageData.mediaImage) {
+          messageData.mediaImage = emailTemplateManager.getProxiedImageUrl(messageData.mediaImage);
+        }
 
         const senderData = {
           username: req.user.username,
@@ -344,6 +396,13 @@ exports.sendMessage = async (req, res) => {
         sendNewMessageNotification(recipient.email, messageData, senderData, recipient)
           .then(() => {
             console.log(`📧 Email notification sent to ${recipient.email} for message from ${senderData.username}`);
+            console.log(`📧 Email content:`, {
+              hasText: !!messageData.text,
+              hasSharedPost: !!messageData.sharedPost,
+              hasMedia: !!messageData.media,
+              sharedPostImage: messageData.sharedPost?.image,
+              mediaType: messageData.media?.type
+            });
           })
           .catch((error) => {
             console.error(`❌ Failed to send email notification to ${recipient.email}:`, error);
