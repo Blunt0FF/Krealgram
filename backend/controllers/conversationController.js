@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
 const googleDrive = require('../config/googleDrive');
 const Post = require('../models/postModel'); // Добавляем импорт Post
+const { sendNewMessageNotification } = require('../utils/emailService');
 // Удаляем импорт onlineUsers и io
 // const { onlineUsers, io } = require('../index');
 
@@ -315,6 +316,42 @@ exports.sendMessage = async (req, res) => {
         message: sentMessage,
         sender: req.user
       });
+    }
+
+    // Отправляем email уведомление получателю
+    try {
+      // Получаем данные получателя
+      const recipient = await User.findById(recipientId).select('username email avatar');
+      
+      if (recipient && recipient.email) {
+        // Подготавливаем данные для email
+        const messageData = {
+          text: sentMessage.text,
+          media: sentMessage.media,
+          sharedPost: sentMessage.sharedPost ? {
+            image: sentMessage.sharedPost.post?.image || sentMessage.sharedPost.post?.imageUrl,
+            caption: sentMessage.sharedPost.post?.caption,
+            author: sentMessage.sharedPost.post?.author?.username || 'Unknown'
+          } : null
+        };
+
+        const senderData = {
+          username: req.user.username,
+          avatar: req.user.avatar
+        };
+
+        // Отправляем email уведомление (асинхронно, не блокируем ответ)
+        sendNewMessageNotification(recipient.email, messageData, senderData, recipient)
+          .then(() => {
+            console.log(`📧 Email notification sent to ${recipient.email} for message from ${senderData.username}`);
+          })
+          .catch((error) => {
+            console.error(`❌ Failed to send email notification to ${recipient.email}:`, error);
+          });
+      }
+    } catch (emailError) {
+      console.error('❌ Error preparing email notification:', emailError);
+      // Не прерываем основную операцию из-за ошибки email
     }
 
     res.status(201).json({

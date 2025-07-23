@@ -27,30 +27,20 @@ export async function checkAndSetApiUrl() {
     '127.0.0.1'
   ];
 
-  // Расширенное логирование
-  console.group('🌐 API URL Configuration');
-  console.log('Current Hostname:', hostname);
-  console.log('Is Localhost:', isLocalhost);
-  console.log('Is Krealgram Domain:', isKrealgram);
-  console.log('Allowed Domains:', allowedDomains);
+
 
   // Проверяем, что текущий домен разрешен
   const isDomainAllowed = allowedDomains.some(domain => hostname.includes(domain));
 
   if (!isDomainAllowed) {
-    console.warn(`[CONFIG] Домен ${hostname} не разрешен. Используем удаленный URL.`);
-    console.log('Fallback URL:', REMOTE_URL);
     setApiUrl(REMOTE_URL);
-    console.groupEnd();
     return;
   }
   
   // Для доменов Krealgram всегда используем удаленный URL
   if (isKrealgram) {
-    console.log('[CONFIG] Krealgram domain detected, using REMOTE_URL');
     setApiUrl(REMOTE_URL);
     SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
-    console.groupEnd();
     return;
   }
 
@@ -59,8 +49,6 @@ export async function checkAndSetApiUrl() {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
-
-      console.log('Attempting to reach local server:', LOCAL_URL);
 
       const response = await fetch(`${LOCAL_URL}/api/auth/ping`, {
         method: 'GET',
@@ -73,43 +61,24 @@ export async function checkAndSetApiUrl() {
 
       clearTimeout(timeoutId);
 
-      console.log('Local server ping response:', {
-        status: response.status,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-
       const responseBody = await response.json();
-      console.log('Ping response body:', responseBody);
 
       if (response.ok && responseBody.status === 'ok') {
-        console.log('[CONFIG] Local server reachable, using LOCAL_URL');
         setApiUrl(LOCAL_URL);
         SOCKET_URL = `ws://${LOCAL_URL.split('://')[1]}`;
-        console.groupEnd();
         return;
       }
     } catch (error) {
-      console.warn('[CONFIG] Local server not available', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
-      
       // Если локальный бэкенд недоступен, явно переключаемся на удаленный
-      console.log('[CONFIG] Switching to REMOTE_URL due to local server unavailability');
       setApiUrl(REMOTE_URL);
       SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
-      console.groupEnd();
       return;
     }
   }
 
   // Если локальный бэкенд недоступен или это не локальная среда - используем удаленный
-  console.log('[CONFIG] Using REMOTE_URL');
   setApiUrl(REMOTE_URL);
   SOCKET_URL = `wss://${REMOTE_URL.split('://')[1]}`;
-  console.groupEnd();
 }
 
 // Добавляем функцию для проверки текущего домена

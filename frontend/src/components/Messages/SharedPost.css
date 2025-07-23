@@ -72,19 +72,26 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.7);
   border-radius: 50%;
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: all 0.2s ease;
+}
+
+.shared-post-media:hover .video-overlay {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
 .play-icon {
   color: white;
-  font-size: 24px;
-  margin-left: 4px;
+  font-size: 20px;
+  margin-left: 2px;
+  font-weight: bold;
 }
 
 .shared-post-likes {

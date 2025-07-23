@@ -502,9 +502,7 @@
 
   .modal-content {
     width: 100%;
-    height: 100vh;
     max-width: 100%;
-    max-height: 100vh;
     border-radius: 0;
     margin: 0;
   }
@@ -752,6 +750,8 @@
   animation: modalSlideIn 0.3s ease-out;
   position: relative;
   margin: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 @keyframes modalSlideIn {
@@ -826,8 +826,8 @@
 .search-results {
   flex: 1;
   overflow-y: auto;
-      max-height: 80dvh;
-      min-height: 200px;
+  max-height: 50vh;
+  min-height: 200px;
 }
 
 .loading {
@@ -877,6 +877,9 @@
 .recent-users-section {
   padding: 12px 0;
   border-top: 1px solid #efefef;
+  max-height: 40vh;
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
 .section-title {
@@ -1245,4 +1248,67 @@
   background: #8e8e8e;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Стили для превью постов в модальном окне пересылки */
+.post-preview {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+}
+
+.post-preview-container {
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+}
+
+.post-preview-video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.post-preview-play-icon {
+  width: 20px;
+  height: 20px;
+  fill: white;
+  opacity: 0.9;
+}
+
+/* Стили для превью постов в сообщениях (как в уведомлениях) */
+.notification-post-preview {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 8px;
+  background-color: #f0f0f0;
+}
+
+/* Блокировка фонового скролла при открытом модальном окне */
+body.modal-open {
+  overflow: hidden !important;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 } 

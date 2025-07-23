@@ -11,25 +11,41 @@ const SharedPost = ({ post, onPostClick }) => {
   useEffect(() => {
     if (!post) return;
 
-    // Определяем тип медиа
-    const mediaType = post.mediaType || (post.videoUrl ? 'video' : 'image');
-    setIsVideo(mediaType === 'video');
+    // Определяем тип медиа с поддержкой YouTube
+    const mediaType = post.mediaType || 
+                     (post.videoUrl ? 'video' : 
+                     (post.youtubeData ? 'youtube' : 'image'));
+    setIsVideo(mediaType === 'video' || mediaType === 'youtube');
 
-    // Обработка изображений
+    // Обработка изображений с приоритетом гиф превью для видео
     let finalImageUrl = null;
     let finalThumbnailUrl = null;
 
-    // Список приоритетных источников изображения
-    const imageSources = [
-      post.imageUrl,
-      post.image,
-      post.thumbnailUrl,
-      post.gifPreview,
-      '/default-post-placeholder.png'
-    ].filter(Boolean);
+    // Для видео постов приоритет гиф превью
+    if (mediaType === 'video' || mediaType === 'youtube') {
+      const videoImageSources = [
+        post.gifPreview, // Приоритет гиф превью для видео
+        post.thumbnailUrl,
+        post.imageUrl,
+        post.image,
+        '/video-placeholder.png'
+      ].filter(Boolean);
+      
+      finalImageUrl = getImageUrl(videoImageSources[0]);
+      finalThumbnailUrl = getImageUrl(videoImageSources[1] || videoImageSources[0]);
+    } else {
+      // Для обычных изображений
+      const imageSources = [
+        post.imageUrl,
+        post.image,
+        post.thumbnailUrl,
+        post.gifPreview,
+        '/default-post-placeholder.png'
+      ].filter(Boolean);
 
-    finalImageUrl = getImageUrl(imageSources[0]);
-    finalThumbnailUrl = getImageUrl(imageSources[1] || imageSources[0]);
+      finalImageUrl = getImageUrl(imageSources[0]);
+      finalThumbnailUrl = getImageUrl(imageSources[1] || imageSources[0]);
+    }
 
     setImageUrl(finalImageUrl);
     setThumbnailUrl(finalThumbnailUrl);
@@ -85,7 +101,7 @@ const SharedPost = ({ post, onPostClick }) => {
               e.target.src = '/default-post-placeholder.png';
             }}
           />
-          {isVideo && (
+          {(isVideo || post.mediaType === 'video' || post.mediaType === 'youtube' || post.videoUrl || post.youtubeData) && (
             <div className="video-overlay">
               <span className="play-icon">▶</span>
             </div>

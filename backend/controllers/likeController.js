@@ -11,7 +11,7 @@ exports.toggleLikePost = async (req, res) => {
   const { postId } = req.params;
   const userId = req.user.id;
 
-  console.log('Toggle like request:', { postId, userId });
+
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -91,12 +91,7 @@ exports.toggleLikePost = async (req, res) => {
 
     const likeCount = updatedPost.likes.length;
 
-    console.log('Updated post like status:', {
-      postId,
-      liked: !existingLike, // If there was no existing like, it means we added one
-      likeCount,
-      likes: updatedPost.likes
-    });
+
 
     res.status(200).json({
       message: !existingLike ? 'Post liked successfully' : 'Post unliked successfully',

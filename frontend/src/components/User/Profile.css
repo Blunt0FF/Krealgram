@@ -370,7 +370,7 @@
 
 @media (max-width: 900px) {
   .profile-container {
-    padding: 20px 16px 80px;
+    padding: 20px 16px 0px;
   }
 
   .profile-header {
@@ -449,7 +449,7 @@
 
 @media (max-width: 480px) {
   .profile-container {
-    padding: 16px 12px 80px;
+    padding: 16px 12px 0px;
   }
 
   .profile-header {

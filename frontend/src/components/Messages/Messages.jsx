@@ -13,6 +13,50 @@ import { API_URL } from '../../config';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import axios from 'axios';
 
+// Компонент превью поста для модального окна выбора пользователя
+const PostPreview = ({ post }) => {
+  const isVideo = () => {
+    const videoIndicators = [
+      post.mediaType === 'video',
+      post.videoUrl,
+      post.youtubeData,
+      post.type === 'video'
+    ];
+
+    return videoIndicators.some(Boolean);
+  };
+
+  const getThumbnailSrc = React.useMemo(() => {
+    // Используем точно такую же логику как в уведомлениях
+    const urls = [
+      post.gifPreview, // ПРИОРИТЕТ 1: GIF превью для видео
+      post.preview,    // ПРИОРИТЕТ 2: Обычное превью
+      post.thumbnailUrl,
+      post.youtubeData?.thumbnailUrl, // ПРИОРИТЕТ 3: YouTube превью
+      post.imageUrl,
+      post.image,
+      '/default-post-placeholder.png'
+    ].filter(Boolean);
+
+    return getImageUrl(urls[0]);
+  }, [post]);
+
+  const handleImageError = (e) => {
+    e.target.onerror = null; // Предотвращаем бесконечный цикл ошибок
+    e.target.src = '/default-post-placeholder.png';
+  };
+
+  return (
+    <img 
+      src={getThumbnailSrc} 
+      alt="Post preview" 
+      className="notification-post-preview"
+      onError={handleImageError}
+      loading="lazy"
+    />
+  );
+};
+
 const Messages = ({ currentUser }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -52,7 +96,7 @@ const Messages = ({ currentUser }) => {
     const handleSharedPost = () => {
       if (location.state?.sharedPost && location.state?.timestamp) {
         const post = location.state.sharedPost;
-        console.log('Получен пост для пересылки:', post);
+    
         setSharedPost(post);
         
         // Если есть выбранный диалог, сразу отправляем пост
@@ -73,7 +117,8 @@ const Messages = ({ currentUser }) => {
   // Загружаем недавних пользователей при открытии модального окна
   useEffect(() => {
     if (showNewMessageModal) {
-      setRecentUsers(getRecentUsers());
+      const recentUsersData = getRecentUsers();
+      setRecentUsers(recentUsersData);
     }
   }, [showNewMessageModal]);
 
@@ -202,6 +247,19 @@ const Messages = ({ currentUser }) => {
     }
   }, [searchQuery, searchUsers]);
 
+  // Блокировка фонового скролла при открытом модальном окне
+  useEffect(() => {
+    if (showNewMessageModal) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [showNewMessageModal]);
+
   const fetchConversations = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -319,7 +377,13 @@ const Messages = ({ currentUser }) => {
         author: typeof postToShare.author === 'object' 
           ? postToShare.author.username 
           : postToShare.author,
-        createdAt: postToShare.createdAt || new Date().toISOString()
+        createdAt: postToShare.createdAt || new Date().toISOString(),
+        // Добавляем поддержку видео постов
+        mediaType: postToShare.mediaType,
+        videoUrl: postToShare.videoUrl,
+        youtubeData: postToShare.youtubeData,
+        thumbnailUrl: postToShare.thumbnailUrl,
+        gifPreview: postToShare.gifPreview
       };
       
       formData.append('sharedPost', JSON.stringify(validPost));
@@ -384,15 +448,22 @@ const Messages = ({ currentUser }) => {
   };
 
   const startConversation = async (userToChatWith) => {
-    console.log('startConversation вызвана с пользователем:', userToChatWith);
     if (!userToChatWith || !userToChatWith._id) return null;
     if (currentUser && userToChatWith._id === currentUser._id) {
         return null;
     }
 
-    // Добавляем пользователя в недавние
+    // Добавляем пользователя в недавние с полными данными
     try {
-      addRecentUser(userToChatWith);
+      // Убеждаемся, что у пользователя есть все необходимые данные
+      const userWithFullData = {
+        _id: userToChatWith._id,
+        username: userToChatWith.username,
+        avatar: userToChatWith.avatar,
+        // Добавляем другие поля, если они есть
+        ...userToChatWith
+      };
+      addRecentUser(userWithFullData);
       setRecentUsers(getRecentUsers());
     } catch (error) {
       console.log('Ошибка при работе с недавними пользователями:', error);
@@ -450,21 +521,6 @@ const Messages = ({ currentUser }) => {
   };
 
   const sendPostToUser = async (userToChatWith) => {
-    console.log('Получен пост для пересылки:', {
-      userToChatWith: userToChatWith ? {
-        _id: userToChatWith._id,
-        username: userToChatWith.username
-      } : null,
-      sharedPost: sharedPost ? {
-        id: sharedPost._id || sharedPost.id,
-        author: typeof sharedPost.author === 'object' 
-          ? sharedPost.author.username 
-          : sharedPost.author,
-        imageUrl: sharedPost.imageUrl || sharedPost.image,
-        caption: sharedPost.caption,
-        mediaType: sharedPost.mediaType || (sharedPost.videoUrl ? 'video' : 'image')
-      } : null
-    });
 
     if (!userToChatWith || !sharedPost) {
       console.warn('Missing data for sending post:', { userToChatWith, sharedPost });
@@ -495,13 +551,20 @@ const Messages = ({ currentUser }) => {
           mediaType: sharedPost.mediaType || 
             (sharedPost.videoUrl ? 'video' : 
             (sharedPost.youtubeData ? 'youtube' : 'image')),
-          thumbnailUrl: imageSources[1] || imageSources[0] || ''
+          thumbnailUrl: imageSources[1] || imageSources[0] || '',
+          // Добавляем поддержку видео постов
+          videoUrl: sharedPost.videoUrl,
+          youtubeData: sharedPost.youtubeData,
+          gifPreview: sharedPost.gifPreview
         };
 
-        console.log('Подготовленный пост для отправки:', postToShare);
 
-        // Здесь должен быть код отправки сообщения с постом
-        // Например: await sendMessageWithPost(conversation._id, postToShare);
+
+        // Отправляем сообщение с постом
+        await sendMessage(null, conversation.participant._id);
+        
+        // Очищаем sharedPost после отправки
+        setSharedPost(null);
       }
     } catch (error) {
       console.error('Ошибка при отправке поста:', error);
@@ -641,7 +704,14 @@ const Messages = ({ currentUser }) => {
         : { username: post.author },
       image: post.image || post.imageUrl,
       thumbnailUrl: post.thumbnailUrl || post.image || post.imageUrl,
-      mediaType: post.mediaType || (post.videoUrl ? 'video' : 'image')
+      mediaType: post.mediaType || 
+                 (post.videoUrl ? 'video' : 
+                 (post.youtubeData ? 'youtube' : 'image')),
+      // Добавляем поддержку YouTube данных
+      youtubeData: post.youtubeData,
+      videoUrl: post.videoUrl,
+      // Добавляем гиф превью для видео
+      gifPreview: post.gifPreview
     };
 
     setSelectedPostForModal(postToOpen);
@@ -668,14 +738,8 @@ const Messages = ({ currentUser }) => {
 
   const renderMessageMedia = (message) => {
     if (!message.media || !message.media.url) {
-      console.warn('🚫 Сообщение без медиа:', message);
       return null;
     }
-
-    console.group('📸 Медиа в сообщении');
-    console.log('Полный объект сообщения:', message);
-    console.log('URL медиа:', message.media.url);
-    console.log('Тип медиа:', message.media.type);
 
     try {
       // Список всех возможных источников URL
@@ -687,18 +751,9 @@ const Messages = ({ currentUser }) => {
         '/default-post-placeholder.png'
       ].filter(Boolean);
 
-      console.log('Источники URL:', urlSources);
-
       const processedUrl = getImageUrl(urlSources[0], 'image');
-      console.log('Обработанный URL:', processedUrl);
 
       const handleImageError = (e) => {
-        console.error('❌ Ошибка загрузки изображения:', {
-          src: e.target.src,
-          message: e.type,
-          fullMessage: message,
-          urlSources: urlSources
-        });
         e.target.src = urlSources[urlSources.length - 1];
       };
 
@@ -717,10 +772,7 @@ const Messages = ({ currentUser }) => {
         />
       );
     } catch (error) {
-      console.error('🔥 Критическая ошибка рендеринга медиа:', error);
       return null;
-    } finally {
-      console.groupEnd();
     }
   };
 
@@ -756,8 +808,8 @@ const Messages = ({ currentUser }) => {
               >
                 <div className="conversation-content"> 
                   <img 
-                    src={getAvatarUrl(conv.participant?.avatar)} 
-                    alt={conv.participant?.username}
+                    src={conv.participant?.avatar ? getAvatarUrl(conv.participant.avatar) : '/default-avatar.png'}
+                    alt={conv.participant?.username || 'User'}
                     className={`conversation-avatar ${!conv.participant?.username ? 'deleted-user-avatar' : ''}`}
                     onError={(e) => {
                       e.target.onerror = null;
@@ -1102,77 +1154,7 @@ const Messages = ({ currentUser }) => {
                 alignItems: 'center',
                 gap: '12px'
               }}>
-                <div style={{ position: 'relative', width: '44px', height: '44px' }}>
-                  <img 
-                    src={(() => {
-                      console.log('Shared Post Data:', {
-                        mediaType: sharedPost.mediaType,
-                        videoUrl: sharedPost.videoUrl,
-                        youtubeData: sharedPost.youtubeData,
-                        imageUrl: sharedPost.imageUrl,
-                        image: sharedPost.image
-                      });
-
-                      // Определяем является ли пост видео
-                      const isVideo = 
-                        sharedPost.mediaType === 'video' || 
-                                      sharedPost.videoUrl || 
-                                      sharedPost.youtubeData ||
-                                      (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'));
-                      
-                      // Список приоритетных источников изображения
-                      const imageSources = [
-                        isVideo ? getMediaThumbnail(sharedPost) : null,
-                        sharedPost.imageUrl,
-                        sharedPost.image,
-                        sharedPost.thumbnailUrl,
-                        '/default-post-placeholder.png',
-                        '/video-placeholder.svg'
-                      ].filter(Boolean);
-
-                      console.log('Image Sources:', imageSources);
-                      
-                      return imageSources[0];
-                    })()} 
-                    alt="Post preview" 
-                    style={{ 
-                      width: '44px', 
-                      height: '44px', 
-                      borderRadius: '4px', 
-                      objectFit: 'cover' 
-                    }}
-                    onError={(e) => {
-                      // Fallback на заглушку видео если превью не загрузилось
-                      if (e.target.src !== '/video-placeholder.svg') {
-                        e.target.src = '/video-placeholder.svg';
-                      }
-                    }}
-                  />
-                  {/* Показываем иконку плеера для видео */}
-                  {(sharedPost.mediaType === 'video' || 
-                    sharedPost.videoUrl || 
-                    sharedPost.youtubeData ||
-                    (sharedPost.imageUrl && sharedPost.imageUrl.includes('cloudinary.com') && sharedPost.imageUrl.includes('/video/'))) && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      background: 'rgba(0,0,0,0.6)',
-                      borderRadius: '50%',
-                      width: '18px',
-                      height: '18px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      pointerEvents: 'none'
-                    }}>
-                      <svg width="8" height="8" fill="white" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z"/>
-                      </svg>
-                    </div>
-                  )}
-                </div>
+                <PostPreview post={sharedPost} />
                 <div>
                   <div style={{ fontWeight: '600', fontSize: '14px' }}>
                     Post by {sharedPost.author || 'Unknown'}
@@ -1202,21 +1184,15 @@ const Messages = ({ currentUser }) => {
               {!searchQuery.trim() && recentUsers.length > 0 && (
                 <div className="recent-users-section">
                   <div className="section-title">Recent</div>
-                  {recentUsers.map(user => {
-                    console.log('Rendering recent user:', {
-                      _id: user._id,
-                      username: user.username,
-                      avatar: user.avatar
-                    });
-                    return (
+                  {recentUsers.map(user => (
                     <div 
                       key={user._id} 
                       className="user-result"
                       onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
                     >
                       <img 
-                        src={getAvatarUrl(user.avatar)} 
-                        alt={user.username}
+                        src={user.avatar ? getAvatarUrl(user.avatar) : '/default-avatar.png'}
+                        alt={user.username || 'User'}
                         className="user-avatar"
                         onError={(e) => {
                           e.target.onerror = null;
@@ -1225,8 +1201,7 @@ const Messages = ({ currentUser }) => {
                       />
                       <span className="user-username">{user.username}</span>
                     </div>
-                    );
-                  })}
+                  ))}
                 </div>
               )}
               
@@ -1238,8 +1213,8 @@ const Messages = ({ currentUser }) => {
                   onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
                 >
                   <img 
-                    src={getAvatarUrl(user.avatar)} 
-                    alt={user.username}
+                    src={user.avatar ? getAvatarUrl(user.avatar) : '/default-avatar.png'} 
+                    alt={user.username || 'User'}
                     className="user-avatar"
                     onError={(e) => {
                       e.target.onerror = null;

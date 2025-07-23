@@ -70,13 +70,6 @@ const App = () => {
     initializedRef.current = true;
 
     const initializeApp = async () => {
-      console.log('🌐 Current environment:', {
-        hostname: window.location.hostname,
-        protocol: window.location.protocol,
-        API_URL: API_URL,
-        LOCAL_URL,
-        REMOTE_URL
-      });
 
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
@@ -90,11 +83,6 @@ const App = () => {
           headers: { 'Authorization': `Bearer ${token}` }
         })
           .then(res => {
-            console.log('🔐 Auth check response:', {
-              status: res.status,
-              ok: res.ok,
-              API_URL
-            });
 
             if (res.ok) return res.json();
             localStorage.removeItem('token');
@@ -111,10 +99,6 @@ const App = () => {
             fetchUnreadCount(token);
           })
           .catch(error => {
-            console.error('🚨 Authentication check error:', {
-              message: error.message,
-              API_URL
-            });
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setIsAuthenticated(false);
