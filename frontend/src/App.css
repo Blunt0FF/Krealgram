@@ -38,26 +38,37 @@
 
 .app {
   background-color: #fff;
+  min-height: 100vh;
 }
 
 .main-content {
   background: #fff;
+  min-height: 100vh;
 }
 
 .main-layout {
   display: flex;
   position: relative;
+  background-color: #fff;
+  min-height: 100vh;
 }
 
 .main-content-with-sidebar {
   margin-left: 244px;
   width: 100%;
   transition: margin-left 0.3s ease-out;
+  background-color: #fff;
+  min-height: 100vh;
 }
 
 /* Мобильная адаптивность */
 /* Мобильные устройства с padding-bottom */
 @media (max-width: 680px) {
+  .app, .main-content, .main-layout, .main-content-with-sidebar {
+    background-color: #fff !important;
+    min-height: 100vh !important;
+  }
+  
   .main-content {
     /* Убрано min-height */
   }
@@ -75,6 +86,11 @@
 
 /* Планшеты без padding-bottom */
 @media (min-width: 681px) and (max-width: 900px) {
+  .app, .main-content, .main-layout, .main-content-with-sidebar {
+    background-color: #fff !important;
+    min-height: 100vh !important;
+  }
+  
   .main-content {
     /* Убрано min-height */
   }

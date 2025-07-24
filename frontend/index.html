@@ -3,8 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="/favicon.ico?v=2" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#405de6" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta
       name="description"
       content="Krealgram - Social Network"
@@ -40,6 +43,37 @@
         }
         originalError.apply(console, args);
       };
+      
+      // Принудительно устанавливаем белый фон для Safari
+      function setWhiteBackground() {
+        document.documentElement.style.backgroundColor = '#ffffff';
+        document.body.style.backgroundColor = '#ffffff';
+        
+        // Проверяем, есть ли элемент #root
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.style.backgroundColor = '#ffffff';
+        }
+        
+        // Устанавливаем белый фон для всех основных контейнеров
+        const containers = document.querySelectorAll('.app, .main-layout, .main-content, .main-content-with-sidebar');
+        containers.forEach(container => {
+          container.style.backgroundColor = '#ffffff';
+        });
+      }
+      
+      // Выполняем сразу при загрузке
+      setWhiteBackground();
+      
+      // И после полной загрузки DOM
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setWhiteBackground);
+      } else {
+        setWhiteBackground();
+      }
+      
+      // Также выполняем после загрузки всех ресурсов
+      window.addEventListener('load', setWhiteBackground);
     </script>
   </head>
   <body>
