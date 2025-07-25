@@ -23,7 +23,7 @@ const timeAgo = (date) => {
   return Math.floor(seconds) + 's ago';
 };
 
-const NotificationItem = ({ notification, onClose, onDelete }) => {
+const NotificationItem = ({ notification, onClose, onDelete, onMarkAsRead }) => {
   // Безопасная проверка на существование поста
   if (!notification || !notification.post) {
     console.warn('[DEBUG] Notification or post is null');
@@ -58,9 +58,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
     if (notification.read) return; // Уже прочитано
     
     try {
-      const response = await axios.post('/api/notifications/mark-read', {
-        notificationId
-      });
+      await onMarkAsRead(notificationId);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -341,7 +339,20 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
       const response = await axios.delete('/api/notifications/delete', {
         data: { notificationId }
       });
-      // ... existing code ...
+      
+      if (response.status === 200) {
+        // Удаляем уведомление из состояния
+        setNotifications(prev => prev.filter(n => n._id !== notificationId));
+        
+        // Уменьшаем счетчик непрочитанных, если уведомление не было прочитано
+        setNotifications(prev => {
+          const deletedNotification = prev.find(n => n._id === notificationId);
+          if (deletedNotification && !deletedNotification.read) {
+            setUnreadCount(prevCount => Math.max(0, prevCount - 1));
+          }
+          return prev;
+        });
+      }
     } catch (error) {
       console.error('Error deleting notification:', error);
     }
@@ -352,7 +363,16 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
       const response = await axios.post('/api/notifications/mark-read', {
         notificationId
       });
-      // ... existing code ...
+      
+      if (response.status === 200) {
+        // Обновляем состояние уведомлений
+        setNotifications(prev => prev.map(n => 
+          n._id === notificationId ? { ...n, read: true } : n
+        ));
+        
+        // Уменьшаем счетчик непрочитанных
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -379,6 +399,7 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
                 notification={notification} 
                 onClose={onClose} 
                 onDelete={handleDeleteNotification}
+                onMarkAsRead={markAsRead}
               />
             ))
           ) : (
