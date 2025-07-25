@@ -34,7 +34,7 @@ const getPostPreviewUrl = (post) => {
 };
 
 // Компонент элемента уведомления (тот же, что и в NotificationsPanel)
-const NotificationItem = ({ notification, onItemClick, onDelete }) => {
+const NotificationItem = ({ notification, onItemClick, onDelete, onMarkAsRead }) => {
   const { sender, type, post, createdAt } = notification;
   const navigate = useNavigate();
   
@@ -60,10 +60,16 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
     
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/notifications/${notificationId}/mark-read`, {
+      const response = await fetch(`${API_URL}/api/notifications/${notificationId}/mark-read`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (response.ok) {
+        // Обновляем локальное состояние через родительский компонент
+        if (onMarkAsRead) {
+          onMarkAsRead(notificationId);
+        }
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -209,6 +215,17 @@ const MobileNotificationsPage = ({ setUnreadCountGlobal }) => {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
+  // Функция для обновления состояния уведомления
+  const updateNotificationReadStatus = (notificationId) => {
+    setNotifications(prev => prev.map(n => 
+      n._id === notificationId ? { ...n, read: true } : n
+    ));
+    // Обновляем счетчик непрочитанных
+    if (setUnreadCountGlobal) {
+      setUnreadCountGlobal(prev => Math.max(0, prev - 1));
+    }
+  };
+
   const markAllAsRead = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -345,7 +362,7 @@ const MobileNotificationsPage = ({ setUnreadCountGlobal }) => {
         {!loading && !error && notifications.length > 0 && (
            <div className="notification-group-mobile">
              {notifications.map(notification => (
-                <NotificationItem key={notification._id} notification={notification} onItemClick={handleNotificationClick} onDelete={handleDeleteNotification}/>
+                <NotificationItem key={notification._id} notification={notification} onItemClick={handleNotificationClick} onDelete={handleDeleteNotification} onMarkAsRead={updateNotificationReadStatus}/>
             ))}
            </div>
         )}

@@ -23,7 +23,7 @@ const timeAgo = (date) => {
   return Math.floor(seconds) + 's ago';
 };
 
-const NotificationItem = ({ notification, onClose, onDelete }) => {
+const NotificationItem = ({ notification, onClose, onDelete, onMarkAsRead }) => {
   // Безопасная проверка на существование поста
   if (!notification || !notification.post) {
     console.warn('[DEBUG] Notification or post is null');
@@ -58,9 +58,17 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
     if (notification.read) return; // Уже прочитано
     
     try {
-      const response = await axios.post('/api/notifications/mark-read', {
-        notificationId
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/notifications/${notificationId}/mark-read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (response.ok) {
+        // Обновляем локальное состояние через родительский компонент
+        if (onMarkAsRead) {
+          onMarkAsRead(notificationId);
+        }
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -213,6 +221,17 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const panelRef = useRef(null);
+
+  // Функция для обновления состояния уведомления
+  const updateNotificationReadStatus = (notificationId) => {
+    setNotifications(prev => prev.map(n => 
+      n._id === notificationId ? { ...n, read: true } : n
+    ));
+    // Обновляем счетчик непрочитанных
+    if (setUnreadCount) {
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+  };
 
   const fetchNotifications = async (currentPage) => {
     if (!hasMore && currentPage > 1) return;
@@ -379,6 +398,7 @@ const NotificationsPanel = ({ isOpen, onClose, setUnreadCount }) => {
                 notification={notification} 
                 onClose={onClose} 
                 onDelete={handleDeleteNotification}
+                onMarkAsRead={updateNotificationReadStatus}
               />
             ))
           ) : (

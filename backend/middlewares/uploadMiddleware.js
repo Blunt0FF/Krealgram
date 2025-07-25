@@ -266,6 +266,18 @@ const storage = multer.diskStorage({
       return cb(new Error('Invalid file upload'), null);
     }
 
+    // Исправляем кодировку имени файла
+    let correctedFilename = file.originalname;
+    try {
+      // Пытаемся исправить кодировку для кириллицы
+      if (correctedFilename.includes('Ð')) {
+        correctedFilename = decodeURIComponent(escape(correctedFilename));
+        console.log('[MULTER_DEBUG] Исправлено имя файла:', correctedFilename);
+      }
+    } catch (e) {
+      console.log('[MULTER_DEBUG] Не удалось исправить кодировку:', e.message);
+    }
+
     // Для аватаров используем специальный формат имени
     if (
       req.url.includes('/avatar') || 
@@ -275,16 +287,16 @@ const storage = multer.diskStorage({
     ) {
       const username = req.user?.username || 'unknown';
       const safeUsername = username.replace(/[^a-zA-Z0-9]/g, '_');
-      const fileExtension = path.extname(file.originalname);
+      const fileExtension = path.extname(correctedFilename);
       const avatarFilename = `avatar_${safeUsername}${fileExtension}`;
       
       console.log('[MULTER_DEBUG] Generated avatar filename:', avatarFilename);
       return cb(null, avatarFilename);
     }
 
-    // Для всех остальных файлов используем оригинальное имя
-    console.log('[MULTER_DEBUG] Generated filename:', file.originalname);
-    cb(null, file.originalname);
+    // Для всех остальных файлов используем исправленное имя
+    console.log('[MULTER_DEBUG] Generated filename:', correctedFilename);
+    cb(null, correctedFilename);
   }
 });
 
@@ -361,12 +373,24 @@ const uploadToGoogleDrive = async (req, res, next) => {
       fileBuffer = await fsPromises.readFile(tempFilePath);
     }
 
+    // Исправляем кодировку имени файла
+    let correctedFilename = originalFilename;
+    try {
+      // Пытаемся исправить кодировку для кириллицы
+      if (correctedFilename.includes('Ð')) {
+        correctedFilename = decodeURIComponent(escape(correctedFilename));
+        console.log('[UPLOAD_DEBUG] Исправлено имя файла:', correctedFilename);
+      }
+    } catch (e) {
+      console.log('[UPLOAD_DEBUG] Не удалось исправить кодировку:', e.message);
+    }
+
     // Создаем имя файла
-    const ext = path.extname(originalFilename);
+    const ext = path.extname(correctedFilename);
     const safeUsername = username ? username.replace(/[^a-zA-Z0-9]/g, '_') : 'unknown';
     const driveFilename = context === 'avatar' 
       ? `avatar_${safeUsername}${ext}` 
-      : originalFilename;
+      : correctedFilename;
 
     // Если это видео — всегда используем папку для видео
     if (fileMimetype.startsWith('video/')) {
@@ -396,7 +420,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
     console.log(`[THUMBNAIL_CREATION] Создаем превью для контекста: ${context}, username: ${username}`);
     const thumbnailUrl = await createAndUploadThumbnail(
       fileBuffer, 
-      originalFilename, 
+      correctedFilename, 
       fileMimetype, 
       context,
       username

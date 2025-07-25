@@ -232,6 +232,48 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
   }
 });
 
+// Тестовый endpoint для проверки видео
+app.get('/api/test-video/:fileId', async (req, res) => {
+  const fileId = req.params.fileId;
+  const drive = require('./config/googleDrive');
+  
+  try {
+    console.log(`[TEST-VIDEO] Тестируем видео файл ${fileId}`);
+    
+    // Получаем метаданные
+    const meta = await drive.drive.files.get({
+      fileId,
+      fields: 'name, mimeType, size'
+    });
+    
+    console.log(`[TEST-VIDEO] Метаданные:`, meta.data);
+    
+    // Загружаем первые 1024 байта для проверки
+    const testBuffer = await drive.drive.files.get({
+      fileId,
+      alt: 'media'
+    }, { 
+      responseType: 'arraybuffer',
+      headers: {
+        'Range': 'bytes=0-1023'
+      }
+    });
+    
+    console.log(`[TEST-VIDEO] Первые 1024 байта:`, testBuffer.data.byteLength);
+    console.log(`[TEST-VIDEO] Первые 16 байт:`, Buffer.from(testBuffer.data.slice(0, 16)).toString('hex'));
+    
+    res.json({
+      success: true,
+      metadata: meta.data,
+      testBytes: testBuffer.data.byteLength,
+      firstBytes: Buffer.from(testBuffer.data.slice(0, 16)).toString('hex')
+    });
+  } catch (error) {
+    console.error(`[TEST-VIDEO] Ошибка:`, error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
   const { type } = req.query;
@@ -241,6 +283,12 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
   try {
     // Добавляем подробное логирование для отладки
+    console.log(`[PROXY-DRIVE] 🔍 Запрос: ${req.method} ${req.url}`);
+    console.log(`[PROXY-DRIVE] 📋 Заголовки запроса:`, {
+      'range': req.headers.range,
+      'accept': req.headers.accept,
+      'user-agent': req.headers['user-agent']?.substring(0, 50) + '...'
+    });
     console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}${type ? ` (type: ${type})` : ''}`);
 
     // Обработка thumbnail для аватаров
@@ -353,6 +401,13 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       fileId,
       fields: 'name, mimeType, size'
     });
+    
+    console.log(`[PROXY-DRIVE] 📄 Метаданные файла ${fileId}:`, {
+      name: meta.data.name,
+      mimeType: meta.data.mimeType,
+      size: meta.data.size
+    });
+    
     const mimeType = meta.data.mimeType || 'application/octet-stream';
     
     // Исправляем кодировку имени файла
@@ -368,7 +423,108 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     
     const fileSize = meta.data.size || 0;
     
-    console.log(`[PROXY-DRIVE] ✅ Метаданные получены для ${fileId}: ${fileName} (${mimeType}, ${fileSize} байт)`);
+    // Исправляем MIME тип для видео, если он неправильный
+    let correctedMimeType = mimeType;
+    if (fileName.toLowerCase().endsWith('.mp4') && !mimeType.startsWith('video/')) {
+      correctedMimeType = 'video/mp4';
+      console.log(`[PROXY-DRIVE] Исправлен MIME тип для ${fileId}: ${correctedMimeType}`);
+    } else if (fileName.toLowerCase().endsWith('.webm') && !mimeType.startsWith('video/')) {
+      correctedMimeType = 'video/webm';
+      console.log(`[PROXY-DRIVE] Исправлен MIME тип для ${fileId}: ${correctedMimeType}`);
+    } else if (fileName.toLowerCase().endsWith('.avi') && !mimeType.startsWith('video/')) {
+      correctedMimeType = 'video/x-msvideo';
+      console.log(`[PROXY-DRIVE] Исправлен MIME тип для ${fileId}: ${correctedMimeType}`);
+    } else if (fileName.toLowerCase().endsWith('.mov') && !mimeType.startsWith('video/')) {
+      correctedMimeType = 'video/quicktime';
+      console.log(`[PROXY-DRIVE] Исправлен MIME тип для ${fileId}: ${correctedMimeType}`);
+    }
+    
+    // Принудительно устанавливаем правильный MIME тип для видео
+    if (correctedMimeType.startsWith('video/')) {
+      console.log(`[PROXY-DRIVE] Используем MIME тип для видео ${fileId}: ${correctedMimeType}`);
+      
+      // Принудительно устанавливаем video/mp4 для всех .mp4 файлов
+      if (fileName.toLowerCase().endsWith('.mp4')) {
+        correctedMimeType = 'video/mp4';
+        console.log(`[PROXY-DRIVE] 🔧 Принудительно устанавливаем video/mp4 для ${fileId}`);
+      }
+    } else if (fileName.toLowerCase().endsWith('.mp4')) {
+      // Если MIME тип не video/, но файл .mp4 - принудительно устанавливаем
+      correctedMimeType = 'video/mp4';
+      console.log(`[PROXY-DRIVE] 🔧 Принудительно устанавливаем video/mp4 для ${fileId} (файл .mp4)`);
+    }
+    
+    // Проверяем первые байты файла для определения реального формата
+    if (correctedMimeType.startsWith('video/')) {
+      try {
+        const testBuffer = await drive.drive.files.get({
+          fileId,
+          alt: 'media'
+        }, { 
+          responseType: 'arraybuffer',
+          headers: {
+            'Range': 'bytes=0-15'
+          }
+        });
+        
+        const firstBytes = Buffer.from(testBuffer.data.slice(0, 16)).toString('hex');
+        console.log(`[PROXY-DRIVE] 🔍 Первые 16 байт файла ${fileId}: ${firstBytes}`);
+        
+        // Проверяем сигнатуры видео форматов
+        if (firstBytes.startsWith('0000002066747970')) {
+          // ISO Media (MP4, MOV, etc.)
+          correctedMimeType = 'video/mp4';
+          console.log(`[PROXY-DRIVE] 🔧 Обнаружен ISO Media формат, устанавливаем video/mp4`);
+        } else if (firstBytes.startsWith('52494646')) {
+          // AVI
+          correctedMimeType = 'video/x-msvideo';
+          console.log(`[PROXY-DRIVE] 🔧 Обнаружен AVI формат`);
+        } else if (firstBytes.startsWith('1a45dfa3')) {
+          // WebM
+          correctedMimeType = 'video/webm';
+          console.log(`[PROXY-DRIVE] 🔧 Обнаружен WebM формат`);
+        }
+      } catch (error) {
+        console.error(`[PROXY-DRIVE] ❌ Ошибка проверки формата для ${fileId}:`, error.message);
+      }
+    }
+    
+    console.log(`[PROXY-DRIVE] ✅ Метаданные получены для ${fileId}: ${fileName} (${correctedMimeType}, ${fileSize} байт)`);
+    console.log(`[PROXY-DRIVE] 🔍 Отладочная информация для ${fileId}:`);
+    console.log(`  - Оригинальный MIME тип: ${mimeType}`);
+    console.log(`  - Исправленный MIME тип: ${correctedMimeType}`);
+    console.log(`  - Размер файла: ${fileSize} байт`);
+    console.log(`  - Это видео: ${correctedMimeType.startsWith('video/')}`);
+
+    // Принудительно загружаем весь файл для видео
+    if (correctedMimeType.startsWith('video/')) {
+      console.log(`[PROXY-DRIVE] 🎬 Загружаем весь файл для видео ${fileId}`);
+      
+      try {
+        const fileBuffer = await drive.drive.files.get({
+          fileId,
+          alt: 'media'
+        }, { responseType: 'arraybuffer' });
+        
+        console.log(`[PROXY-DRIVE] ✅ Файл загружен полностью: ${fileBuffer.data.byteLength} байт`);
+        
+        // Упрощенные заголовки для видео
+        res.set({
+          'Content-Type': correctedMimeType,
+          'Content-Length': fileBuffer.data.byteLength,
+          'Accept-Ranges': 'bytes',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=31536000'
+        });
+        
+        // Отправляем весь файл
+        res.end(Buffer.from(fileBuffer.data));
+        return;
+      } catch (error) {
+        console.error(`[PROXY-DRIVE] ❌ Ошибка загрузки файла для ${fileId}:`, error.message);
+        // Fallback к стриму
+      }
+    }
 
     const fileRes = await drive.drive.files.get({
       fileId,
@@ -376,21 +532,41 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     }, { responseType: 'stream' });
     
     console.log(`[PROXY-DRIVE] ✅ Стрим создан для ${fileId}, начинаем передачу...`);
+    console.log(`[PROXY-DRIVE] 📊 Статистика стрима для ${fileId}:`, {
+      readable: fileRes.data.readable,
+      destroyed: fileRes.data.destroyed,
+      paused: fileRes.data.isPaused()
+    });
 
     const range = req.headers.range;
     let headersSent = false;
     
     const sendHeaders = (statusCode, headers) => {
       if (!headersSent) {
-        res.writeHead(statusCode, {
+        // Специальные заголовки для видео
+        const videoHeaders = correctedMimeType.startsWith('video/') ? {
+          'Accept-Ranges': 'bytes',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'SAMEORIGIN'
+        } : {};
+        
+        const finalHeaders = {
           ...headers,
+          ...videoHeaders,
           'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-          'Access-Control-Allow-Headers': 'Range, Content-Range, Accept-Ranges',
-          'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
-          'Cache-Control': 'public, max-age=31536000'
+          'Cache-Control': 'public, max-age=31536000',
+          'Accept-Ranges': 'bytes'
+        };
+        
+        console.log(`[PROXY-DRIVE] 📤 Отправляем заголовки для ${fileId}:`, {
+          statusCode,
+          'Content-Type': finalHeaders['Content-Type'],
+          'Accept-Ranges': finalHeaders['Accept-Ranges'],
+          'Content-Length': finalHeaders['Content-Length']
         });
+        
+        res.writeHead(statusCode, finalHeaders);
         headersSent = true;
       }
     };
@@ -401,16 +577,21 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = (end - start) + 1;
 
+      console.log(`[PROXY-DRIVE] 📊 Range запрос для ${fileId}: ${start}-${end}/${fileSize} (chunk: ${chunksize})`);
+
       sendHeaders(206, {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
         'Content-Length': chunksize,
-        'Content-Type': mimeType
+        'Content-Type': correctedMimeType
       });
     } else {
+      console.log(`[PROXY-DRIVE] 📊 Полный запрос для ${fileId}: ${fileSize} байт`);
+      
       sendHeaders(200, {
         'Content-Length': fileSize,
-        'Content-Type': mimeType
+        'Content-Type': correctedMimeType,
+        'Accept-Ranges': 'bytes'
       });
     }
 
@@ -418,18 +599,50 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       console.error(`[PROXY-DRIVE] ❌ Ошибка стрима для ${fileId}:`, err.message);
       if (!headersSent) {
         res.status(500).send('Error streaming file');
+      } else {
+        res.end();
       }
     });
 
     fileRes.data.on('end', () => {
+      console.log(`[PROXY-DRIVE] ✅ Стрим данных завершен для ${fileId}`);
       // Очищаем ресурсы после завершения стрима
-      fileRes.data.destroy();
+      if (fileRes.data && !fileRes.data.destroyed) {
+        fileRes.data.destroy();
+      }
     });
 
+    fileRes.data.on('close', () => {
+      console.log(`[PROXY-DRIVE] 🔌 Стрим данных закрыт для ${fileId}`);
+    });
+
+    // Обработка ошибок ответа
+    res.on('error', (err) => {
+      console.error(`[PROXY-DRIVE] ❌ Ошибка ответа для ${fileId}:`, err.message);
+      if (fileRes.data && !fileRes.data.destroyed) {
+        fileRes.data.destroy();
+      }
+    });
+
+    res.on('finish', () => {
+      console.log(`[PROXY-DRIVE] ✅ Ответ завершен для ${fileId}`);
+    });
+
+    res.on('close', () => {
+      console.log(`[PROXY-DRIVE] 🔌 Ответ закрыт для ${fileId}`);
+    });
+
+    // Добавляем обработку данных стрима
+    fileRes.data.on('data', (chunk) => {
+      console.log(`[PROXY-DRIVE] 📦 Получен чанк данных для ${fileId}: ${chunk.length} байт`);
+    });
+
+    // Передаем стрим в ответ
     fileRes.data.pipe(res);
 
     // Обработка отключения клиента
     req.on('close', () => {
+      console.log(`[PROXY-DRIVE] 🔌 Клиент отключился для ${fileId}`);
       if (fileRes.data && !fileRes.data.destroyed) {
         fileRes.data.destroy();
       }
