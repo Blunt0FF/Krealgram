@@ -1,56 +1,56 @@
 #!/usr/bin/env node
 
-const axios = require('axios');
 require('dotenv').config();
+const axios = require('axios');
+const { OAuth2Client } = require('google-auth-library');
 
-/**
- * Скрипт для автоматического обновления токенов на Render
- * Требует RENDER_API_KEY в переменных окружения
- */
+const RENDER_API_KEY = process.env.RENDER_API_KEY;
+const RENDER_SERVICE_ID = process.env.RENDER_SERVICE_ID;
 
 async function updateRenderTokens() {
+  if (!RENDER_API_KEY || !RENDER_SERVICE_ID) {
+    console.error('❌ RENDER_API_KEY или RENDER_SERVICE_ID не установлены');
+    return;
+  }
+
+  console.log('🔧 Обновляем токены Google Drive в Render...');
+
   try {
-    const RENDER_API_KEY = process.env.RENDER_API_KEY;
-    const SERVICE_ID = process.env.RENDER_SERVICE_ID;
-    
-    if (!RENDER_API_KEY) {
-      console.log('❌ RENDER_API_KEY не найден в переменных окружения');
-      console.log('📝 Добавьте RENDER_API_KEY в .env файл');
-      return false;
-    }
-    
-    if (!SERVICE_ID) {
-      console.log('❌ RENDER_SERVICE_ID не найден в переменных окружения');
-      console.log('📝 Добавьте RENDER_SERVICE_ID в .env файл');
-      return false;
-    }
+    // Создаем OAuth2 клиент
+    const oauth2Client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET
+    );
 
-    // Получаем текущие токены из .env
-    const accessToken = process.env.GOOGLE_DRIVE_ACCESS_TOKEN;
-    const refreshToken = process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+    // Получаем новый refresh token
+    console.log('🔄 Получаем новый refresh token...');
     
-    if (!accessToken || !refreshToken) {
-      console.log('❌ Токены не найдены в .env файле');
-      return false;
-    }
+    // Используем текущий refresh token для получения нового
+    oauth2Client.setCredentials({
+      refresh_token: process.env.GOOGLE_DRIVE_REFRESH_TOKEN
+    });
 
-    console.log('🔄 Обновление токенов на Render...');
+    // Пытаемся обновить access token
+    const { credentials } = await oauth2Client.refreshAccessToken();
     
-    // Обновляем переменные окружения на Render
-    const response = await axios.patch(
-      `https://api.render.com/v1/services/${SERVICE_ID}/env-vars`,
-      {
-        envVars: [
-          {
-            key: 'GOOGLE_DRIVE_ACCESS_TOKEN',
-            value: accessToken
-          },
-          {
-            key: 'GOOGLE_DRIVE_REFRESH_TOKEN', 
-            value: refreshToken
-          }
-        ]
-      },
+    const newRefreshToken = credentials.refresh_token || process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+    const newAccessToken = credentials.access_token;
+
+    console.log('✅ Новые токены получены');
+
+    // Обновляем токены в Render
+    const updateResponse = await axios.put(
+      `https://api.render.com/v1/services/${RENDER_SERVICE_ID}/env-vars`,
+      [
+        {
+          key: 'GOOGLE_DRIVE_REFRESH_TOKEN',
+          value: newRefreshToken
+        },
+        {
+          key: 'GOOGLE_DRIVE_ACCESS_TOKEN',
+          value: newAccessToken
+        }
+      ],
       {
         headers: {
           'Authorization': `Bearer ${RENDER_API_KEY}`,
@@ -59,45 +59,32 @@ async function updateRenderTokens() {
       }
     );
 
-    if (response.status === 200) {
-      console.log('✅ Токены успешно обновлены на Render!');
-      console.log('🔄 Перезапуск сервиса...');
-      
-      // Перезапускаем сервис
-      await axios.post(
-        `https://api.render.com/v1/services/${SERVICE_ID}/deploys`,
-        {},
-        {
-          headers: {
-            'Authorization': `Bearer ${RENDER_API_KEY}`,
-            'Content-Type': 'application/json'
-          }
+    console.log('✅ Токены обновлены в Render');
+    console.log('📋 Ответ API:', updateResponse.status);
+
+    // Запускаем новый деплой
+    const deployResponse = await axios.post(
+      `https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys`,
+      {},
+      {
+        headers: {
+          'Authorization': `Bearer ${RENDER_API_KEY}`,
+          'Content-Type': 'application/json'
         }
-      );
-      
-      console.log('✅ Сервис перезапущен!');
-      return true;
-    }
-    
+      }
+    );
+
+    console.log('🚀 Новый деплой запущен');
+    console.log('📋 Deploy ID:', deployResponse.data.id);
+
   } catch (error) {
-    console.error('❌ Ошибка обновления токенов на Render:', error.message);
-    if (error.response) {
-      console.error('📄 Ответ сервера:', error.response.data);
+    console.error('❌ Ошибка:', error.response?.data || error.message);
+    
+    if (error.message.includes('invalid_grant')) {
+      console.log('💡 Нужно получить новый refresh token вручную');
+      console.log('💡 Запустите: node get-new-token.js');
     }
-    return false;
   }
 }
 
-// Запуск скрипта
-if (require.main === module) {
-  updateRenderTokens().then(success => {
-    if (success) {
-      console.log('🎉 Все готово!');
-    } else {
-      console.log('💥 Что-то пошло не так');
-      process.exit(1);
-    }
-  });
-}
-
-module.exports = { updateRenderTokens }; 
+updateRenderTokens(); 

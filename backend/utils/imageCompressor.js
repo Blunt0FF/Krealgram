@@ -61,7 +61,7 @@ class ImageCompressor {
         case 'jpg':
         case 'jpeg':
           pipeline.jpeg({ 
-            quality: 80, 
+            quality: 75, 
             progressive: true, 
             mozjpeg: true,
             chromaSubsampling: '4:4:4'
@@ -93,7 +93,7 @@ class ImageCompressor {
           if (heicFormats.includes(outputFormat)) {
             console.log(`[IMAGE_COMPRESSOR] Конвертируем HEIC/HEIF в JPEG`);
             pipeline.jpeg({ 
-              quality: 80, 
+              quality: 75, 
               progressive: true, 
               mozjpeg: true 
             });

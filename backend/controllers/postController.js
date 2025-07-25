@@ -30,31 +30,48 @@ exports.createPost = async (req, res) => {
     const authorId = req.user.id;
     let imagePath, mediaType, thumbnailUrl, youtubeData = null;
 
-    // Обработка YouTube-видео
+    // Обработка внешних видео
     if (videoUrl && !req.file) {
       try {
-        const { processYouTubeUrl } = require('../utils/mediaHelper');
-        const parsedVideoData = processYouTubeUrl(videoUrl);
-        
         // Парсим входящие videoData
         const incomingVideoData = typeof videoData === 'string' 
           ? JSON.parse(videoData) 
           : videoData;
         
-        youtubeData = {
-          videoId: incomingVideoData?.videoId || parsedVideoData.videoId,
-          embedUrl: incomingVideoData?.embedUrl || parsedVideoData.embedUrl,
-          thumbnailUrl: incomingVideoData?.thumbnailUrl || parsedVideoData.thumbnailUrl,
-          platform: 'youtube',
-          originalUrl: videoUrl
-        };
+        // Проверяем, является ли это YouTube видео
+        if (incomingVideoData?.platform === 'youtube' || videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+          const { processYouTubeUrl } = require('../utils/mediaHelper');
+          const parsedVideoData = processYouTubeUrl(videoUrl);
+          
+          youtubeData = {
+            videoId: incomingVideoData?.videoId || parsedVideoData.videoId,
+            embedUrl: incomingVideoData?.embedUrl || parsedVideoData.embedUrl,
+            thumbnailUrl: incomingVideoData?.thumbnailUrl || parsedVideoData.thumbnailUrl,
+            platform: 'youtube',
+            originalUrl: videoUrl
+          };
 
-        imagePath = youtubeData.thumbnailUrl;
-      mediaType = 'video';
-        thumbnailUrl = youtubeData.thumbnailUrl;
+          imagePath = youtubeData.thumbnailUrl;
+          mediaType = 'video';
+          thumbnailUrl = youtubeData.thumbnailUrl;
+        } else {
+          // Для TikTok, Instagram и других платформ (включая загруженные на Google Drive)
+          youtubeData = {
+            platform: incomingVideoData?.platform || 'external',
+            originalUrl: videoUrl,
+            videoUrl: incomingVideoData?.videoUrl || videoUrl,
+            thumbnailUrl: incomingVideoData?.thumbnailUrl,
+            title: incomingVideoData?.title || 'External Video',
+            isExternalLink: incomingVideoData?.isExternalLink || false
+          };
+
+          imagePath = incomingVideoData?.videoUrl || videoUrl;
+          mediaType = 'video';
+          thumbnailUrl = incomingVideoData?.thumbnailUrl;
+        }
       } catch (error) {
-        console.error('YouTube URL processing error:', error);
-        return res.status(400).json({ message: 'Invalid YouTube URL', error: error.message });
+        console.error('Video URL processing error:', error);
+        return res.status(400).json({ message: 'Invalid video URL', error: error.message });
       }
     } 
     // Обычная загрузка файла через Google Drive
@@ -96,6 +113,11 @@ exports.createPost = async (req, res) => {
     // Населяем пост данными автора
     const populatedPost = await Post.findById(savedPost._id)
       .populate('author', 'username avatar');
+
+    // Добавляем размер файла в ответ, если есть uploadResult
+    if (req.uploadResult && req.uploadResult.bytes) {
+      populatedPost.bytes = req.uploadResult.bytes;
+    }
 
     res.status(201).json(populatedPost);
 

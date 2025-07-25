@@ -55,9 +55,14 @@ const io = new Server(server, {
     origin: [
       "http://localhost:4000",
       "http://127.0.0.1:4000",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
       "https://krealgram.vercel.app",
+      "http://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com"
+      "http://krealgram.com",
+      "https://www.krealgram.com",
+      "http://www.krealgram.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
@@ -84,15 +89,32 @@ const whitelist = [
 
 // Настройки CORS
 const corsOptions = {
-  origin: [
-    'http://localhost:4000', 
-    'https://localhost:4000', 
-    'https://krealgram.com',
-    'https://www.krealgram.com',
-    /\.krealgram\.com$/  // Поддержка поддоменов
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, мобильные приложения)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:4000',
+      'https://localhost:4000',
+      'http://localhost:3000',
+      'https://localhost:3000',
+      'https://krealgram.com',
+      'http://krealgram.com',
+      'https://www.krealgram.com',
+      'http://www.krealgram.com',
+      'https://krealgram.vercel.app',
+      'http://krealgram.vercel.app'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.krealgram.com')) {
+      callback(null, true);
+    } else {
+      console.log('🚫 CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -265,13 +287,20 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
             try {
               const searchResult = await drive.drive.files.list({
                 q: `name='${thumbnailName}' and '${process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID}' in parents and trashed=false`,
-                fields: 'files(id, name)',
-                pageSize: 1
+                fields: 'files(id, name, createdTime, modifiedTime)',
+                pageSize: 10,
+                orderBy: 'modifiedTime desc'
               });
               
               if (searchResult.data.files && searchResult.data.files.length > 0) {
+                console.log(`[PROXY-DRIVE] Найдено ${searchResult.data.files.length} файлов с именем ${thumbnailName}:`);
+                searchResult.data.files.forEach((file, index) => {
+                  console.log(`[PROXY-DRIVE] ${index + 1}. ${file.name} (${file.id}) - создан: ${file.createdTime}, изменен: ${file.modifiedTime}`);
+                });
+                
+                // Берем самый новый файл
                 const thumbnailFile = searchResult.data.files[0];
-                console.log(`[PROXY-DRIVE] ✅ Найден thumbnail: ${thumbnailFile.name} (${thumbnailFile.id})`);
+                console.log(`[PROXY-DRIVE] ✅ Используем самый новый thumbnail: ${thumbnailFile.name} (${thumbnailFile.id})`);
                 
                 // Проксируем thumbnail файл
                 const thumbnailRes = await drive.drive.files.get({

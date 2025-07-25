@@ -80,7 +80,7 @@ ensureTempDir(TEMP_INPUT_DIR);
 ensureTempDir(TEMP_OUTPUT_DIR);
 
 // Специальная обработка для создания и загрузки превью
-const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimetype, context) => {
+const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimetype, context, username = null) => {
   try {
     let thumbnailUrl = null;
     let thumbnailBuffer = null;
@@ -91,16 +91,33 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
     await fsPromises.writeFile(tempInputPath, fileBuffer);
 
     if (context === 'avatar') {
-      // Создаем превью для аватаров
-      const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(fileBuffer, originalFilename);
-      if (optimized.thumbnail) {
-        thumbnailBuffer = optimized.thumbnail.buffer;
+      console.log(`[THUMBNAIL_CREATION] Создаем thumbnail для аватара, username: ${username}`);
+      // Создаем превью для аватаров напрямую
+      try {
+        const sharp = require('sharp');
+        thumbnailBuffer = await sharp(fileBuffer)
+          .resize(300, 300, { fit: 'cover', position: 'center' })
+          .jpeg({ 
+            quality: 70, // Более агрессивное сжатие для превью
+            progressive: true,
+            mozjpeg: true
+          })
+          .toBuffer();
+        
+        const thumbnailFilename = username ? `thumb_${username}.jpeg` : `thumb_${originalFilename}`;
+        console.log(`[THUMBNAIL_CREATION] Имя thumbnail файла: ${thumbnailFilename}`);
+        console.log(`[THUMBNAIL_CREATION] Размер thumbnail buffer: ${thumbnailBuffer.length} байт`);
+        console.log(`[THUMBNAIL_CREATION] Папка аватаров: ${process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID}`);
+        
         thumbnailUrl = await uploadThumbnailToDrive(
           thumbnailBuffer, 
-          `thumb_${originalFilename}`,
-          'image/webp',
+          thumbnailFilename,
+          'image/jpeg',
           process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID // Используем папку аватаров
         );
+        console.log(`[THUMBNAIL_CREATION] Thumbnail создан: ${thumbnailUrl}`);
+      } catch (error) {
+        console.error('[THUMBNAIL_UPLOAD] Ошибка создания thumbnail для аватара:', error);
       }
     } else if (context === 'post' && fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
       const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(fileBuffer, originalFilename);
@@ -298,15 +315,18 @@ const uploadToGoogleDrive = async (req, res, next) => {
 
   try {
     const tempFilePath = req.file.path;
-    const fileBuffer = await fsPromises.readFile(tempFilePath);
     const originalFilename = req.file.originalname;
     const fileMimetype = req.file.mimetype;
-
+    
+    // Определяем контекст загрузки
     let context = 'post';
     let folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
     let username = null;
 
-    // Определяем контекст загрузки
+    console.log(`[CONTEXT_DEBUG] URL: ${req.url}`);
+    console.log(`[CONTEXT_DEBUG] Body keys: ${Object.keys(req.body)}`);
+    console.log(`[CONTEXT_DEBUG] User: ${req.user ? req.user.username : 'null'}`);
+
     if (
       req.url.includes('/avatar') || 
       req.url.includes('/profile') || 
@@ -316,6 +336,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
       context = 'avatar';
       folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
       username = req.user ? req.user.username : null;
+      console.log(`[CONTEXT_DEBUG] Контекст определен как avatar, username: ${username}`);
     } else if (
       req.url.includes('/messages') || 
       req.url.includes('/conversations') || 
@@ -323,6 +344,21 @@ const uploadToGoogleDrive = async (req, res, next) => {
     ) {
       context = 'message';
       folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
+      console.log(`[CONTEXT_DEBUG] Контекст определен как message`);
+    } else {
+      console.log(`[CONTEXT_DEBUG] Контекст определен как post`);
+    }
+
+    // Используем файл как есть (уже сжатый на клиенте)
+    let fileBuffer;
+    if (fileMimetype.startsWith('image/')) {
+      console.log('[IMAGE_COMPRESSION] Используем клиентское сжатие');
+      
+      // Читаем файл (уже сжатый на клиенте)
+      fileBuffer = await fsPromises.readFile(tempFilePath);
+      console.log(`[IMAGE_COMPRESSION] Размер файла: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+    } else {
+      fileBuffer = await fsPromises.readFile(tempFilePath);
     }
 
     // Создаем имя файла
@@ -345,13 +381,27 @@ const uploadToGoogleDrive = async (req, res, next) => {
       folderId
     );
 
-    // Создаем превью только для постов
+    // Удаляем старый thumbnail перед созданием нового (только для аватаров)
+    if (context === 'avatar' && username) {
+      try {
+        console.log(`[THUMBNAIL_CLEANUP] Удаляем старый thumbnail для пользователя: ${username}`);
+        await googleDrive.deleteAvatarThumbnail(username);
+        console.log(`[THUMBNAIL_CLEANUP] Старый thumbnail удален`);
+      } catch (cleanupError) {
+        console.error(`[THUMBNAIL_CLEANUP] Ошибка удаления старого thumbnail:`, cleanupError);
+      }
+    }
+
+    // Создаем превью
+    console.log(`[THUMBNAIL_CREATION] Создаем превью для контекста: ${context}, username: ${username}`);
     const thumbnailUrl = await createAndUploadThumbnail(
       fileBuffer, 
       originalFilename, 
       fileMimetype, 
-      context
+      context,
+      username
     );
+    console.log(`[THUMBNAIL_CREATION] Результат: ${thumbnailUrl}`);
 
     req.uploadResult = {
       secure_url: result.secure_url,
@@ -362,6 +412,34 @@ const uploadToGoogleDrive = async (req, res, next) => {
       url: result.secure_url,
       thumbnailUrl: thumbnailUrl
     };
+    
+    console.log(`[UPLOAD_RESULT] Размер загруженного файла: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+    console.log(`[UPLOAD_RESULT] bytes в объекте: ${req.uploadResult.bytes}`);
+    
+    console.log(`[UPLOAD_RESULT] Размер загруженного файла: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+
+    // Очищаем папки temp после загрузки
+    try {
+      // Очищаем preview
+      const previewDir = path.join(__dirname, '../temp/preview');
+      const previewFiles = await fsPromises.readdir(previewDir);
+      for (const file of previewFiles) {
+        const filePath = path.join(previewDir, file);
+        await fsPromises.unlink(filePath);
+        console.log(`[CLEANUP] Удален файл из preview: ${file}`);
+      }
+      
+      // Очищаем output
+      const outputDir = path.join(__dirname, '../temp/output');
+      const outputFiles = await fsPromises.readdir(outputDir);
+      for (const file of outputFiles) {
+        const filePath = path.join(outputDir, file);
+        await fsPromises.unlink(filePath);
+        console.log(`[CLEANUP] Удален файл из output: ${file}`);
+      }
+    } catch (cleanupError) {
+      console.error('[CLEANUP] Ошибка очистки temp папок:', cleanupError);
+    }
 
     // Удаляем временный файл
     await fsPromises.unlink(tempFilePath);

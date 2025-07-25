@@ -1,3 +1,0 @@
-backend/.env.drive
-backend/.env.google
-миграция/.env.drive 

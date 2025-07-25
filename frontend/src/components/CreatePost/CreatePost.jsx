@@ -8,17 +8,18 @@ import './CreatePost.css';
 
 // Функция для сжатия изображений
 const compressImage = async (file) => {
+  console.log('🔧 Starting compression for:', file.name, 'Size:', file.size);
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
     
-    img.onload = () => {
-      // Устанавливаем размеры canvas
-      const maxWidth = 1920;
-      const maxHeight = 1080;
+        img.onload = () => {
+      // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
+      const maxWidth = img.width; // Оригинальный размер
+      const maxHeight = img.height; // Оригинальный размер
       let { width, height } = img;
-      
+
       if (width > height) {
         if (width > maxWidth) {
           height = (height * maxWidth) / width;
@@ -30,11 +31,13 @@ const compressImage = async (file) => {
           height = maxHeight;
         }
       }
-      
+
       canvas.width = width;
       canvas.height = height;
-      
-      // Рисуем изображение на canvas
+
+      console.log('🔧 Canvas dimensions:', width, 'x', height);
+
+      // Рисуем изображение на canvas с правильной ориентацией
       ctx.drawImage(img, 0, 0, width, height);
       
       // Конвертируем в blob
@@ -44,11 +47,16 @@ const compressImage = async (file) => {
             type: 'image/jpeg',
             lastModified: Date.now()
           });
+          console.log('🔧 Compression result:', {
+            originalSize: file.size,
+            compressedSize: compressedFile.size,
+            compressionRatio: (compressedFile.size / file.size * 100).toFixed(1) + '%'
+          });
           resolve(compressedFile);
         } else {
           reject(new Error('Failed to compress image'));
         }
-      }, 'image/jpeg', 0.8);
+      }, 'image/jpeg', 0.8); // Качество 80% для достижения 3.4MB
     };
     
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -80,7 +88,7 @@ const CreatePost = () => {
     const file = event.target.files[0];
     if (!file) return;
 
-    console.log('📸 File Details:', {
+    console.log('📸 Original File Details:', {
       name: file.name,
       type: file.type,
       size: file.size
@@ -103,6 +111,11 @@ const CreatePost = () => {
       } else {
         // Для изображений сжимаем
         const compressed = await compressImage(file);
+        console.log('📸 Compressed File Details:', {
+          name: compressed.name,
+          type: compressed.type,
+          size: compressed.size
+        });
         setCompressedFile(compressed);
         setOriginalFileName(file.name);
         
@@ -248,13 +261,7 @@ const CreatePost = () => {
 
   return (
       <div className="create-post-box">
-        <h2 style={{
-          textAlign: 'center',
-          color: '#333',
-          fontWeight: '700',
-          fontSize: '24px',
-          marginBottom: '20px'
-        }}>
+        <h2>
           Create new post
         </h2>
         
@@ -264,25 +271,8 @@ const CreatePost = () => {
             type="button"
             className="external-video-btn"
             onClick={() => setShowExternalVideoModal(true)}
-            style={{
-              background: 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #9c27b0)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '12px 24px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              transition: 'transform 0.2s ease',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-            }}
           >
-            <div className="platform-icons" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '18px' }}>
+            <div className="platform-icons">
               🎥🎬📺
             </div>
             <span className="platform-text">TikTok/Instagram/YouTube</span>
@@ -291,44 +281,19 @@ const CreatePost = () => {
 
         {/* File upload functionality */}
         <div className="file-upload-section">
-          <label className="file-input-label" style={{
-            display: 'block',
-            width: '100%',
-            padding: '20px',
-            textAlign: 'center',
-            border: '2px dashed #ddd',
-            borderRadius: '12px',
-            cursor: 'pointer',
-            marginBottom: '20px',
-            position: 'relative'
-          }}>
-            <div style={{ marginBottom: '10px', fontSize: '18px' }}>📸 Choose Image/Video</div>
+          <label className="file-input-label">
+            <div className="file-input-icon">📸 Choose Image/Video</div>
             <input 
               type="file" 
               accept=".jpg,.jpeg,.png,.gif,.mp4,.mov,.webm,image/*,video/*" 
               onChange={handleImageChange} 
               disabled={compressing}
-              style={{ 
-                opacity: 0,
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                cursor: 'pointer'
-              }}
             />
           </label>
         </div>
 
         {compressing && (
-          <div className="compression-status" style={{
-            textAlign: 'center',
-            padding: '12px',
-            background: '#f0f0f0',
-            borderRadius: '8px',
-            margin: '12px 0'
-          }}>
+          <div className="compression-status">
             {mediaType === 'video' ? 'Processing video...' : 'Processing image...'}
           </div>
         )}
@@ -339,24 +304,9 @@ const CreatePost = () => {
             <div className="video-preview">
               {parsedVideoData ? (
                 // For external videos show preview
-                <div style={{
-                  width: '100%',
-                  maxWidth: '400px',
-                  margin: '0 auto',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
-                }}>
-                  <div style={{
-                    padding: '20px',
-                    textAlign: 'center',
-                    color: 'white'
-                  }}>
-                    <div style={{
-                      fontSize: '24px',
-                      marginBottom: '12px'
-                    }}>
+                <div className="external-video-preview">
+                  <div className="external-video-header">
+                    <div className="external-video-title">
                       {parsedVideoData.platform === 'youtube' ? '📺' : 
                        parsedVideoData.platform === 'youtube-shorts' ? '📱' : '🎥'}
                       {' '}
@@ -364,48 +314,22 @@ const CreatePost = () => {
                        parsedVideoData.platform?.toUpperCase()} Video
                     </div>
                     {parsedVideoData.title && (
-                      <div style={{
-                        fontSize: '16px',
-                        marginBottom: '12px',
-                        opacity: 0.9
-                      }}>
+                      <div className="external-video-description">
                         {parsedVideoData.title}
                       </div>
                     )}
                     {parsedVideoData.description && (
-                      <div style={{
-                        fontSize: '14px',
-                        opacity: 0.7
-                      }}>
+                      <div className="external-video-subtitle">
                         {parsedVideoData.description}
                       </div>
                     )}
                   </div>
                   {previewUrl && (
-                    <div style={{
-                      width: '100%',
-                      height: '200px',
-                      backgroundImage: `url(${previewUrl})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      position: 'relative'
-                    }}>
-                      <div style={{
-                        background: 'rgba(0,0,0,0.7)',
-                        borderRadius: '50%',
-                        width: '60px',
-                        height: '60px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        position: 'absolute',
-                        zIndex: 10
-                      }}>
+                    <div 
+                      className="external-video-thumbnail"
+                      style={{ backgroundImage: `url(${previewUrl})` }}
+                    >
+                      <div className="external-video-play-button">
                         <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z"/>
                         </svg>
@@ -417,19 +341,15 @@ const CreatePost = () => {
                 <video 
                   src={previewUrl} 
                   controls 
-                  style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '12px' }}
                 />
               ) : (
-                <img src={previewUrl} alt="Preview" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '12px' }} />
+                <img src={previewUrl} alt="Preview" />
               )}
             </div>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              marginTop: '12px'
-            }}>
+            <div className="remove-button-container">
               <button 
                 type="button"
+                className="remove-button"
                 onClick={() => {
                   setPreviewUrl(null);
                   setCompressedFile(null);
@@ -438,15 +358,6 @@ const CreatePost = () => {
                   setVideoUrl('');
                   setMediaType('image');
                   setError('');
-                }}
-                style={{
-                  background: '#ff4757',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 16px',
-                  cursor: 'pointer',
-                  marginBottom: '15px'
                 }}
               >
                 Remove {parsedVideoData ? 'Video' : mediaType === 'video' ? 'Video' : 'Image'}
@@ -459,20 +370,12 @@ const CreatePost = () => {
         <form className="create-post-form" onSubmit={handleSubmit}>
             <div className="form-group">
               <textarea
+                className="create-post-textarea"
                 placeholder="Add a caption..."
                 value={caption}
                 onChange={handleCaptionChange}
                 disabled={loading}
                 maxLength={500}
-                style={{
-                  width: '100%',
-                  minHeight: '100px',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #ddd',
-                  fontSize: '14px',
-                  resize: 'vertical'
-                }}
               />
               <div className={`char-count ${caption.length > 450 ? 'danger' : caption.length > 400 ? 'warning' : ''}`}>
                 {caption.length}/500
@@ -483,17 +386,6 @@ const CreatePost = () => {
               type="submit" 
               className="create-post-button" 
               disabled={loading || (!compressedFile && !parsedVideoData)}
-              style={{
-                background: '#0095f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '12px 24px',
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                width: '100%'
-              }}
             >
               {loading ? 'Publishing...' : 'Share'}
             </button>

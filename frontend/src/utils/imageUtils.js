@@ -28,29 +28,64 @@ export const compressAvatar = async (file) => {
       throw new Error('Файл не является изображением.');
     }
 
-    // Создаем canvas для сжатия
-    const img = await createImageBitmap(file);
+    console.log('🔧 Starting avatar compression for:', file.name, 'Size:', file.size);
 
-    // Максимальный размер аватара
-    const MAX_SIZE = 500;
+    return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Сохраняем оригинальный размер для достижения 3.4MB
+        const maxWidth = img.width;
+        const maxHeight = img.height;
+        let { width, height } = img;
 
-    // Вычисляем новые размеры с сохранением пропорций
-    const ratio = Math.min(MAX_SIZE / img.width, MAX_SIZE / img.height);
-    canvas.width = img.width * ratio;
-    canvas.height = img.height * ratio;
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
 
-    // Рисуем изображение с новым размером
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.width = width;
+        canvas.height = height;
 
-    // Конвертируем в Blob с сохранением оригинального формата
-    return await new Promise((resolve) => {
-      canvas.toBlob((blob) => {
-        resolve(new File([blob], file.name, { type: file.type }));
-      }, file.type, 0.8);
+        console.log('🔧 Avatar canvas dimensions:', width, 'x', height);
+
+        // Рисуем изображение на canvas с правильной ориентацией
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Конвертируем в blob с качеством 65% для достижения 3-3.4MB
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            console.log('🔧 Avatar compression result:', {
+              originalSize: file.size,
+              compressedSize: compressedFile.size,
+              compressionRatio: (compressedFile.size / file.size * 100).toFixed(1) + '%',
+              targetAchieved: compressedFile.size <= 3.4 * 1024 * 1024 ? '✅' : '❌',
+              sizeMB: (compressedFile.size / (1024 * 1024)).toFixed(2) + ' MB'
+            });
+            resolve(compressedFile);
+          } else {
+            reject(new Error('Failed to compress avatar'));
+          }
+        }, 'image/jpeg', 0.65); // Качество 65% для достижения 3-3.4MB
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load avatar image'));
+      img.src = URL.createObjectURL(file);
     });
-        } catch (error) {
+  } catch (error) {
     console.error('Ошибка сжатия аватара:', error);
     return file; // Возвращаем оригинальный файл в случае ошибки
   }
@@ -71,8 +106,8 @@ export const uploadAvatar = async (file) => {
       throw new Error('Файл не является изображением.');
     }
 
-    // Сжатие происходит на backend, передаем оригинальный файл
-    const compressedFile = file;
+    // Сжимаем изображение на клиенте (как для постов)
+    const compressedFile = await compressAvatar(file);
 
     // Создаем FormData для загрузки
     const formData = new FormData();

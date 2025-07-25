@@ -30,7 +30,7 @@ router.put('/profile', authMiddleware, upload.single('avatar'), uploadToGoogleDr
 // @route   PUT /api/users/profile/avatar
 // @desc    Обновление аватара текущего пользователя (с обработкой base64 и сжатием)
 // @access  Private
-router.put('/profile/avatar', authMiddleware, userController.updateUserAvatar);
+router.put('/profile/avatar', authMiddleware, upload.single('avatar'), uploadToGoogleDrive, userController.updateUserAvatar);
 
 // @route   POST /api/users/:userIdToFollow/follow
 // @desc    Подписаться на пользователя

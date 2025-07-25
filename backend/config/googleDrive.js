@@ -22,11 +22,11 @@ class GoogleDriveManager {
         console.log('[GOOGLE_DRIVE] Client Secret found:', !!process.env.GOOGLE_CLIENT_SECRET);
         console.log('[GOOGLE_DRIVE] Refresh Token found:', !!refreshToken);
         
-        // Используем TokenManager для автоматического обновления токенов
-        const tokenManager = require('../utils/tokenManager');
-        await tokenManager.initialize();
+        // Используем TokenAutoRefresher для автоматического обновления токенов
+        const tokenAutoRefresher = require('../utils/tokenAutoRefresher');
+        await tokenAutoRefresher.initialize();
 
-        this.auth = tokenManager.getOAuth2Client();
+        this.auth = tokenAutoRefresher.getOAuth2Client();
         
       } else if (process.env.GOOGLE_DRIVE_CREDENTIALS) {
         console.log('[GOOGLE_DRIVE] Using Service Account credentials...');
@@ -168,13 +168,19 @@ class GoogleDriveManager {
    * @returns {Promise<boolean>} - Успешность удаления
    */
   async deleteAvatarThumbnail(username) {
+    console.log(`[GOOGLE_DRIVE] 🔍 Начинаем удаление thumbnail для пользователя: ${username}`);
+    
     if (!this.isInitialized) {
+      console.error('[GOOGLE_DRIVE] Google Drive не инициализирован');
       return false;
     }
 
     try {
       const safeUsername = username.replace(/[^a-zA-Z0-9]/g, '_');
       const avatarFolderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
+      
+      console.log(`[GOOGLE_DRIVE] Safe username: ${safeUsername}`);
+      console.log(`[GOOGLE_DRIVE] Avatar folder ID: ${avatarFolderId}`);
       
       if (!avatarFolderId) {
         console.error('[GOOGLE_DRIVE] Не указана папка аватаров');
@@ -192,6 +198,7 @@ class GoogleDriveManager {
       let deletedCount = 0;
       
       for (const thumbnailName of possibleThumbnailNames) {
+        console.log(`[GOOGLE_DRIVE] 🔍 Ищем thumbnail: ${thumbnailName}`);
         try {
           const searchResult = await this.drive.files.list({
             q: `name='${thumbnailName}' and '${avatarFolderId}' in parents and trashed=false`,
@@ -199,14 +206,20 @@ class GoogleDriveManager {
             pageSize: 1
           });
 
+          console.log(`[GOOGLE_DRIVE] Найдено файлов с именем ${thumbnailName}: ${searchResult.data.files ? searchResult.data.files.length : 0}`);
+
           if (searchResult.data.files && searchResult.data.files.length > 0) {
             const thumbnailFile = searchResult.data.files[0];
+            console.log(`[GOOGLE_DRIVE] 🗑️ Удаляем thumbnail: ${thumbnailFile.name} (${thumbnailFile.id})`);
+            
             await this.drive.files.update({
               fileId: thumbnailFile.id,
               resource: { trashed: true }
             });
             console.log(`[GOOGLE_DRIVE] ✅ Thumbnail аватара удален: ${thumbnailFile.name} (${thumbnailFile.id})`);
             deletedCount++;
+          } else {
+            console.log(`[GOOGLE_DRIVE] ⚠️ Thumbnail ${thumbnailName} не найден`);
           }
         } catch (error) {
           console.error(`[GOOGLE_DRIVE] Ошибка удаления thumbnail ${thumbnailName}:`, error.message);

@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const sharp = require('sharp'); // Импортируем sharp
 const googleDrive = require('../config/googleDrive');
 const path = require('path'); // Импортируем path для получения расширения файла
+const fs = require('fs').promises; // Импортируем fs.promises
 
 // @desc    Получение профиля пользователя по ID или username
 // @route   GET /api/users/:identifier
@@ -183,6 +184,9 @@ exports.updateUserProfile = async (req, res) => {
               if (fileId) {
                 await googleDrive.deleteFile(fileId);
                 console.log(`[AVATAR] Старый аватар ${fileId} удален.`);
+                
+                // Превью аватарки будет удалено в uploadMiddleware.js
+                console.log(`[AVATAR] Превью аватарки будет удалено в uploadMiddleware.js`);
               }
           } catch(e) {
               console.error(`[AVATAR] Не удалось удалить старый аватар: ${e.message}`);
@@ -192,6 +196,18 @@ exports.updateUserProfile = async (req, res) => {
       // Используем только secure_url
       fieldsToUpdate.avatar = avatarUrl;
       console.log(`[AVATAR_UPDATE_DEBUG] Новый аватар: ${fieldsToUpdate.avatar}`);
+      
+      // Создаем новый thumbnail для аватарки
+      try {
+        // Используем thumbnailUrl из uploadResult, если он есть
+        if (req.uploadResult.thumbnailUrl) {
+          console.log(`[AVATAR] Используем готовый thumbnail: ${req.uploadResult.thumbnailUrl}`);
+        } else {
+          console.log(`[AVATAR] Thumbnail не был создан в uploadMiddleware`);
+        }
+      } catch (thumbError) {
+        console.error(`[AVATAR] Не удалось обработать thumbnail: ${thumbError.message}`);
+      }
     } 
     // Если нужно удалить аватар
     else if (removeAvatar === 'true') {
@@ -201,6 +217,9 @@ exports.updateUserProfile = async (req, res) => {
               if (fileId) {
                 await googleDrive.deleteFile(fileId);
                 console.log(`[AVATAR] Аватар ${fileId} удален по запросу.`);
+                
+                // Превью аватарки будет удалено в uploadMiddleware.js
+                console.log(`[AVATAR] Превью аватарки будет удалено в uploadMiddleware.js`);
               }
           } catch(e) {
               console.error(`[AVATAR] Не удалось удалить аватар по запросу: ${e.message}`);
@@ -266,9 +285,8 @@ exports.updateUserAvatar = async (req, res) => {
 
       const imageBuffer = Buffer.from(base64Data, 'base64');
 
-      // Обрабатываем изображение с поддержкой разных форматов
-      const processedImageBuffer = await sharp(imageBuffer)
-        .toBuffer(); // Не конвертируем, сохраняем оригинальный формат
+      // Используем оригинальное изображение (сжатие на клиенте)
+      const processedImageBuffer = imageBuffer;
 
       // Создаем thumbnail для аватара
       const thumbnailBuffer = await sharp(imageBuffer)
@@ -285,11 +303,11 @@ exports.updateUserAvatar = async (req, res) => {
         process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
       );
 
-      // Загружаем в Google Drive с динамическим именем файла
+      // Загружаем сжатое изображение в Google Drive
       const uploadResult = await googleDrive.uploadFile(
-        imageBuffer,
-        `avatar_${req.user.username}${path.extname(req.file?.originalname || '')}`,
-        req.file?.mimetype || 'image/jpeg',
+        processedImageBuffer,
+        `avatar_${req.user.username}.jpeg`,
+        'image/jpeg',
         process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
       );
 

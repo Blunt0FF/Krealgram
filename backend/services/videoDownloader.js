@@ -2,7 +2,88 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const ffmpeg = require('fluent-ffmpeg');
-const { generateUniversalGifThumbnail } = require('../utils/imageCompressor');
+const axios = require('axios');
+const googleDrive = require('../config/googleDrive');
+const { generateVideoThumbnail } = require('../utils/imageCompressor');
+
+// Функция для создания GIF-превью из видео
+const generateGifThumbnail = async (videoPath) => {
+  try {
+    console.log('[GIF_THUMBNAIL] Создаем GIF-превью из видео:', videoPath);
+    
+    // Проверяем существование файла
+    if (!fs.existsSync(videoPath)) {
+      console.error('[GIF_THUMBNAIL] ❌ Видео файл не найден:', videoPath);
+      return null;
+    }
+    
+    const tempGifPath = path.join(path.dirname(videoPath), `gif-preview-${Date.now()}.gif`);
+    console.log('[GIF_THUMBNAIL] Временный GIF путь:', tempGifPath);
+    
+    return new Promise((resolve, reject) => {
+      console.log('[GIF_THUMBNAIL] Запускаем ffmpeg...');
+      
+      ffmpeg(videoPath)
+        .outputOptions([
+          '-vf', 'fps=15,scale=320:-1',
+          '-t', '3',  // Максимальная длительность 3 секунды
+          '-compression_level', '6'
+        ])
+        .toFormat('gif')
+        .on('start', (commandLine) => {
+          console.log('[GIF_THUMBNAIL] FFmpeg команда:', commandLine);
+        })
+        .on('progress', (progress) => {
+          console.log('[GIF_THUMBNAIL] Прогресс:', progress.percent, '%');
+        })
+        .on('end', async () => {
+          try {
+            console.log('[GIF_THUMBNAIL] FFmpeg завершен, читаем файл...');
+            
+            // Проверяем существование созданного файла
+            if (!fs.existsSync(tempGifPath)) {
+              console.error('[GIF_THUMBNAIL] ❌ GIF файл не создан:', tempGifPath);
+              resolve(null);
+              return;
+            }
+            
+            // Читаем файл
+            const gifBuffer = await fs.promises.readFile(tempGifPath);
+            console.log('[GIF_THUMBNAIL] Файл прочитан, размер:', gifBuffer.length, 'байт');
+            
+            // Проверяем размер GIF
+            const maxSizeMB = 5;
+            const sizeMB = gifBuffer.length / (1024 * 1024);
+            
+            if (sizeMB > maxSizeMB) {
+              console.warn(`[GIF_THUMBNAIL] GIF слишком большой (${sizeMB.toFixed(2)}MB), пропускаем`);
+              await fs.promises.unlink(tempGifPath);
+              resolve(null);
+              return;
+            }
+            
+            console.log(`[GIF_THUMBNAIL] ✅ GIF создан, размер: ${sizeMB.toFixed(2)}MB`);
+            resolve({
+              buffer: gifBuffer,
+              path: tempGifPath,
+              filename: path.basename(tempGifPath)
+            });
+          } catch (error) {
+            console.error('[GIF_THUMBNAIL] Ошибка чтения GIF:', error);
+            reject(error);
+          }
+        })
+        .on('error', (err) => {
+          console.error('[GIF_THUMBNAIL] ❌ Ошибка создания GIF:', err);
+          reject(err);
+        })
+        .save(tempGifPath);
+    });
+  } catch (error) {
+    console.error('[GIF_THUMBNAIL] Ошибка создания GIF-превью:', error);
+    throw error;
+  }
+};
 
 
 class VideoDownloader {
@@ -22,6 +103,7 @@ class VideoDownloader {
   }
 
   detectPlatform(url) {
+    if (url.includes('youtube.com/shorts') || url.includes('youtu.be') && url.includes('shorts')) return 'youtube-shorts';
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     if (url.includes('tiktok.com')) return 'tiktok';
     if (url.includes('instagram.com')) return 'instagram';
@@ -31,7 +113,7 @@ class VideoDownloader {
   }
 
   getSupportedPlatforms() {
-    return ['youtube', 'tiktok', 'instagram'];
+    return ['youtube', 'youtube-shorts', 'tiktok', 'instagram'];
   }
 
   async extractTikTokVideoAPI(url) {
@@ -79,33 +161,34 @@ class VideoDownloader {
       console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
       
       console.log('📤 Uploading to Google Drive...');
-      const driveResult = await uploadBufferToGoogleDrive(videoBuffer, 'tiktok-video.mp4', 'video/mp4', 'post');
+      const timestamp = Date.now();
+      const driveResult = await googleDrive.uploadFile(videoBuffer, `tiktok-video-${timestamp}.mp4`, 'video/mp4', process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID);
 
       const tempVideoPath = path.join(this.tempDir, `tiktok-${Date.now()}.mp4`);
-      await fs.writeFile(tempVideoPath, videoBuffer);
+      await fs.promises.writeFile(tempVideoPath, videoBuffer);
 
       let generatedThumbnailUrl = null;
       try {
-        const thumbnailPath = await generateUniversalGifThumbnail(tempVideoPath);
-        console.log('🖼️ GIF Preview создан:', thumbnailPath);
+        const gifResult = await generateGifThumbnail(tempVideoPath);
+        console.log('🖼️ GIF Preview создан:', gifResult);
 
-        if (thumbnailPath) {
-          const thumbnailBuffer = await fs.readFile(thumbnailPath);
-          const thumbnailDriveResult = await uploadBufferToGoogleDrive(
-            thumbnailBuffer, 
-            `preview-${path.basename(thumbnailPath)}`, 
+        if (gifResult && gifResult.buffer) {
+          const thumbnailDriveResult = await googleDrive.uploadFile(
+            gifResult.buffer, 
+            gifResult.filename, 
             'image/gif', 
-            'preview'
+            process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
           );
           generatedThumbnailUrl = thumbnailDriveResult.secure_url;
           
-          await fs.unlink(thumbnailPath);
+          // Удаляем временный GIF файл
+          await fs.promises.unlink(gifResult.path);
         }
       } catch (previewError) {
         console.error('❌ Ошибка создания GIF Preview:', previewError);
       }
 
-      await fs.unlink(tempVideoPath);
+      await fs.promises.unlink(tempVideoPath);
 
       return {
         success: true,
@@ -131,26 +214,160 @@ class VideoDownloader {
     try {
       console.log('📷 Downloading Instagram video:', url);
       
-      // Для Instagram пока используем внешние ссылки
-      // В будущем можно добавить instagram-downloader или другие библиотеки
+      // Используем наш Instagram экстрактор
+      const { extractInstagramVideo } = require('../utils/instagramExtractor');
       
+      const result = await extractInstagramVideo(url);
+      
+      if (!result || !result.success || !result.videoUrl) {
+        throw new Error('Failed to extract Instagram video URL');
+      }
+
+      console.log('📥 Downloading video buffer from:', result.videoUrl);
+      const response = await axios.get(result.videoUrl, { 
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      const videoBuffer = Buffer.from(response.data, 'binary');
+
+      if (videoBuffer.length === 0) {
+        throw new Error('Downloaded video file is empty (0 bytes).');
+      }
+      
+      console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
+      
+      console.log('📤 Uploading to Google Drive...');
+      const timestamp = Date.now();
+      const driveResult = await googleDrive.uploadFile(
+        videoBuffer, 
+        `instagram-video-${timestamp}.mp4`, 
+        'video/mp4', 
+        process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID
+      );
+
+      const tempVideoPath = path.join(this.tempDir, `instagram-${Date.now()}.mp4`);
+      await fs.promises.writeFile(tempVideoPath, videoBuffer);
+
+      let generatedThumbnailUrl = null;
+      try {
+        const gifResult = await generateGifThumbnail(tempVideoPath);
+        console.log('🖼️ GIF Preview создан:', gifResult);
+
+        if (gifResult && gifResult.buffer) {
+          const thumbnailDriveResult = await googleDrive.uploadFile(
+            gifResult.buffer, 
+            gifResult.filename, 
+            'image/gif', 
+            process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+          );
+          generatedThumbnailUrl = thumbnailDriveResult.secure_url;
+          
+          // Удаляем временный GIF файл
+          await fs.promises.unlink(gifResult.path);
+        }
+      } catch (previewError) {
+        console.error('❌ Ошибка создания GIF Preview:', previewError);
+      }
+
+      // Очищаем временные файлы
+      await fs.promises.unlink(tempVideoPath);
+
       return {
         success: true,
         platform: 'instagram',
         videoInfo: {
-          title: 'Instagram Video',
-          uploader: 'Instagram User',
-          duration: null,
-          viewCount: null
+          title: result.title || 'Instagram Video',
+          duration: result.duration || null,
+          uploader: result.author || 'Instagram User',
         },
-        externalLink: true,
-        originalUrl: url,
-        thumbnailUrl: 'https://via.placeholder.com/400x400/E4405F/FFFFFF?text=📷+Instagram',
-        note: 'External Instagram video link'
+        videoUrl: driveResult.secure_url,
+        thumbnailUrl: generatedThumbnailUrl || result.thumbnailUrl || driveResult.thumbnailUrl,
+        fileId: driveResult.public_id,
+        originalUrl: url
       };
 
     } catch (error) {
       console.error('❌ Instagram download error:', error);
+      throw error;
+    }
+  }
+
+  async downloadYouTubeShorts(url) {
+    try {
+      console.log('📱 Downloading YouTube Shorts:', url);
+      
+      // Используем yt-dlp для скачивания YouTube Shorts
+      const videoInfo = await this.getVideoInfo(url);
+      const tempVideoPath = path.join(this.tempDir, `youtube-shorts-${Date.now()}.mp4`);
+      
+      console.log('📥 Downloading video file...');
+      const downloadedPath = await this.downloadVideoFile(url, tempVideoPath);
+      
+      if (!downloadedPath) {
+        throw new Error('Failed to download YouTube Shorts video');
+      }
+      
+      console.log('📖 Reading video buffer...');
+      const videoBuffer = await fs.promises.readFile(downloadedPath);
+      
+      if (videoBuffer.length === 0) {
+        throw new Error('Downloaded video file is empty (0 bytes).');
+      }
+      
+      console.log(`📤 Uploading to Google Drive...`);
+      const timestamp = Date.now();
+      const driveResult = await googleDrive.uploadFile(
+        videoBuffer, 
+        `youtube-shorts-${timestamp}.mp4`, 
+        'video/mp4', 
+        process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID
+      );
+
+      // Создаем GIF превью
+      let generatedThumbnailUrl = null;
+      try {
+        const gifResult = await generateGifThumbnail(downloadedPath);
+        console.log('🖼️ GIF Preview создан:', gifResult);
+
+        if (gifResult && gifResult.buffer) {
+          const thumbnailDriveResult = await googleDrive.uploadFile(
+            gifResult.buffer, 
+            gifResult.filename, 
+            'image/gif', 
+            process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+          );
+          generatedThumbnailUrl = thumbnailDriveResult.secure_url;
+          
+          // Удаляем временный GIF файл
+          await fs.promises.unlink(gifResult.path);
+        }
+      } catch (previewError) {
+        console.error('❌ Ошибка создания GIF Preview:', previewError);
+      }
+
+      // Очищаем временные файлы
+      await fs.promises.unlink(downloadedPath);
+
+      return {
+        success: true,
+        platform: 'youtube-shorts',
+        videoInfo: {
+          title: videoInfo.title || 'YouTube Shorts',
+          duration: videoInfo.duration || null,
+          uploader: videoInfo.uploader || 'YouTube User',
+          viewCount: videoInfo.viewCount || null
+        },
+        videoUrl: driveResult.secure_url,
+        thumbnailUrl: generatedThumbnailUrl || driveResult.thumbnailUrl,
+        fileId: driveResult.public_id,
+        originalUrl: url
+      };
+
+    } catch (error) {
+      console.error('❌ YouTube Shorts download error:', error);
       throw error;
     }
   }
@@ -199,6 +416,9 @@ class VideoDownloader {
       
       case 'vk':
         return await this.downloadVKVideo(url);
+      
+      case 'youtube-shorts':
+        return await this.downloadYouTubeShorts(url);
       
       case 'youtube':
         // YouTube остается как iframe
@@ -294,45 +514,7 @@ class VideoDownloader {
   }
 }
 
-const generateVideoThumbnail = async (videoPath) => {
-  try {
-    console.log('[THUMBNAIL_GEN] Starting video thumbnail generation from path:', videoPath);
-    
-    // Проверяем существование файла
-    if (!fs.existsSync(videoPath)) {
-      throw new Error('Видео файл не найден');
-    }
 
-    const thumbnailPath = path.join(
-      path.dirname(videoPath), 
-      `thumb-${Date.now()}.jpg`
-    );
-
-    // Используем ffmpeg для генерации превью
-    await new Promise((resolve, reject) => {
-      ffmpeg(videoPath)
-        .screenshots({
-          count: 1,
-          folder: path.dirname(thumbnailPath),
-          filename: path.basename(thumbnailPath),
-          size: '320x240'
-        })
-        .on('end', () => {
-          console.log('[THUMBNAIL_GEN] ✅ Thumbnail created successfully.');
-          resolve(thumbnailPath);
-        })
-        .on('error', (err) => {
-          console.error('[THUMBNAIL_GEN] ❌ Thumbnail generation error:', err);
-          reject(err);
-        });
-    });
-
-    return thumbnailPath;
-  } catch (error) {
-    console.error('[THUMBNAIL_GEN] Ошибка генерации превью:', error);
-    throw error;
-  }
-};
 
 module.exports = VideoDownloader; 
 

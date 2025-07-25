@@ -200,6 +200,13 @@ class TokenAutoRefresher {
       checkInterval: this.checkInterval ? 'active' : 'inactive'
     };
   }
+
+  /**
+   * Возвращает OAuth2 клиент
+   */
+  getOAuth2Client() {
+    return this.oauth2Client;
+  }
 }
 
 module.exports = new TokenAutoRefresher(); 
