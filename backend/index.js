@@ -57,7 +57,8 @@ const io = new Server(server, {
       "http://127.0.0.1:4000",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com"
+      "https://www.krealgram.com",
+      "https://krealgram-backend.onrender.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
@@ -77,6 +78,7 @@ const whitelist = [
   "http://krealgram.com",
   "https://www.krealgram.com",
   "http://www.krealgram.com",
+  "https://krealgram-backend.onrender.com",
   "krealgram.vercel.app",
   "krealgram.com",
   "www.krealgram.com"
@@ -89,6 +91,7 @@ const corsOptions = {
     'https://localhost:4000', 
     'https://krealgram.com',
     'https://www.krealgram.com',
+    'https://krealgram-backend.onrender.com',
     /\.krealgram\.com$/  // Поддержка поддоменов
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
