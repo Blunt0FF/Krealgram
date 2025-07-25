@@ -57,8 +57,7 @@ const io = new Server(server, {
       "http://127.0.0.1:4000",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com",
-      "https://krealgram-backend.onrender.com"
+      "https://www.krealgram.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
@@ -78,7 +77,6 @@ const whitelist = [
   "http://krealgram.com",
   "https://www.krealgram.com",
   "http://www.krealgram.com",
-  "https://krealgram-backend.onrender.com",
   "krealgram.vercel.app",
   "krealgram.com",
   "www.krealgram.com"
@@ -91,7 +89,6 @@ const corsOptions = {
     'https://localhost:4000', 
     'https://krealgram.com',
     'https://www.krealgram.com',
-    'https://krealgram-backend.onrender.com',
     /\.krealgram\.com$/  // Поддержка поддоменов
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -327,16 +324,19 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         
         res.set('Content-Type', response.headers['content-type']);
         res.set('Cache-Control', 'public, max-age=31536000');
+        res.set('Access-Control-Allow-Origin', '*');
         res.send(response.data);
         return;
       } catch (externalErr) {
         console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr);
+        res.set('Access-Control-Allow-Origin', '*');
         return res.status(404).send('External file not found');
       }
     }
 
     if (!drive.isInitialized) {
       console.error('[PROXY-DRIVE] Google Drive не инициализирован');
+      res.set('Access-Control-Allow-Origin', '*');
       return res.status(500).send('Google Drive not initialized');
     }
 
@@ -389,6 +389,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
     fileRes.data.on('error', (err) => {
       if (!headersSent) {
+        res.set('Access-Control-Allow-Origin', '*');
         res.status(500).send('Error streaming file');
       }
     });
@@ -408,8 +409,10 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     });
   } catch (err) {
     if (err.message && err.message.includes('File not found')) {
+      res.set('Access-Control-Allow-Origin', '*');
       return res.status(404).send('File not found');
     }
+    res.set('Access-Control-Allow-Origin', '*');
     res.status(500).send('Proxy error: ' + err.message);
   }
 });
