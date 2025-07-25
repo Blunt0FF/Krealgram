@@ -95,7 +95,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
       }
       
       // Для сообщений используем проксирование через API
-      const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(filename)}?type=${type}`;
+      const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(filename)}`;
       
       return proxyUrl;
     }
@@ -108,7 +108,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
           
           if (fileId) {
             // Всегда используем прокси для Google Drive файлов
-            const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}?type=${type}`;
+            const proxyUrl = `${API_URL}/api/proxy-drive/${fileId}`;
             return proxyUrl;
         } else {
           // Если не удалось извлечь ID, возвращаем оригинальный URL как fallback
@@ -124,7 +124,7 @@ export const resolveMediaUrl = (url, type = 'image') => {
         
         // Если текущий домен не совпадает с доменом URL, используем проксирование
         if (!ALLOWED_DOMAINS.some(domain => parsedUrl.hostname.includes(domain))) {
-          const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}?type=${type}`;
+          const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(url)}`;
           return proxyUrl;
         }
       } catch (error) {
