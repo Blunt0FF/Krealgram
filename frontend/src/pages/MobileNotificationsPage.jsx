@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getAvatarUrl } from '../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../utils/imageUtils';
 import { API_URL } from '../config';
 import './MobileNotificationsPage.css'; // Стили для этой страницы
 import { getImageUrl } from '../utils/imageUtils';
@@ -129,7 +129,7 @@ const NotificationItem = ({ notification, onItemClick, onDelete }) => {
       <div className={`notification-item-mobile ${!notification.read ? 'unread' : ''}`}>
         <Link to={`/profile/${sender.username}`} className="notification-avatar-link-mobile" onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); navigate(`/profile/${sender.username}`); }}>
           <img 
-            src={getAvatarUrl(sender.avatar)} 
+            src={getAvatarThumbnailUrl(sender.avatar)} 
             alt={sender.username} 
             className="notification-avatar-mobile"
             onError={(e) => {

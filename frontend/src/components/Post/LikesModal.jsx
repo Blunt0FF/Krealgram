@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import './LikesModal.css';
 
@@ -86,7 +86,7 @@ const LikesModal = ({ isOpen, onClose, postId }) => {
                     onClick={() => like.user && handleUserClick(like.user.username)}
                   >
                     <img 
-                      src={like.user ? getAvatarUrl(like.user.avatar) : '/default-avatar.png'} 
+                      src={like.user ? getAvatarThumbnailUrl(like.user.avatar) : '/default-avatar.png'} 
                       alt={like.user ? like.user.username : 'Deleted User'}
                       className="likes-tooltip-avatar"
                       onError={(e) => {

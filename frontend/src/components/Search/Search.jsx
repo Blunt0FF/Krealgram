@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import './Search.css';
 
@@ -64,7 +64,7 @@ const Search = () => {
             className="user-result"
           >
             <img 
-              src={getAvatarUrl(user.avatar)}
+              src={getAvatarThumbnailUrl(user.avatar)}
               alt={user.username}
               className="user-avatar"
               onError={(e) => {

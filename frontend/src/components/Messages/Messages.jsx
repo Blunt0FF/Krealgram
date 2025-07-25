@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
-import { getAvatarUrl, getImageUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
+import { getImageUrl } from '../../utils/imageUtils';
 import { formatLastSeen, formatMessageTime } from '../../utils/timeUtils';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
@@ -808,7 +809,7 @@ const Messages = ({ currentUser }) => {
               >
                 <div className="conversation-content"> 
                   <img 
-                    src={conv.participant?.avatar ? getAvatarUrl(conv.participant.avatar) : '/default-avatar.png'}
+                    src={conv.participant?.avatar ? getAvatarThumbnailUrl(conv.participant.avatar) : '/default-avatar.png'}
                     alt={conv.participant?.username || 'User'}
                     className={`conversation-avatar ${!conv.participant?.username ? 'deleted-user-avatar' : ''}`}
                     onError={(e) => {
@@ -884,7 +885,7 @@ const Messages = ({ currentUser }) => {
                 }}
               >
                 <img 
-                  src={getAvatarUrl(selectedConversation.participant?.avatar)} 
+                  src={getAvatarThumbnailUrl(selectedConversation.participant?.avatar)} 
                   alt={selectedConversation.participant?.username}
                   className={`chat-avatar ${!selectedConversation.participant?.username ? 'deleted-user-avatar' : ''}`}
                   onError={(e) => {
@@ -928,7 +929,7 @@ const Messages = ({ currentUser }) => {
                 >
                   {message.sender?._id !== currentUser?._id && (
                     <img
-                      src={getAvatarUrl(message.sender?.avatar)}
+                      src={getAvatarThumbnailUrl(message.sender?.avatar)}
                       alt={message.sender?.username || 'User'}
                       className="message-avatar"
                       onError={(e) => {
@@ -1191,7 +1192,7 @@ const Messages = ({ currentUser }) => {
                       onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
                     >
                       <img 
-                        src={user.avatar ? getAvatarUrl(user.avatar) : '/default-avatar.png'}
+                        src={user.avatar ? getAvatarThumbnailUrl(user.avatar) : '/default-avatar.png'}
                         alt={user.username || 'User'}
                         className="user-avatar"
                         onError={(e) => {
@@ -1213,7 +1214,7 @@ const Messages = ({ currentUser }) => {
                   onClick={() => sharedPost ? sendPostToUser(user) : startConversation(user)}
                 >
                   <img 
-                    src={user.avatar ? getAvatarUrl(user.avatar) : '/default-avatar.png'} 
+                    src={user.avatar ? getAvatarThumbnailUrl(user.avatar) : '/default-avatar.png'} 
                     alt={user.username || 'User'}
                     className="user-avatar"
                     onError={(e) => {

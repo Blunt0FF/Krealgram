@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 import LikesModal from './LikesModal';
-import { getImageUrl, getAvatarUrl, getVideoUrl } from '../../utils/imageUtils';
+import { getImageUrl, getAvatarUrl, getVideoUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeEmbedUrl } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import './MobileNavigation.css';
 
 const MobileNavigation = ({ user, onLogout, unreadCount }) => {
@@ -71,7 +71,7 @@ const MobileNavigation = ({ user, onLogout, unreadCount }) => {
         >
           <div className="mobile-nav-avatar">
             <img 
-              src={getAvatarUrl(user?.avatar)} 
+              src={getAvatarThumbnailUrl(user?.avatar)} 
               alt={user?.username}
               className="nav-avatar-img"
               onError={(e) => {

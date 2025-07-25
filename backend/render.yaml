@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: krealgram-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_DRIVE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_DRIVE_ACCESS_TOKEN
+        sync: false
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        sync: false
+      - key: GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
+        sync: false
+      - key: GOOGLE_DRIVE_AVATARS_FOLDER_ID
+        sync: false
+      - key: GOOGLE_DRIVE_GIFS_FOLDER_ID
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        sync: false
+      - key: FRONTEND_URL
+        value: https://krealgram.com
+
+  - type: cron
+    name: token-refresh-cron
+    env: node
+    buildCommand: npm install
+    startCommand: npm run check-token
+    schedule: "*/30 * * * *"  # Каждые 30 минут
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_DRIVE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_DRIVE_ACCESS_TOKEN
+        sync: false 

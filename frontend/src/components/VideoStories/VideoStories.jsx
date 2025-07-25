@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import React, { useState, useEffect, useRef } from 'react';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
+import { getVideoPreviewThumbnail } from '../../utils/videoUtils';
+import videoManager from '../../utils/videoManager';
 import VideoStoriesModal from './VideoStoriesModal';
 import { API_URL } from '../../config';
 import './VideoStories.css';
@@ -106,7 +108,7 @@ const VideoStories = () => {
               >
                 <div className="video-story-avatar-container">
                   <img 
-                    src={getAvatarUrl(user.avatar)} 
+                    src={getAvatarThumbnailUrl(user.avatar)} 
                     alt={user.username}
                     className={`video-story-avatar ${isViewed ? 'viewed' : ''}`}
                     onError={(e) => {

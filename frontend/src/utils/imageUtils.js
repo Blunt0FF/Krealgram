@@ -71,8 +71,8 @@ export const uploadAvatar = async (file) => {
       throw new Error('Файл не является изображением.');
     }
 
-    // Сжимаем аватар перед загрузкой
-    const compressedFile = await compressAvatar(file);
+    // Сжатие происходит на backend, передаем оригинальный файл
+    const compressedFile = file;
 
     // Создаем FormData для загрузки
     const formData = new FormData();
@@ -100,6 +100,39 @@ export const uploadAvatar = async (file) => {
 // Алиасы для обратной совместимости
 import { resolveMediaUrl } from './mediaUrlResolver';
 export const getImageUrl = resolveMediaUrl;
+
+// Функция для получения thumbnail версии аватара
+export const getAvatarThumbnailUrl = (avatarPath) => {
+  if (!avatarPath) {
+    return '/default-avatar.png';
+  }
+
+  // Если это Google Drive URL, пытаемся получить thumbnail
+  if (avatarPath.includes('drive.google.com')) {
+    try {
+      const fileId = avatarPath.match(/\/uc\?id=([^&]+)/)?.[1] || 
+                     avatarPath.match(/\/d\/([^/]+)/)?.[1] || 
+                     avatarPath.split('id=')[1];
+      
+      if (fileId) {
+        // Возвращаем URL для thumbnail
+        const thumbnailUrl = `${API_URL}/api/proxy-drive/${fileId}?type=thumbnail`;
+        console.log(`[AVATAR_THUMBNAIL] Для аватара ${fileId} используем thumbnail: ${thumbnailUrl}`);
+        return thumbnailUrl;
+      }
+    } catch (error) {
+      console.error('[AVATAR_THUMBNAIL] Ошибка обработки Google Drive URL:', error);
+      // В случае ошибки возвращаем оригинал
+      return resolveAvatarUrl(avatarPath);
+    }
+  }
+
+  // Для локальных файлов или других URL возвращаем оригинал
+  console.log(`[AVATAR_THUMBNAIL] Для аватара ${avatarPath} используем оригинал`);
+  return resolveAvatarUrl(avatarPath);
+};
+
+// Синхронная версия для использования в компонентах
 export const getAvatarUrl = (avatarPath) => {
   return resolveAvatarUrl(avatarPath);
 };

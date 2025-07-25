@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../utils/imageUtils';
 import { getRecentUsers, addRecentUser } from '../utils/recentUsers';
-import { getAvatarUrl } from '../utils/mediaUrlResolver';
 import { API_URL } from '../config';
 import './SearchPage.css';
 
@@ -130,10 +130,9 @@ const SearchPage = () => {
               onClick={() => handleUserClick(user)}
             >
               <img 
-                src={user.avatarUrl} 
-                alt={user.username} 
+                src={getAvatarThumbnailUrl(user.avatar)}
+                alt={user.username}
                 className="search-result-avatar"
-                loading="lazy"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = '/default-avatar.png';
@@ -157,10 +156,9 @@ const SearchPage = () => {
                   onClick={() => handleUserClick(user)}
                 >
                   <img 
-                    src={user.avatarUrl}
+                    src={getAvatarThumbnailUrl(user.avatar)}
                     alt={user.username} 
                     className="search-result-avatar"
-                    loading="lazy"
                     onError={(e) => {
                       e.target.onerror = null;
                       e.target.src = '/default-avatar.png';

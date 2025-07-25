@@ -46,30 +46,40 @@
       
       // Принудительно устанавливаем белый фон для Safari
       function setWhiteBackground() {
-        document.documentElement.style.backgroundColor = '#ffffff';
-        document.body.style.backgroundColor = '#ffffff';
-        
-        // Проверяем, есть ли элемент #root
-        const rootElement = document.getElementById('root');
-        if (rootElement) {
-          rootElement.style.backgroundColor = '#ffffff';
+        try {
+          // Устанавливаем фон для html и body
+          if (document.documentElement) {
+            document.documentElement.style.backgroundColor = '#ffffff';
+          }
+          if (document.body) {
+            document.body.style.backgroundColor = '#ffffff';
+          }
+          
+          // Проверяем, есть ли элемент #root
+          const rootElement = document.getElementById('root');
+          if (rootElement) {
+            rootElement.style.backgroundColor = '#ffffff';
+          }
+          
+          // Устанавливаем белый фон для всех основных контейнеров
+          const containers = document.querySelectorAll('.app, .main-layout, .main-content, .main-content-with-sidebar');
+          containers.forEach(container => {
+            if (container && container.style) {
+              container.style.backgroundColor = '#ffffff';
+            }
+          });
+        } catch (error) {
+          // Игнорируем ошибки при установке фона
+          console.warn('Ошибка при установке белого фона:', error);
         }
-        
-        // Устанавливаем белый фон для всех основных контейнеров
-        const containers = document.querySelectorAll('.app, .main-layout, .main-content, .main-content-with-sidebar');
-        containers.forEach(container => {
-          container.style.backgroundColor = '#ffffff';
-        });
       }
       
-      // Выполняем сразу при загрузке
-      setWhiteBackground();
-      
-      // И после полной загрузки DOM
+      // Выполняем только после полной загрузки DOM
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', setWhiteBackground);
       } else {
-        setWhiteBackground();
+        // Если DOM уже загружен, выполняем с небольшой задержкой
+        setTimeout(setWhiteBackground, 0);
       }
       
       // Также выполняем после загрузки всех ресурсов

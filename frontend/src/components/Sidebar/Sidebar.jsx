@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import './Sidebar.css';
 import NotificationsPanel from '../Notifications/NotificationsPanel';
 
@@ -85,7 +85,7 @@ const Sidebar = ({ user, onLogout, unreadCount, setUnreadCount }) => {
         </Link>
         <Link to={`/profile/${user?.username}`} className={`sidebar-link${isActive(`/profile/${user?.username}`) ? ' active' : ''}`} onClick={handleCloseNotificationsPanel}>
           <img 
-            src={getAvatarUrl(user?.avatar)} 
+            src={getAvatarThumbnailUrl(user?.avatar)} 
             alt="Profile" 
             className="sidebar-avatar"
             onError={(e) => {

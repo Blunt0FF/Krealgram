@@ -4,7 +4,7 @@ import ShareModal from './ShareModal';
 import EditPostModal from './EditPostModal';
 import LikesModal from './LikesModal';
 
-import { getImageUrl, getAvatarUrl, getVideoUrl } from '../../utils/imageUtils';
+import { getImageUrl, getAvatarUrl, getVideoUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/scrollUtils';
@@ -538,7 +538,7 @@ const PostModal = ({
             <div className="author-details-wrapper"> {/* Новый контейнер для аватара и имени */}
               <Link to={`/profile/${postAuthor?.username}`} onClick={handleCaptionUsernameClick}>
                 <img
-                  src={getAvatarUrl(postAuthor?.avatar)}
+                  src={getAvatarThumbnailUrl(postAuthor?.avatar)}
                   alt={postAuthor?.username}
                   className="author-avatar"
                   onError={(e) => {
@@ -676,7 +676,7 @@ const PostModal = ({
                             {comment.user ? (
                               <Link to={`/profile/${comment.user.username}`} onClick={() => handleCommentUsernameClick(comment.user.username)}>
                                 <img
-                                  src={getAvatarUrl(comment.user.avatar)}
+                                  src={getAvatarThumbnailUrl(comment.user.avatar)}
                                   alt={comment.user.username}
                                   className="comment-avatar"
                                   onError={(e) => {

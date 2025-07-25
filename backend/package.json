@@ -7,7 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "migrate-users": "node migrate-existing-users.js"
+    "check-token": "node scripts/check-token-on-render.js",
+    "update-render": "node scripts/update-render-tokens.js"
   },
   "keywords": [],
   "author": "",

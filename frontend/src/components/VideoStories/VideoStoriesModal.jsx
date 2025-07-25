@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { getAvatarUrl, getImageUrl, getVideoUrl } from '../../utils/imageUtils';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
+import { getImageUrl, getVideoUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import ShareModal from '../Post/ShareModal';
@@ -437,7 +438,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
         <div className="stories-header">
           <a href={`/profile/${user.username}`} className="stories-avatar-link" tabIndex={-1} style={{display: 'flex', alignItems: 'center', textDecoration: 'none'}}>
             <img
-              src={getAvatarUrl(user.avatar)}
+              src={getAvatarThumbnailUrl(user.avatar)}
               alt={user.username}
               className="stories-avatar"
               onError={(e) => {

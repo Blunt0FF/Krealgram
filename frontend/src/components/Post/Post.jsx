@@ -6,7 +6,7 @@ import EditPostModal from './EditPostModal';
 import axios from 'axios';
 // import { showToast } from '../../utils/toastUtils';
 
-import { getImageUrl, getAvatarUrl, getVideoUrl } from '../../utils/imageUtils';
+import { getImageUrl, getAvatarUrl, getVideoUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail, getStaticThumbnail, extractYouTubeId } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import VideoPreview from './VideoPreview';
@@ -313,7 +313,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
         <div className="post-user">
           <Link to={`/profile/${postAuthor.username}`} className="user-link">
             <img 
-              src={getAvatarUrl(postAuthor.avatar)} 
+              src={getAvatarThumbnailUrl(postAuthor.avatar)} 
               alt={postAuthor.username} 
               className="post-avatar"
               onError={(e) => {
@@ -579,7 +579,7 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
               <div key={comment._id} className={`comment ${comment.isNew ? 'new-comment' : ''}`}>
                 {comment.user ? (
                   <Link to={`/profile/${comment.user.username}`}>
-                    <img src={getAvatarUrl(comment.user.avatar)} alt={comment.user.username} className="comment-avatar" onError={(e) => { e.target.src = '/default-avatar.png'; }} />
+                    <img src={getAvatarThumbnailUrl(comment.user.avatar)} alt={comment.user.username} className="comment-avatar" onError={(e) => { e.target.src = '/default-avatar.png'; }} />
                   </Link>
                 ) : (
                   <img src="/default-avatar.png" alt="Deleted User" className="comment-avatar" />

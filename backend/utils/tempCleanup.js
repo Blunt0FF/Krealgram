@@ -14,8 +14,8 @@ function cleanupTempFolders() {
                 const stats = fs.statSync(filePath);
                 const fileAge = Date.now() - stats.mtime.getTime();
                 
-                // Удаляем файлы старше 5 минут
-                if (fileAge > 5 * 60 * 1000) {
+                // Удаляем файлы старше 1 минуты
+                if (fileAge > 1 * 60 * 1000) {
                     fs.unlinkSync(filePath);
                     console.log(`Удален старый файл: ${file}`);
                 }
@@ -30,8 +30,8 @@ function cleanupTempFolders() {
                 const stats = fs.statSync(filePath);
                 const fileAge = Date.now() - stats.mtime.getTime();
                 
-                // Удаляем файлы старше 5 минут
-                if (fileAge > 5 * 60 * 1000) {
+                // Удаляем файлы старше 1 минуты
+                if (fileAge > 1 * 60 * 1000) {
                     fs.unlinkSync(filePath);
                     console.log(`Удален старый файл: ${file}`);
                 }
@@ -42,10 +42,10 @@ function cleanupTempFolders() {
     }
 }
 
-// Запускаем очистку каждые 5 минут
-setInterval(cleanupTempFolders, 5 * 60 * 1000);
+// Запускаем очистку каждые 2 минуты
+setInterval(cleanupTempFolders, 2 * 60 * 1000);
 
-// Запускаем первую очистку через 1 минуту после старта
-setTimeout(cleanupTempFolders, 60 * 1000);
+// Запускаем первую очистку через 30 секунд после старта
+setTimeout(cleanupTempFolders, 30 * 1000);
 
 module.exports = { cleanupTempFolders }; 

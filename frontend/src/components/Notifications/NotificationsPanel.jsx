@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './NotificationsPanel.css';
-import { getAvatarUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
 import { API_URL } from '../../config';
 import axios from 'axios';
@@ -137,7 +137,7 @@ const NotificationItem = ({ notification, onClose, onDelete }) => {
       <div className={`notification-item ${!notification.read ? 'unread' : ''}`}>
         <Link to={`/profile/${sender.username}`} className="notification-avatar-link" onClick={(e) => { e.stopPropagation(); if (!notification.read) markAsRead(notification._id); onClose(); navigate(`/profile/${sender.username}`); }}>
           <img 
-            src={getAvatarUrl(notification.sender?.avatar)}
+            src={getAvatarThumbnailUrl(notification.sender?.avatar)}
             alt={notification.sender?.username}
             className="notification-avatar"
             onError={(e) => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getImageUrl, getAvatarUrl } from '../../utils/mediaUrlResolver';
+import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
+import { getImageUrl } from '../../utils/imageUtils';
 import './SharedPost.css';
 
 const SharedPost = ({ post, onPostClick }) => {
@@ -70,7 +71,7 @@ const SharedPost = ({ post, onPostClick }) => {
       <div className="shared-post-header">
         <Link to={`/profile/${post.author.username}`}>
           <img 
-            src={getAvatarUrl(post.author.avatar)} 
+            src={getAvatarThumbnailUrl(post.author.avatar)} 
             alt={`${post.author.username}'s avatar`} 
             className="shared-post-avatar" 
             onError={(e) => {
