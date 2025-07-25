@@ -110,7 +110,7 @@ export const getMediaThumbnail = (post) => {
       
       if (fileId) {
         const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
-        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail`;
+        return `${secureApiUrl}/api/proxy-drive/${fileId}`;
     }
   }
 
@@ -172,7 +172,7 @@ export const getVideoPreviewThumbnail = (post, options = {}) => {
         const secureApiUrl = window.location.origin.replace(/^http:/, 'https');
         
         // Приоритет: thumbnail, затем первый кадр
-        return `${secureApiUrl}/api/proxy-drive/${fileId}?type=thumbnail,first_frame`;
+        return `${secureApiUrl}/api/proxy-drive/${fileId}`;
     }
   }
 

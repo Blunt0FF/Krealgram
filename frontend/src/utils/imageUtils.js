@@ -151,7 +151,7 @@ export const getAvatarThumbnailUrl = (avatarPath) => {
       
       if (fileId) {
         // Возвращаем URL для thumbnail
-        const thumbnailUrl = `${API_URL}/api/proxy-drive/${fileId}?type=thumbnail`;
+        const thumbnailUrl = `${API_URL}/api/proxy-drive/${fileId}`;
         console.log(`[AVATAR_THUMBNAIL] Для аватара ${fileId} используем thumbnail: ${thumbnailUrl}`);
         return thumbnailUrl;
       }
