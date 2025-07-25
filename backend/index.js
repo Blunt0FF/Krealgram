@@ -55,14 +55,9 @@ const io = new Server(server, {
     origin: [
       "http://localhost:4000",
       "http://127.0.0.1:4000",
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
       "https://krealgram.vercel.app",
-      "http://krealgram.vercel.app",
       "https://krealgram.com",
-      "http://krealgram.com",
-      "https://www.krealgram.com",
-      "http://www.krealgram.com"
+      "https://www.krealgram.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
@@ -89,32 +84,15 @@ const whitelist = [
 
 // Настройки CORS
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Разрешаем запросы без origin (например, мобильные приложения)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:4000',
-      'https://localhost:4000',
-      'http://localhost:3000',
-      'https://localhost:3000',
-      'https://krealgram.com',
-      'http://krealgram.com',
-      'https://www.krealgram.com',
-      'http://www.krealgram.com',
-      'https://krealgram.vercel.app',
-      'http://krealgram.vercel.app'
-    ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.krealgram.com')) {
-      callback(null, true);
-    } else {
-      console.log('🚫 CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  origin: [
+    'http://localhost:4000', 
+    'https://localhost:4000', 
+    'https://krealgram.com',
+    'https://www.krealgram.com',
+    /\.krealgram\.com$/  // Поддержка поддоменов
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   optionsSuccessStatus: 200
 };
