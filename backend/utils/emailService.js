@@ -1,5 +1,4 @@
 const nodemailer = require('nodemailer');
-const emailTemplateManager = require('./emailTemplateManager');
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -67,39 +66,7 @@ const sendEmailVerificationEmail = async (to, verificationToken, username) => {
   }
 };
 
-const sendNewMessageNotification = async (recipientEmail, message, sender, recipient) => {
-  try {
-    // Подготавливаем данные для шаблона
-    const templateData = {
-      senderName: sender.username || 'Unknown User',
-      messageText: message.text || '',
-      sharedPost: message.sharedPost,
-      mediaImage: message.mediaImage,
-      hasMedia: message.hasMedia || false,
-      appUrl: 'https://krealgram.com'
-    };
-    
-    console.log('📧 Email service template data:', JSON.stringify(templateData, null, 2));
-    
-    // Рендерим HTML шаблон
-    const htmlContent = await emailTemplateManager.renderTemplate('new-message-notification', templateData);
-    
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: recipientEmail,
-      subject: `New message from ${sender.username} on Krealgram`,
-      html: htmlContent
-    };
-
-    await transporter.sendMail(mailOptions);
-  } catch (error) {
-    console.error('Error sending new message notification email:', error);
-    throw new Error('Failed to send new message notification email');
-  }
-};
-
 module.exports = {
   sendPasswordResetEmail,
-  sendEmailVerificationEmail,
-  sendNewMessageNotification
+  sendEmailVerificationEmail
 }; 

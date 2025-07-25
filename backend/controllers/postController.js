@@ -11,7 +11,7 @@ const googleDrive = require('../config/googleDrive');
 const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerator');
 const GoogleDriveFileManager = require('../utils/googleDriveFileManager');
 
-
+console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
 
 // @desc    Create a new post
 // @route   POST /api/posts
@@ -30,48 +30,31 @@ exports.createPost = async (req, res) => {
     const authorId = req.user.id;
     let imagePath, mediaType, thumbnailUrl, youtubeData = null;
 
-    // Обработка внешних видео (YouTube, TikTok, Instagram)
+    // Обработка YouTube-видео
     if (videoUrl && !req.file) {
       try {
+        const { processYouTubeUrl } = require('../utils/mediaHelper');
+        const parsedVideoData = processYouTubeUrl(videoUrl);
+        
         // Парсим входящие videoData
         const incomingVideoData = typeof videoData === 'string' 
           ? JSON.parse(videoData) 
           : videoData;
         
-        // Проверяем, является ли это YouTube видео
-        if (incomingVideoData?.platform === 'youtube' || videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
-          const { processYouTubeUrl } = require('../utils/mediaHelper');
-          const parsedVideoData = processYouTubeUrl(videoUrl);
-          
-          youtubeData = {
-            videoId: incomingVideoData?.videoId || parsedVideoData.videoId,
-            embedUrl: incomingVideoData?.embedUrl || parsedVideoData.embedUrl,
-            thumbnailUrl: incomingVideoData?.thumbnailUrl || parsedVideoData.thumbnailUrl,
-            platform: 'youtube',
-            originalUrl: videoUrl
-          };
+        youtubeData = {
+          videoId: incomingVideoData?.videoId || parsedVideoData.videoId,
+          embedUrl: incomingVideoData?.embedUrl || parsedVideoData.embedUrl,
+          thumbnailUrl: incomingVideoData?.thumbnailUrl || parsedVideoData.thumbnailUrl,
+          platform: 'youtube',
+          originalUrl: videoUrl
+        };
 
-          imagePath = youtubeData.thumbnailUrl;
-          mediaType = 'video';
-          thumbnailUrl = youtubeData.thumbnailUrl;
-        } else {
-          // Для TikTok, Instagram и других платформ
-          youtubeData = {
-            platform: incomingVideoData?.platform || 'external',
-            originalUrl: videoUrl,
-            videoUrl: incomingVideoData?.videoUrl || videoUrl,
-            thumbnailUrl: incomingVideoData?.thumbnailUrl,
-            title: incomingVideoData?.title || 'External Video',
-            isExternalLink: incomingVideoData?.isExternalLink || false
-          };
-
-          imagePath = incomingVideoData?.videoUrl || videoUrl;
-          mediaType = 'video';
-          thumbnailUrl = incomingVideoData?.thumbnailUrl;
-        }
+        imagePath = youtubeData.thumbnailUrl;
+      mediaType = 'video';
+        thumbnailUrl = youtubeData.thumbnailUrl;
       } catch (error) {
-        console.error('Video URL processing error:', error);
-        return res.status(400).json({ message: 'Invalid video URL', error: error.message });
+        console.error('YouTube URL processing error:', error);
+        return res.status(400).json({ message: 'Invalid YouTube URL', error: error.message });
       }
     } 
     // Обычная загрузка файла через Google Drive
@@ -404,7 +387,7 @@ exports.deletePost = async (req, res) => {
         
         if (thumbnailFileId) {
           fileIds.push(thumbnailFileId);
-      
+          console.log(`[POST_DELETE] Добавлен ID превью: ${thumbnailFileId}`);
       }
       } catch (error) {
         console.error(`[POST_DELETE] Ошибка извлечения ID превью: ${error.message}`);
@@ -414,7 +397,7 @@ exports.deletePost = async (req, res) => {
     // Удаляем файлы из Google Drive
     const deleteResults = await GoogleDriveFileManager.deleteFiles(fileIds.filter(Boolean));
 
-
+    console.log('[POST_DELETE] Результаты удаления файлов:', deleteResults);
 
     // Удаляем пост из базы данных
     await Post.findByIdAndDelete(postId);
@@ -564,7 +547,7 @@ exports.getPostLikes = async (req, res) => {
 // @access  Private
 exports.getVideoUsers = async (req, res) => {
   try {
-  
+    console.log('Getting video users...');
     
     const videoUsers = await Post.aggregate([
       {
@@ -616,7 +599,7 @@ exports.getVideoUsers = async (req, res) => {
       }
     ]);
 
-
+    console.log(`Found ${videoUsers.length} video users`);
     res.json({ success: true, users: videoUsers });
   } catch (error) {
     console.error('Error fetching video users:', error);
@@ -672,6 +655,16 @@ exports.getUserVideos = async (req, res) => {
         }
       }
       
+      console.log('📹 Video data:', {
+        id: videoObj._id,
+        mediaType: videoObj.mediaType,
+        image: videoObj.image,
+        imageUrl: videoObj.imageUrl,
+        videoUrl: videoObj.videoUrl,
+        mobileThumbnailUrl: videoObj.mobileThumbnailUrl,
+        youtubeData: videoObj.youtubeData,
+      });
+      
       return {
         ...videoObj,
         likesCount: video.likes ? video.likes.length : 0,
@@ -694,7 +687,8 @@ exports.getUserVideos = async (req, res) => {
 // @access  Private
 exports.testVideoUsers = async (req, res) => {
   try {
-
+    console.log('Test video users endpoint called');
+    console.log('User from middleware:', req.user);
     
     // Простой тест - найти все посты с видео
     const videoPosts = await Post.find({
@@ -705,7 +699,7 @@ exports.testVideoUsers = async (req, res) => {
       ]
     }).populate('author', 'username avatar').limit(5);
     
-
+    console.log(`Found ${videoPosts.length} video posts`);
     
     res.json({ 
       success: true, 

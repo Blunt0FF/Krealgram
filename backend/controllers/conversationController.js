@@ -4,7 +4,6 @@ const mongoose = require('mongoose');
 const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
 const googleDrive = require('../config/googleDrive');
 const Post = require('../models/postModel'); // Добавляем импорт Post
-const { sendNewMessageNotification } = require('../utils/emailService');
 // Удаляем импорт onlineUsers и io
 // const { onlineUsers, io } = require('../index');
 
@@ -318,101 +317,6 @@ exports.sendMessage = async (req, res) => {
       });
     }
 
-    // Отправляем email уведомление получателю
-    try {
-      // Получаем данные получателя
-      const recipient = await User.findById(recipientId).select('username email avatar');
-      
-      if (recipient && recipient.email) {
-        // Подготавливаем данные для email
-        console.log('📧 Email data preparation:', {
-          sentMessage: JSON.stringify(sentMessage, null, 2),
-          sharedPost: sentMessage.sharedPost,
-          media: sentMessage.media
-        });
-
-        const messageData = {
-          text: sentMessage.text,
-          media: sentMessage.media,
-          sharedPost: null
-        };
-
-        // Обрабатываем пересланный пост
-        if (sentMessage.sharedPost && sentMessage.sharedPost.post) {
-          const post = sentMessage.sharedPost.post;
-          
-          // Определяем, что показывать для видео
-          let imageUrl = post.image || post.imageUrl || post.thumbnailUrl;
-          let gifUrl = null;
-          
-          // Для видео постов используем gifPreview если есть
-          if (post.mediaType === 'video') {
-            gifUrl = post.gifPreview || post.youtubeData?.thumbnailUrl;
-            // Если нет gif, используем thumbnail как fallback
-            if (!gifUrl) {
-              gifUrl = post.thumbnailUrl || post.youtubeData?.thumbnailUrl;
-            }
-          }
-          
-          messageData.sharedPost = {
-            image: imageUrl,
-            gif: gifUrl,
-            caption: post.caption || '',
-            author: post.author?.username || 'Unknown'
-          };
-          console.log('📧 Shared post data:', messageData.sharedPost);
-        }
-
-        // Обрабатываем медиа вложения
-        if (sentMessage.media) {
-          if (sentMessage.media.type === 'image') {
-            messageData.mediaImage = sentMessage.media.url;
-          }
-          messageData.hasMedia = true;
-        }
-
-        // Проксируем изображения через наш сервер для email
-        const emailTemplateManager = require('../utils/emailTemplateManager');
-        
-        if (messageData.sharedPost) {
-          if (messageData.sharedPost.image) {
-            messageData.sharedPost.image = emailTemplateManager.getProxiedImageUrl(messageData.sharedPost.image);
-          }
-          if (messageData.sharedPost.gif) {
-            messageData.sharedPost.gif = emailTemplateManager.getProxiedImageUrl(messageData.sharedPost.gif);
-          }
-        }
-        
-        if (messageData.mediaImage) {
-          messageData.mediaImage = emailTemplateManager.getProxiedImageUrl(messageData.mediaImage);
-        }
-
-        const senderData = {
-          username: req.user.username,
-          avatar: req.user.avatar
-        };
-
-        // Отправляем email уведомление (асинхронно, не блокируем ответ)
-        sendNewMessageNotification(recipient.email, messageData, senderData, recipient)
-          .then(() => {
-            console.log(`📧 Email notification sent to ${recipient.email} for message from ${senderData.username}`);
-            console.log(`📧 Email content:`, {
-              hasText: !!messageData.text,
-              hasSharedPost: !!messageData.sharedPost,
-              hasMedia: !!messageData.media,
-              sharedPostImage: messageData.sharedPost?.image,
-              mediaType: messageData.media?.type
-            });
-          })
-          .catch((error) => {
-            console.error(`❌ Failed to send email notification to ${recipient.email}:`, error);
-          });
-      }
-    } catch (emailError) {
-      console.error('❌ Error preparing email notification:', emailError);
-      // Не прерываем основную операцию из-за ошибки email
-    }
-
     res.status(201).json({
       message: 'Message sent successfully',
       sentMessage
@@ -427,58 +331,42 @@ exports.sendMessage = async (req, res) => {
 };
 
 // @desc    Удаление сообщения
-// @route   DELETE /api/conversations/messages/:conversationId/:messageId
+// @route   DELETE /api/conversations/messages/:messageId
 // @access  Private
 exports.deleteMessage = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { conversationId, messageId } = req.params;
-    const userId = req.user.id;
+    const messageId = req.params.messageId;
+    const userId = req.user._id;
 
-    console.log('[DELETE_MESSAGE_DEBUG] Attempt to delete message:', {
-      conversationId,
-      messageId,
-      currentUserId: userId
-    });
-
-    const conversation = await Conversation.findById(conversationId)
-      .populate({
-        path: 'messages.sender',
-        select: '_id username'
-      })
-      .session(session);
+    // Находим сообщение и проверяем права на удаление
+    const conversation = await Conversation.findOne({
+      'messages._id': messageId,
+      participants: userId
+    }).session(session);
 
     if (!conversation) {
-      console.error('[DELETE_MESSAGE_DEBUG] Conversation not found');
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ message: 'Conversation not found.' });
+      return res.status(404).json({ message: 'Message not found or you do not have permission to delete it.' });
     }
 
+    // Находим конкретное сообщение
     const messageToDelete = conversation.messages.id(messageId);
 
     if (!messageToDelete) {
-      console.error('[DELETE_MESSAGE_DEBUG] Message not found');
       await session.abortTransaction();
       session.endSession();
       return res.status(404).json({ message: 'Message not found.' });
     }
 
-    console.log('[DELETE_MESSAGE_DEBUG] Message details:', {
-      senderId: messageToDelete.sender._id.toString(),
-      senderUsername: messageToDelete.sender.username,
-      currentUserId: userId,
-      media: messageToDelete.media
-    });
-
-    // Проверяем права пользователя на удаление
-    if (messageToDelete.sender._id.toString() !== userId) {
-      console.warn('[DELETE_MESSAGE_DEBUG] User not authorized to delete this message');
+    // Проверяем, что удаляющий пользователь является отправителем сообщения
+    if (messageToDelete.sender.toString() !== userId.toString()) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(403).json({ message: 'Not authorized to delete this message.' });
+      return res.status(403).json({ message: 'You can only delete your own messages.' });
     }
 
     // Удаление файла с Google Drive, если есть медиа
@@ -487,20 +375,16 @@ exports.deleteMessage = async (req, res) => {
         const googleDrive = require('../config/googleDrive');
         const url = messageToDelete.media.url;
         
-        console.log('[DELETE_MESSAGE_DEBUG] Media URL:', url);
-        
         if (url.includes('drive.google.com')) {
-          const fileId = url.match(/\/d\/([^/]+)/)?.[1] || url.split('id=')[1] || url.split('/').pop();
-          
-          console.log('[DELETE_MESSAGE_DEBUG] Extracted File ID:', fileId);
+          const fileId = url.split('id=')[1] || url.split('/').pop();
           
           if (fileId) {
             await googleDrive.deleteFile(fileId);
-            console.log(`[DELETE_MESSAGE_DEBUG] ✅ Successfully deleted media file: ${fileId}`);
+            console.log(`[DELETE_MESSAGE] ✅ Successfully deleted media file: ${fileId}`);
           }
         }
       } catch (driveError) {
-        console.error('[DELETE_MESSAGE_DEBUG] Error deleting file from Google Drive:', driveError);
+        console.error('[DELETE_MESSAGE] Error deleting file from Google Drive:', driveError);
         // Не прерываем выполнение, если не удалось удалить файл
       }
     }
@@ -519,20 +403,15 @@ exports.deleteMessage = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    console.log('[DELETE_MESSAGE_DEBUG] Message deleted successfully');
-
     res.status(200).json({ 
       message: 'Message deleted successfully',
       deletedMedia: messageToDelete.media ? messageToDelete.media.url : null
     });
 
   } catch (error) {
-    console.error('[DELETE_MESSAGE_DEBUG] Error deleting message:', error);
+    console.error('Error deleting message:', error);
     await session.abortTransaction();
     session.endSession();
-    res.status(500).json({ 
-      message: 'Server error while deleting message.', 
-      error: error.message 
-    });
+    res.status(500).json({ message: 'Server error while deleting message.', error: error.message });
   }
 };

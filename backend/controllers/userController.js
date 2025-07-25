@@ -22,7 +22,7 @@ exports.getUserProfile = async (req, res) => {
         .select('-password -email')
         .populate({
             path: 'posts',
-            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+            select: 'image caption likes comments createdAt author videoData',
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -39,7 +39,7 @@ exports.getUserProfile = async (req, res) => {
         .select('-password -email')
         .populate({
             path: 'posts',
-            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+            select: 'image caption likes comments createdAt author videoData',
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -89,23 +89,12 @@ exports.getUserProfile = async (req, res) => {
     // Добавляем безопасную обработку image
     if (user.posts && user.posts.length > 0) {
       user.posts = user.posts.map(post => {
-        // Используем ту же логику, что и в уведомлениях - приоритет для thumbnailUrl
-        let imageUrl;
-        let thumbnailUrl;
-        
-        // Приоритет для thumbnailUrl (готовые превью)
-        if (post.thumbnailUrl) {
-          thumbnailUrl = post.thumbnailUrl;
-        }
-        
-        // Для основного изображения всегда используем оригинал
-        if (post.image) {
-          imageUrl = post.image.startsWith('http') 
-            ? post.image 
-            : `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
-        } else {
-          imageUrl = '/default-post-placeholder.png';
-        }
+        // Безопасная генерация imageUrl
+        const imageUrl = post.image 
+          ? (post.image.startsWith('http') 
+              ? post.image 
+              : `${req.protocol}://${req.get('host')}/uploads/${post.image}`)
+          : '/default-post-placeholder.png';
 
         const commentCount = post.comments && Array.isArray(post.comments) 
           ? post.comments.length 
@@ -114,7 +103,6 @@ exports.getUserProfile = async (req, res) => {
         return {
           ...post,
           imageUrl: imageUrl,
-          thumbnailUrl: thumbnailUrl,
           likeCount: post.likes ? post.likes.length : 0,
           commentCount: commentCount
         };
@@ -166,16 +154,7 @@ exports.updateUserProfile = async (req, res) => {
     }
 
     // Если загружен новый аватар
-    if (req.uploadResult) {
-      console.log('[AVATAR_UPDATE_DEBUG] Upload result:', req.uploadResult);
-
-      // Проверяем корректность URL
-      const avatarUrl = req.uploadResult.secure_url;
-      if (!avatarUrl || !avatarUrl.startsWith('http')) {
-        console.error('[AVATAR_UPDATE_ERROR] Некорректный URL аватара:', avatarUrl);
-        return res.status(400).json({ message: 'Некорректный URL аватара' });
-      }
-
+    if (req.uploadResult && req.uploadResult.secure_url) {
       // Удаляем старый аватар, если он был и хранился на Google Drive
       if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
           try {
@@ -188,10 +167,7 @@ exports.updateUserProfile = async (req, res) => {
               console.error(`[AVATAR] Не удалось удалить старый аватар: ${e.message}`);
           }
       }
-      
-      // Используем только secure_url
-      fieldsToUpdate.avatar = avatarUrl;
-      console.log(`[AVATAR_UPDATE_DEBUG] Новый аватар: ${fieldsToUpdate.avatar}`);
+      fieldsToUpdate.avatar = req.uploadResult.secure_url;
     } 
     // Если нужно удалить аватар
     else if (removeAvatar === 'true') {

@@ -147,7 +147,7 @@ class ImageCompressor {
       return await sharp(inputPath, { failOnError: false })
         .rotate()
         .resize(300, 300, { fit: 'cover', position: 'center' })
-        .webp({ quality: 90 })
+        .webp({ quality: 75 })
         .toBuffer();
         
     } catch (error) {

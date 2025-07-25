@@ -13,8 +13,8 @@ class GoogleDriveManager {
     try {
       console.log('[GOOGLE_DRIVE] 🔄 Starting initialization...');
       
-      // Проверяем наличие OAuth2 credentials
-      const refreshToken = process.env.GOOGLE_REFRESH_TOKEN || process.env.GOOGLE_DRIVE_REFRESH_TOKEN;
+      // Проверяем наличие OAuth2 credentials (проверяем оба варианта названий)
+      const refreshToken = process.env.GOOGLE_REFRESH_TOKEN || process.env.GOOGLE_DRIVE_REFRESH_TOKEN || process.env.GOOGLE_DRIVE_ACCESS_TOKEN;
       
       if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && refreshToken) {
         console.log('[GOOGLE_DRIVE] Using OAuth2 credentials...');
@@ -22,11 +22,19 @@ class GoogleDriveManager {
         console.log('[GOOGLE_DRIVE] Client Secret found:', !!process.env.GOOGLE_CLIENT_SECRET);
         console.log('[GOOGLE_DRIVE] Refresh Token found:', !!refreshToken);
         
-        // Используем TokenManager для автоматического обновления токенов
-        const tokenManager = require('../utils/tokenManager');
-        await tokenManager.initialize();
+        // Создаем OAuth2 клиент
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET,
+          'http://localhost' // redirect URI (не используется для refresh token)
+        );
 
-        this.auth = tokenManager.getOAuth2Client();
+        // Устанавливаем refresh token
+        oauth2Client.setCredentials({
+          refresh_token: refreshToken
+        });
+
+        this.auth = oauth2Client;
         
       } else if (process.env.GOOGLE_DRIVE_CREDENTIALS) {
         console.log('[GOOGLE_DRIVE] Using Service Account credentials...');
@@ -201,97 +209,6 @@ class GoogleDriveManager {
     } catch (error) {
       console.error('❌ Ошибка удаления связанных файлов:', error);
     }
-  }
-
-  // Проверка статуса обработки видео в Google Drive
-  async checkVideoProcessingStatus(fileId) {
-    if (!this.isInitialized) {
-      throw new Error('Google Drive not initialized');
-    }
-
-    try {
-      console.log(`[GOOGLE_DRIVE] Проверяем статус обработки видео: ${fileId}`);
-      
-      // Получаем метаданные файла
-      const fileMetadata = await this.drive.files.get({
-        fileId: fileId,
-        fields: 'id,name,mimeType,size,thumbnailLink,videoMediaMetadata,processingStatus'
-      });
-
-      const metadata = fileMetadata.data;
-      console.log(`[GOOGLE_DRIVE] Метаданные файла:`, {
-        name: metadata.name,
-        mimeType: metadata.mimeType,
-        size: metadata.size,
-        hasThumbnail: !!metadata.thumbnailLink,
-        videoMetadata: metadata.videoMediaMetadata,
-        processingStatus: metadata.processingStatus
-      });
-
-      // Проверяем статус обработки
-      if (metadata.processingStatus) {
-        console.log(`[GOOGLE_DRIVE] Статус обработки: ${metadata.processingStatus}`);
-        return {
-          isProcessing: metadata.processingStatus === 'PROCESSING',
-          isReady: metadata.processingStatus === 'DONE',
-          hasThumbnail: !!metadata.thumbnailLink,
-          metadata: metadata
-        };
-      }
-
-      // Если нет статуса обработки, проверяем наличие thumbnail
-      const isReady = !!metadata.thumbnailLink || (metadata.size && metadata.size > 0);
-      
-      console.log(`[GOOGLE_DRIVE] Видео готово: ${isReady}`);
-      
-      return {
-        isProcessing: false,
-        isReady: isReady,
-        hasThumbnail: !!metadata.thumbnailLink,
-        metadata: metadata
-      };
-
-    } catch (error) {
-      console.error(`[GOOGLE_DRIVE] Ошибка проверки статуса видео:`, error.message);
-      return {
-        isProcessing: false,
-        isReady: false,
-        hasThumbnail: false,
-        error: error.message
-      };
-    }
-  }
-
-  // Ожидание готовности видео с таймаутом
-  async waitForVideoProcessing(fileId, timeoutMs = 30000, checkIntervalMs = 2000) {
-    console.log(`[GOOGLE_DRIVE] Ожидаем готовности видео: ${fileId} (таймаут: ${timeoutMs}ms)`);
-    
-    const startTime = Date.now();
-    
-    while (Date.now() - startTime < timeoutMs) {
-      const status = await this.checkVideoProcessingStatus(fileId);
-      
-      if (status.isReady) {
-        console.log(`[GOOGLE_DRIVE] ✅ Видео готово: ${fileId}`);
-        return status;
-      }
-      
-      if (status.error) {
-        console.log(`[GOOGLE_DRIVE] ❌ Ошибка при проверке: ${status.error}`);
-        return status;
-      }
-      
-      console.log(`[GOOGLE_DRIVE] ⏳ Видео еще обрабатывается, ждем...`);
-      await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
-    }
-    
-    console.log(`[GOOGLE_DRIVE] ⏰ Таймаут ожидания готовности видео: ${fileId}`);
-    return {
-      isProcessing: true,
-      isReady: false,
-      hasThumbnail: false,
-      timeout: true
-    };
   }
 }
 

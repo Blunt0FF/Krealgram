@@ -1,67 +1,76 @@
-// Функция для получения правильного URL медиа файла с проксированием Google Drive
+
+// Функция для получения правильного URL медиа файла
 const getMediaUrl = (imagePath, type = 'image') => {
   if (!imagePath) return null;
-
+  
+  // Если уже полный URL, возвращаем как есть
   if (imagePath.startsWith('http')) {
     return imagePath;
-  }
-
-  // Для видео используем прямые ссылки на Google Drive
-  if (type === 'video' && imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
-    return `https://drive.google.com/uc?export=download&id=${imagePath}`;
   }
   
-  // Для изображений используем проксирование
-  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
-    // Это похоже на Google Drive ID
-    return `/api/proxy-drive/${imagePath}`;
+  // Проверяем используется ли Google Drive
+  if (process.env.USE_GOOGLE_DRIVE === 'true') {
+    // Для Google Drive используем прямую ссылку
+    return `https://drive.google.com/uc?id=${imagePath}`;
   }
-
+  
+  // Для локальной разработки используем статические файлы
   return `/uploads/${imagePath}`;
 };
 
+// Функция для получения URL превью видео
 const getVideoThumbnailUrl = (imagePath) => {
   if (!imagePath) return null;
-
+  
+  // Если уже полный URL, возвращаем как есть
   if (imagePath.startsWith('http')) {
     return imagePath;
   }
-
-  // Всегда используем проксирование для Google Drive файлов
-  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
-    return `/api/proxy-drive/${imagePath}`;
+  
+  // Проверяем используется ли Google Drive
+  if (process.env.USE_GOOGLE_DRIVE === 'true') {
+    // Для Google Drive используем прямую ссылку
+    return `https://drive.google.com/uc?id=${imagePath}`;
   }
-
+  
+  // Для локальной разработки используем статические файлы
   return `/uploads/${imagePath}`;
 };
 
+// Функция для получения мобильного превью
 const getMobileThumbnailUrl = (imagePath) => {
   if (!imagePath) return null;
-
+  
+  // Если уже полный URL, возвращаем как есть
   if (imagePath.startsWith('http')) {
     return imagePath;
   }
-
-  // Всегда используем проксирование для Google Drive файлов
-  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
-    return `/api/proxy-drive/${imagePath}`;
+  
+  // Проверяем используется ли Google Drive
+  if (process.env.USE_GOOGLE_DRIVE === 'true') {
+    // Для Google Drive используем прямую ссылку
+    return `https://drive.google.com/uc?id=${imagePath}`;
   }
-
+  
+  // Для локальной разработки используем статические файлы
   return `/uploads/${imagePath}`;
 };
 
 const getReliableThumbnailUrl = (imagePath) => {
   if (!imagePath) return null;
-
+  
+  // Если уже полный URL, возвращаем как есть
   if (imagePath.startsWith('http')) {
     return imagePath;
   }
-
-  // Всегда используем проксирование для Google Drive файлов
-  if (imagePath && imagePath.length > 20 && !imagePath.includes('/')) {
-    return `/api/proxy-drive/${imagePath}`;
+  
+  // Проверяем используется ли Google Drive
+  if (process.env.USE_GOOGLE_DRIVE === 'true') {
+    // Для Google Drive используем прямую ссылку
+    return `https://drive.google.com/uc?id=${imagePath}`;
   }
-
+  
+  // Для локальной разработки используем статические файлы
   return `/uploads/${imagePath}`;
 };
 
@@ -70,4 +79,9 @@ module.exports = {
   getVideoThumbnailUrl,
   getMobileThumbnailUrl,
   getReliableThumbnailUrl
-};
+}; 
+
+
+
+
+

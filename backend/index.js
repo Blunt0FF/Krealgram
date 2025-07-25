@@ -11,7 +11,6 @@ const bodyParser = require('body-parser');
 const connectDB = require('./config/db');
 const { startUserStatusUpdater } = require('./utils/userStatusUpdater');
 const { resetAllUsersToOffline } = require('./utils/resetUserStatuses');
-require('./utils/tempCleanup'); // Автоматическая очистка temp папок
 
 // Уменьшаем количество логов
 process.env.NODE_ENV = process.env.NODE_ENV || 'development';
@@ -64,21 +63,40 @@ const whitelist = [
   "www.krealgram.com"
 ];
 
-// Настройки CORS
 const corsOptions = {
-  origin: [
-    'http://localhost:4000', 
-    'https://localhost:4000', 
-    'https://krealgram.com',
-    'https://www.krealgram.com',
-    /\.krealgram\.com$/  // Поддержка поддоменов
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: (origin, callback) => {
+    console.log('[CORS_DEBUG] Incoming origin:', origin);
+    
+    // Если origin не указан (например, для серверных запросов), пропускаем
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Проверяем с учетом протокола и без него
+    const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    const isAllowed = whitelist.some(
+      allowedOrigin => 
+        allowedOrigin === origin || 
+        allowedOrigin === normalizedOrigin ||
+        origin.includes(allowedOrigin)
+    );
+
+    if (isAllowed) {
+      console.log('[CORS_DEBUG] Origin allowed:', origin);
+      callback(null, true);
+    } else {
+      console.warn('[CORS_DEBUG] Origin blocked:', origin);
+      callback(null, false);  // Мягкое блокирование вместо ошибки
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
   credentials: true,
-  optionsSuccessStatus: 200
+  maxAge: 86400
 };
 
+app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -87,35 +105,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.send('Krealgram API is working!');
-});
-
-// Роут для обработки Google OAuth callback
-app.get('/auth/google/callback', (req, res) => {
-  const { code } = req.query;
-  
-  if (code) {
-    res.send(`
-      <html>
-        <head><title>Google Drive Authorization</title></head>
-        <body>
-          <h2>✅ Код авторизации получен!</h2>
-          <p>Код: <code>${code}</code></p>
-          <p>Теперь запустите в терминале:</p>
-          <pre>node simple-token.js "${code}"</pre>
-        </body>
-      </html>
-    `);
-  } else {
-    res.send(`
-      <html>
-        <head><title>Google Drive Authorization</title></head>
-        <body>
-          <h2>❌ Ошибка авторизации</h2>
-          <p>Код авторизации не получен.</p>
-        </body>
-      </html>
-    `);
-  }
 });
 
 const authRoutes = require('./routes/authRoutes');
@@ -138,89 +127,39 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Обработка OPTIONS запросов для прокси
-app.options('/api/proxy-drive/:id', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Range, Content-Range, Accept-Ranges');
-  res.header('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
-  res.sendStatus(200);
-});
-
-// Обработка HEAD запросов для прокси (для получения метаданных)
-app.head('/api/proxy-drive/:id', async (req, res) => {
-  const fileId = req.params.id;
-  const drive = require('./config/googleDrive');
-  
-  try {
-    if (!drive.isInitialized) {
-      return res.status(500).send();
-    }
-
-    const meta = await drive.drive.files.get({
-      fileId,
-      fields: 'name, mimeType, size'
-    });
-    const mimeType = meta.data.mimeType || 'application/octet-stream';
-    const fileName = meta.data.name || 'file';
-    const fileSize = meta.data.size || 0;
-    
-    res.set('Content-Type', meta.data.mimeType || 'application/octet-stream');
-    res.set('Content-Length', meta.data.size || 0);
-    res.set('Accept-Ranges', 'bytes');
-    res.set('Cache-Control', 'public, max-age=31536000');
-    res.send();
-  } catch (err) {
-    res.status(404).send();
-  }
-});
-
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
-  const { type } = req.query;
   const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
-  const axios = require('axios');
+
+  console.log(`[PROXY-DRIVE_FULL_DEBUG] Incoming request details:`, {
+    fileId,
+    headers: req.headers,
+    method: req.method,
+    url: req.url,
+    isInitialized: drive.isInitialized
+  });
 
   try {
-    // Убираем избыточное логирование в продакшене
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
-    }
-    
-    // Поддержка внешних URL
-    if (fileId.startsWith('http')) {
-      const decodedUrl = decodeURIComponent(fileId);
-      try {
-        const response = await axios.get(decodedUrl, { 
-          responseType: 'arraybuffer',
-          headers: {
-            'User-Agent': 'Mozilla/5.0'
-          }
-        });
-        
-        res.set('Content-Type', response.headers['content-type']);
-        res.set('Cache-Control', 'public, max-age=31536000');
-        res.send(response.data);
-        return;
-      } catch (externalErr) {
-        console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr);
-        return res.status(404).send('External file not found');
-      }
-    }
-
+    console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
     if (!drive.isInitialized) {
       console.error('[PROXY-DRIVE] Google Drive не инициализирован');
       return res.status(500).send('Google Drive not initialized');
     }
 
     const meta = await drive.drive.files.get({
-      fileId,
+        fileId,
       fields: 'name, mimeType, size'
-    });
+      });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
     const fileName = meta.data.name || 'file';
     const fileSize = meta.data.size || 0;
+
+    console.log(`[PROXY-DRIVE_FULL_DEBUG] File metadata:`, {
+      mimeType,
+      fileName,
+      fileSize
+    });
 
     const fileRes = await drive.drive.files.get({
       fileId,
@@ -243,6 +182,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     };
 
     if (range) {
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Range request:`, range);
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
@@ -261,34 +201,37 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       });
     }
 
+    fileRes.data.on('data', (chunk) => {
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Chunk received: ${chunk.length} bytes`);
+    });
+
+    fileRes.data.on('end', () => {
+      console.log(`[PROXY-DRIVE_FULL_DEBUG] Файл ${fileId} полностью отправлен на фронт`);
+    });
+
     fileRes.data.on('error', (err) => {
+      console.error('[PROXY-DRIVE_FULL_DEBUG] Ошибка при отправке файла:', err);
       if (!headersSent) {
         res.status(500).send('Error streaming file');
       }
     });
 
-    fileRes.data.on('end', () => {
-      // Очищаем ресурсы после завершения стрима
-      fileRes.data.destroy();
-    });
-
     fileRes.data.pipe(res);
-
-    // Обработка отключения клиента
-    req.on('close', () => {
-      if (fileRes.data && !fileRes.data.destroyed) {
-        fileRes.data.destroy();
-      }
-    });
   } catch (err) {
+    console.error('[PROXY-DRIVE_FULL_DEBUG] Полная ошибка:', {
+      message: err.message,
+      stack: err.stack,
+      code: err.code,
+      details: err.response ? err.response.data : null
+    });
+
     if (err.message && err.message.includes('File not found')) {
+      console.warn(`[PROXY-DRIVE_FULL_DEBUG] ⚠️ Файл не найден: ${fileId}`);
       return res.status(404).send('File not found');
     }
     res.status(500).send('Proxy error: ' + err.message);
   }
 });
-
-
 
 io.on('connection', async (socket) => {
   const userId = socket.handshake.query.userId;

@@ -62,7 +62,7 @@ class UniversalThumbnailGenerator {
       const thumbnailBuffer = await sharp(inputPath)
         .rotate()
         .resize(300, 300, { fit: 'cover', position: 'center' })
-        .webp({ quality: 90 })
+        .webp({ quality: 75 })
         .toBuffer();
 
       // Сохраняем превью локально
@@ -132,11 +132,9 @@ class UniversalThumbnailGenerator {
       return new Promise((resolve, reject) => {
         ffmpeg(inputPath)
           .outputOptions([
-            // Меньше fps, лучшее сжатие, 30 секунд
-            '-vf', 'fps=8,scale=320:-1',
-            '-t', '30',
-            '-compression_level', '9',
-            '-q:v', '30'
+            '-vf', 'fps=30,scale=320:-1',
+            '-t', '30',  // Максимальная длительность 30 секунд
+            '-compression_level', '6'
           ])
           .toFormat('gif')
           .on('end', async () => {
@@ -145,7 +143,7 @@ class UniversalThumbnailGenerator {
               const gifBuffer = await fs.promises.readFile(tempThumbPath);
 
               // Проверяем размер GIF
-              const maxSizeMB = 5;
+              const maxSizeMB = 2;
               const sizeMB = gifBuffer.length / (1024 * 1024);
               
               if (sizeMB > maxSizeMB) {
@@ -155,10 +153,10 @@ class UniversalThumbnailGenerator {
                 return;
               }
 
-              // Загружаем в Google Drive в папку GIF
+              // Загружаем в Google Drive
               const fileMetadata = {
                 name: thumbnailFileName,
-                parents: [process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID]
+                parents: [process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID]
               };
 
               const result = await googleDrive.drive.files.create({
