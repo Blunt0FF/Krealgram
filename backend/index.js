@@ -82,21 +82,40 @@ const whitelist = [
   "www.krealgram.com"
 ];
 
-// Настройки CORS
 const corsOptions = {
-  origin: [
-    'http://localhost:4000', 
-    'https://localhost:4000', 
-    'https://krealgram.com',
-    'https://www.krealgram.com',
-    /\.krealgram\.com$/  // Поддержка поддоменов
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: (origin, callback) => {
+    console.log('[CORS_DEBUG] Incoming origin:', origin);
+    
+    // Если origin не указан (например, для серверных запросов), пропускаем
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Проверяем с учетом протокола и без него
+    const normalizedOrigin = origin.replace(/^https?:\/\//, '').replace(/^www\./, '');
+    const isAllowed = whitelist.some(
+      allowedOrigin => 
+        allowedOrigin === origin || 
+        allowedOrigin === normalizedOrigin ||
+        origin.includes(allowedOrigin)
+    );
+
+    if (isAllowed) {
+      console.log('[CORS_DEBUG] Origin allowed:', origin);
+      callback(null, true);
+    } else {
+      console.warn('[CORS_DEBUG] Origin blocked:', origin);
+      callback(null, false);  // Мягкое блокирование вместо ошибки
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range', 'Cache-Control'],
   credentials: true,
-  optionsSuccessStatus: 200
+  maxAge: 86400
 };
 
+app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -294,7 +313,6 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
                 res.set('Content-Type', thumbnailMeta.data.mimeType || 'image/webp');
                 res.set('Content-Length', thumbnailMeta.data.size || 0);
                 res.set('Cache-Control', 'public, max-age=31536000');
-                res.set('Access-Control-Allow-Origin', '*');
                 
                 thumbnailRes.data.pipe(res);
                 return;
@@ -324,19 +342,16 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         
         res.set('Content-Type', response.headers['content-type']);
         res.set('Cache-Control', 'public, max-age=31536000');
-        res.set('Access-Control-Allow-Origin', '*');
         res.send(response.data);
         return;
       } catch (externalErr) {
         console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr);
-        res.set('Access-Control-Allow-Origin', '*');
         return res.status(404).send('External file not found');
       }
     }
 
     if (!drive.isInitialized) {
       console.error('[PROXY-DRIVE] Google Drive не инициализирован');
-      res.set('Access-Control-Allow-Origin', '*');
       return res.status(500).send('Google Drive not initialized');
     }
 
@@ -361,7 +376,6 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         res.writeHead(statusCode, {
           ...headers,
           'Content-Disposition': `inline; filename="${fileName}"`,
-          'Access-Control-Allow-Origin': '*',
           'Cache-Control': 'public, max-age=31536000'
         });
         headersSent = true;
@@ -389,7 +403,6 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
 
     fileRes.data.on('error', (err) => {
       if (!headersSent) {
-        res.set('Access-Control-Allow-Origin', '*');
         res.status(500).send('Error streaming file');
       }
     });
@@ -409,10 +422,8 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     });
   } catch (err) {
     if (err.message && err.message.includes('File not found')) {
-      res.set('Access-Control-Allow-Origin', '*');
       return res.status(404).send('File not found');
     }
-    res.set('Access-Control-Allow-Origin', '*');
     res.status(500).send('Proxy error: ' + err.message);
   }
 });
