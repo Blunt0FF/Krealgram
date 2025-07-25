@@ -48,7 +48,7 @@ export const processMediaUrl = (url, type = 'image') => {
     // Если это локальный путь, извлекаем имя файла
     const filename = url.split('/').pop();
     if (filename && filename !== url) {
-      const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(filename)}`;
+      const proxyUrl = `${API_URL}/api/proxy-drive/${encodeURIComponent(filename)}?type=${type}`;
     URL_CACHE.set(cacheKey, proxyUrl);
     return proxyUrl;
     }

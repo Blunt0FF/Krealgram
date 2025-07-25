@@ -25,40 +25,27 @@ connectDB();
 
 const googleDrive = require('./config/googleDrive');
 
-// Инициализируем Google Drive в фоне без блокировки сервера
-console.log('[SERVER] 🔄 Starting Google Drive initialization in background...');
-
-// Запускаем инициализацию в фоне
-setImmediate(() => {
-  googleDrive.initialize().then(() => {
-    console.log('[SERVER] ✅ Google Drive initialization completed');
-    
-    // Запускаем автообновление токенов через 10 секунд после инициализации
-    setTimeout(() => {
-      try {
-        if (googleDrive.isInitialized) {
-          console.log('[SERVER] 🔄 Запуск автообновления токенов...');
-          tokenAutoRefresher.initialize();
-          
-          // Загружаем токен из файла если есть
-          tokenAutoRefresher.loadTokenFromFile().then(() => {
-            // Запускаем автообновление каждые 30 минут
-            tokenAutoRefresher.startAutoRefresh(30);
-          }).catch((tokenError) => {
-            console.error('[SERVER] ❌ Token loading failed:', tokenError.message);
-            console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
-          });
-        }
-      } catch (timeoutError) {
-        console.error('[SERVER] ❌ Timeout error:', timeoutError.message);
-        console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
-      }
-    }, 10000);
-    
-  }).catch((error) => {
-    console.error('[SERVER] ❌ Google Drive initialization failed:', error.message);
-    console.log('[SERVER] ⚠️ Server will continue without Google Drive');
-  });
+// Инициализируем Google Drive
+googleDrive.initialize().then(() => {
+  console.log('[SERVER] ✅ Google Drive initialization completed');
+  
+  // Запускаем автообновление токенов через 10 секунд после инициализации
+  setTimeout(() => {
+    if (googleDrive.isInitialized) {
+      console.log('[SERVER] 🔄 Запуск автообновления токенов...');
+      tokenAutoRefresher.initialize();
+      
+      // Загружаем токен из файла если есть
+      tokenAutoRefresher.loadTokenFromFile().then(() => {
+        // Запускаем автообновление каждые 30 минут
+        tokenAutoRefresher.startAutoRefresh(30);
+      });
+    }
+  }, 10000);
+  
+}).catch((error) => {
+  console.error('[SERVER] ❌ Google Drive initialization failed:', error.message);
+  console.log('[SERVER] ⚠️ Server will continue without Google Drive');
 });
 
 const app = express();
@@ -70,7 +57,8 @@ const io = new Server(server, {
       "http://127.0.0.1:4000",
       "https://krealgram.vercel.app",
       "https://krealgram.com",
-      "https://www.krealgram.com"
+      "https://www.krealgram.com",
+      "https://krealgram-backend.onrender.com"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     credentials: true
@@ -90,6 +78,7 @@ const whitelist = [
   "http://krealgram.com",
   "https://www.krealgram.com",
   "http://www.krealgram.com",
+  "https://krealgram-backend.onrender.com",
   "krealgram.vercel.app",
   "krealgram.com",
   "www.krealgram.com"
@@ -102,6 +91,7 @@ const corsOptions = {
     'https://localhost:4000', 
     'https://krealgram.com',
     'https://www.krealgram.com',
+    'https://krealgram-backend.onrender.com',
     /\.krealgram\.com$/  // Поддержка поддоменов
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -111,16 +101,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
-// Простой тестовый роут для проверки работы сервера
-app.get('/api/health', (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    message: 'Server is running'
-  });
-});
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
@@ -228,7 +208,18 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
       fields: 'name, mimeType, size'
     });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
-    const fileName = meta.data.name || 'file';
+    
+    // Исправляем кодировку имени файла
+    let fileName = meta.data.name || 'file';
+    try {
+      // Пытаемся исправить кодировку для кириллицы
+      if (fileName.includes('Ð')) {
+        fileName = decodeURIComponent(escape(fileName));
+      }
+    } catch (e) {
+      console.log(`[PROXY-DRIVE] Не удалось исправить кодировку для ${fileId}:`, e.message);
+    }
+    
     const fileSize = meta.data.size || 0;
     
     res.set('Content-Type', meta.data.mimeType || 'application/octet-stream');
@@ -241,31 +232,95 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
   }
 });
 
-// Обработка OPTIONS запросов для прокси роута
-app.options('/api/proxy-drive/:id', (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
-  res.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length');
-  res.status(200).send();
-});
-
 app.get('/api/proxy-drive/:id', async (req, res) => {
-  // Устанавливаем CORS заголовки для всех запросов
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
-  res.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length');
-  
   const fileId = req.params.id;
+  const { type } = req.query;
   const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
   const axios = require('axios');
 
   try {
-    // Убираем избыточное логирование в продакшене
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
+    // Добавляем подробное логирование для отладки
+    console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}${type ? ` (type: ${type})` : ''}`);
+
+    // Обработка thumbnail для аватаров
+    if (type === 'thumbnail') {
+      console.log(`[PROXY-DRIVE] 🔍 Ищем thumbnail для аватара ${fileId}`);
+      
+      try {
+        // Получаем метаданные основного файла
+        const mainFileMeta = await drive.drive.files.get({
+          fileId,
+          fields: 'name'
+        });
+        
+        const mainFileName = mainFileMeta.data.name;
+        console.log(`[PROXY-DRIVE] Основной файл: ${mainFileName}`);
+        
+        // Извлекаем username из имени файла (avatar_username.ext)
+        const usernameMatch = mainFileName.match(/^avatar_(.+)\./);
+        if (usernameMatch) {
+          const username = usernameMatch[1];
+          const safeUsername = username.replace(/[^a-zA-Z0-9]/g, '_');
+          
+          // Ищем thumbnail файлы (все возможные форматы)
+          const possibleThumbnailNames = [
+            `thumb_${safeUsername}.jpeg`,
+            `thumb_${safeUsername}.jpg`,
+            `thumb_${safeUsername}.png`,
+            `thumb_${safeUsername}.webp` // для старых файлов
+          ];
+          
+          console.log(`[PROXY-DRIVE] Ищем thumbnail файлы:`, possibleThumbnailNames);
+          
+          for (const thumbnailName of possibleThumbnailNames) {
+            try {
+              const searchResult = await drive.drive.files.list({
+                q: `name='${thumbnailName}' and '${process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID}' in parents and trashed=false`,
+                fields: 'files(id, name, createdTime, modifiedTime)',
+                pageSize: 10,
+                orderBy: 'modifiedTime desc'
+              });
+              
+              if (searchResult.data.files && searchResult.data.files.length > 0) {
+                console.log(`[PROXY-DRIVE] Найдено ${searchResult.data.files.length} файлов с именем ${thumbnailName}:`);
+                searchResult.data.files.forEach((file, index) => {
+                  console.log(`[PROXY-DRIVE] ${index + 1}. ${file.name} (${file.id}) - создан: ${file.createdTime}, изменен: ${file.modifiedTime}`);
+                });
+                
+                // Берем самый новый файл
+                const thumbnailFile = searchResult.data.files[0];
+                console.log(`[PROXY-DRIVE] ✅ Используем самый новый thumbnail: ${thumbnailFile.name} (${thumbnailFile.id})`);
+                
+                // Проксируем thumbnail файл
+                const thumbnailRes = await drive.drive.files.get({
+                  fileId: thumbnailFile.id,
+                  alt: 'media'
+                }, { responseType: 'stream' });
+                
+                const thumbnailMeta = await drive.drive.files.get({
+                  fileId: thumbnailFile.id,
+                  fields: 'mimeType, size'
+                });
+                
+                res.set('Content-Type', thumbnailMeta.data.mimeType || 'image/webp');
+                res.set('Content-Length', thumbnailMeta.data.size || 0);
+                res.set('Cache-Control', 'public, max-age=31536000');
+                res.set('Access-Control-Allow-Origin', '*');
+                
+                thumbnailRes.data.pipe(res);
+                return;
+              }
+            } catch (error) {
+              console.error(`[PROXY-DRIVE] Ошибка поиска thumbnail ${thumbnailName}:`, error.message);
+            }
+          }
+          
+          console.log(`[PROXY-DRIVE] ⚠️ Thumbnail не найден, возвращаем оригинал`);
+        }
+      } catch (error) {
+        console.error('[PROXY-DRIVE] Ошибка обработки thumbnail:', error.message);
+      }
     }
     
     // Поддержка внешних URL
@@ -281,42 +336,17 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
         
         res.set('Content-Type', response.headers['content-type']);
         res.set('Cache-Control', 'public, max-age=31536000');
-        res.set('Access-Control-Allow-Origin', '*');
         res.send(response.data);
         return;
       } catch (externalErr) {
         console.error('[PROXY-DRIVE] Ошибка загрузки внешнего файла:', externalErr);
-        res.set('Access-Control-Allow-Origin', '*');
         return res.status(404).send('External file not found');
       }
     }
 
     if (!drive.isInitialized) {
-      console.error('[PROXY-DRIVE] Google Drive не инициализирован, используем fallback');
-      
-      // Fallback: попробуем прямой доступ к Google Drive
-      try {
-        const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-        console.log(`[PROXY-DRIVE] Fallback: пытаемся прямой доступ к ${directUrl}`);
-        
-        const response = await axios.get(directUrl, { 
-          responseType: 'arraybuffer',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          },
-          timeout: 10000
-        });
-        
-        res.set('Content-Type', response.headers['content-type'] || 'application/octet-stream');
-        res.set('Cache-Control', 'public, max-age=31536000');
-        res.set('Access-Control-Allow-Origin', '*');
-        res.send(response.data);
-        return;
-      } catch (fallbackErr) {
-        console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
-        res.set('Access-Control-Allow-Origin', '*');
-        return res.status(500).send('Google Drive not available');
-      }
+      console.error('[PROXY-DRIVE] Google Drive не инициализирован');
+      return res.status(500).send('Google Drive not initialized');
     }
 
     const meta = await drive.drive.files.get({
@@ -324,13 +354,28 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       fields: 'name, mimeType, size'
     });
     const mimeType = meta.data.mimeType || 'application/octet-stream';
-    const fileName = meta.data.name || 'file';
+    
+    // Исправляем кодировку имени файла
+    let fileName = meta.data.name || 'file';
+    try {
+      // Пытаемся исправить кодировку для кириллицы
+      if (fileName.includes('Ð')) {
+        fileName = decodeURIComponent(escape(fileName));
+      }
+    } catch (e) {
+      console.log(`[PROXY-DRIVE] Не удалось исправить кодировку для ${fileId}:`, e.message);
+    }
+    
     const fileSize = meta.data.size || 0;
+    
+    console.log(`[PROXY-DRIVE] ✅ Метаданные получены для ${fileId}: ${fileName} (${mimeType}, ${fileSize} байт)`);
 
     const fileRes = await drive.drive.files.get({
       fileId,
       alt: 'media'
     }, { responseType: 'stream' });
+    
+    console.log(`[PROXY-DRIVE] ✅ Стрим создан для ${fileId}, начинаем передачу...`);
 
     const range = req.headers.range;
     let headersSent = false;
@@ -339,11 +384,11 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       if (!headersSent) {
         res.writeHead(statusCode, {
           ...headers,
-          'Content-Disposition': `inline; filename="${fileName}"`,
+          'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
-          'Access-Control-Expose-Headers': 'Content-Range, Content-Length',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Range, Content-Range, Accept-Ranges',
+          'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length',
           'Cache-Control': 'public, max-age=31536000'
         });
         headersSent = true;
@@ -370,8 +415,8 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     }
 
     fileRes.data.on('error', (err) => {
+      console.error(`[PROXY-DRIVE] ❌ Ошибка стрима для ${fileId}:`, err.message);
       if (!headersSent) {
-        res.set('Access-Control-Allow-Origin', '*');
         res.status(500).send('Error streaming file');
       }
     });
@@ -390,11 +435,20 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       }
     });
   } catch (err) {
+    console.error(`[PROXY-DRIVE] ❌ Ошибка проксирования файла ${fileId}:`, err.message);
+    console.error(`[PROXY-DRIVE] Stack trace:`, err.stack);
+    
     if (err.message && err.message.includes('File not found')) {
-      res.set('Access-Control-Allow-Origin', '*');
+      console.log(`[PROXY-DRIVE] 🚫 Файл не найден: ${fileId}`);
       return res.status(404).send('File not found');
     }
-    res.set('Access-Control-Allow-Origin', '*');
+    
+    if (err.message && err.message.includes('Permission denied')) {
+      console.log(`[PROXY-DRIVE] 🔒 Нет доступа к файлу: ${fileId}`);
+      return res.status(403).send('Access denied');
+    }
+    
+    console.log(`[PROXY-DRIVE] 💥 Неизвестная ошибка для файла ${fileId}:`, err.message);
     res.status(500).send('Proxy error: ' + err.message);
   }
 });
@@ -433,31 +487,8 @@ io.on('connection', async (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
-// Обработка необработанных ошибок
-process.on('uncaughtException', (error) => {
-  console.error('[SERVER] ❌ Uncaught Exception:', error.message);
-  console.error('[SERVER] ❌ Stack:', error.stack);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[SERVER] ❌ Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-// Добавляем обработку ошибок для сервера
-server.on('error', (error) => {
-  console.error('[SERVER] ❌ Server error:', error.message);
-  if (error.code === 'EADDRINUSE') {
-    console.error('[SERVER] ❌ Port is already in use');
-  }
-});
-
 server.listen(PORT, () => {
   console.log(`[SERVER] 🚀 Server running on port ${PORT}`);
-  try {
-    startUserStatusUpdater();
-    resetAllUsersToOffline();
-  } catch (error) {
-    console.error('[SERVER] ❌ Error starting services:', error.message);
-    console.log('[SERVER] ⚠️ Server will continue without some services');
-  }
+  startUserStatusUpdater();
+  resetAllUsersToOffline();
 });
