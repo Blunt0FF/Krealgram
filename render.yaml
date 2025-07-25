@@ -5,7 +5,7 @@ services:
     plan: free
     region: frankfurt
     buildCommand: "cd backend && npm install"
-    startCommand: "cd backend && node index-simple.js"
+    startCommand: "cd backend && node index.js"
     envVars:
       - fromGroup: Krealgram
       - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
