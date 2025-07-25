@@ -25,28 +25,41 @@ connectDB();
 
 const googleDrive = require('./config/googleDrive');
 
-// Инициализируем Google Drive
-googleDrive.initialize().then(() => {
-  console.log('[SERVER] ✅ Google Drive initialization completed');
-  
-  // Запускаем автообновление токенов через 10 секунд после инициализации
-  setTimeout(() => {
-    if (googleDrive.isInitialized) {
-      console.log('[SERVER] 🔄 Запуск автообновления токенов...');
-      tokenAutoRefresher.initialize();
-      
-      // Загружаем токен из файла если есть
-      tokenAutoRefresher.loadTokenFromFile().then(() => {
-        // Запускаем автообновление каждые 30 минут
-        tokenAutoRefresher.startAutoRefresh(30);
-      });
-    }
-  }, 10000);
-  
-}).catch((error) => {
-  console.error('[SERVER] ❌ Google Drive initialization failed:', error.message);
+// Инициализируем Google Drive с обработкой ошибок
+try {
+  googleDrive.initialize().then(() => {
+    console.log('[SERVER] ✅ Google Drive initialization completed');
+    
+    // Запускаем автообновление токенов через 10 секунд после инициализации
+    setTimeout(() => {
+      try {
+        if (googleDrive.isInitialized) {
+          console.log('[SERVER] 🔄 Запуск автообновления токенов...');
+          tokenAutoRefresher.initialize();
+          
+          // Загружаем токен из файла если есть
+          tokenAutoRefresher.loadTokenFromFile().then(() => {
+            // Запускаем автообновление каждые 30 минут
+            tokenAutoRefresher.startAutoRefresh(30);
+          }).catch((tokenError) => {
+            console.error('[SERVER] ❌ Token loading failed:', tokenError.message);
+            console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
+          });
+        }
+      } catch (timeoutError) {
+        console.error('[SERVER] ❌ Timeout error:', timeoutError.message);
+        console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
+      }
+    }, 10000);
+    
+  }).catch((error) => {
+    console.error('[SERVER] ❌ Google Drive initialization failed:', error.message);
+    console.log('[SERVER] ⚠️ Server will continue without Google Drive');
+  });
+} catch (initError) {
+  console.error('[SERVER] ❌ Google Drive init error:', initError.message);
   console.log('[SERVER] ⚠️ Server will continue without Google Drive');
-});
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -98,6 +111,16 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Простой тестовый роут для проверки работы сервера
+app.get('/api/health', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    message: 'Server is running'
+  });
+});
 
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
@@ -388,8 +411,31 @@ io.on('connection', async (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
+// Обработка необработанных ошибок
+process.on('uncaughtException', (error) => {
+  console.error('[SERVER] ❌ Uncaught Exception:', error.message);
+  console.error('[SERVER] ❌ Stack:', error.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[SERVER] ❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Добавляем обработку ошибок для сервера
+server.on('error', (error) => {
+  console.error('[SERVER] ❌ Server error:', error.message);
+  if (error.code === 'EADDRINUSE') {
+    console.error('[SERVER] ❌ Port is already in use');
+  }
+});
+
 server.listen(PORT, () => {
   console.log(`[SERVER] 🚀 Server running on port ${PORT}`);
-  startUserStatusUpdater();
-  resetAllUsersToOffline();
+  try {
+    startUserStatusUpdater();
+    resetAllUsersToOffline();
+  } catch (error) {
+    console.error('[SERVER] ❌ Error starting services:', error.message);
+    console.log('[SERVER] ⚠️ Server will continue without some services');
+  }
 });
