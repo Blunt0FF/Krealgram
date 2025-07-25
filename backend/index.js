@@ -218,7 +218,22 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
   }
 });
 
+// Обработка OPTIONS запросов для прокси роута
+app.options('/api/proxy-drive/:id', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
+  res.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length');
+  res.status(200).send();
+});
+
 app.get('/api/proxy-drive/:id', async (req, res) => {
+  // Устанавливаем CORS заголовки для всех запросов
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
+  res.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length');
+  
   const fileId = req.params.id;
   const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
@@ -281,6 +296,9 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           ...headers,
           'Content-Disposition': `inline; filename="${fileName}"`,
           'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
+          'Access-Control-Expose-Headers': 'Content-Range, Content-Length',
           'Cache-Control': 'public, max-age=31536000'
         });
         headersSent = true;
