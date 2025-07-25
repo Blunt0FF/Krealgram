@@ -220,7 +220,6 @@ app.head('/api/proxy-drive/:id', async (req, res) => {
 
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
-  const { type } = req.query;
   const { google } = require('googleapis');
   const drive = require('./config/googleDrive');
   const axios = require('axios');
@@ -228,86 +227,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
   try {
     // Убираем избыточное логирование в продакшене
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}${type ? ` (type: ${type})` : ''}`);
-    }
-
-    // Обработка thumbnail для аватаров
-    if (type === 'thumbnail') {
-      console.log(`[PROXY-DRIVE] 🔍 Ищем thumbnail для аватара ${fileId}`);
-      
-      try {
-        // Получаем метаданные основного файла
-        const mainFileMeta = await drive.drive.files.get({
-          fileId,
-          fields: 'name'
-        });
-        
-        const mainFileName = mainFileMeta.data.name;
-        console.log(`[PROXY-DRIVE] Основной файл: ${mainFileName}`);
-        
-        // Извлекаем username из имени файла (avatar_username.ext)
-        const usernameMatch = mainFileName.match(/^avatar_(.+)\./);
-        if (usernameMatch) {
-          const username = usernameMatch[1];
-          const safeUsername = username.replace(/[^a-zA-Z0-9]/g, '_');
-          
-          // Ищем thumbnail файлы (все возможные форматы)
-          const possibleThumbnailNames = [
-            `thumb_${safeUsername}.jpeg`,
-            `thumb_${safeUsername}.jpg`,
-            `thumb_${safeUsername}.png`,
-            `thumb_${safeUsername}.webp` // для старых файлов
-          ];
-          
-          console.log(`[PROXY-DRIVE] Ищем thumbnail файлы:`, possibleThumbnailNames);
-          
-          for (const thumbnailName of possibleThumbnailNames) {
-            try {
-              const searchResult = await drive.drive.files.list({
-                q: `name='${thumbnailName}' and '${process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID}' in parents and trashed=false`,
-                fields: 'files(id, name, createdTime, modifiedTime)',
-                pageSize: 10,
-                orderBy: 'modifiedTime desc'
-              });
-              
-              if (searchResult.data.files && searchResult.data.files.length > 0) {
-                console.log(`[PROXY-DRIVE] Найдено ${searchResult.data.files.length} файлов с именем ${thumbnailName}:`);
-                searchResult.data.files.forEach((file, index) => {
-                  console.log(`[PROXY-DRIVE] ${index + 1}. ${file.name} (${file.id}) - создан: ${file.createdTime}, изменен: ${file.modifiedTime}`);
-                });
-                
-                // Берем самый новый файл
-                const thumbnailFile = searchResult.data.files[0];
-                console.log(`[PROXY-DRIVE] ✅ Используем самый новый thumbnail: ${thumbnailFile.name} (${thumbnailFile.id})`);
-                
-                // Проксируем thumbnail файл
-                const thumbnailRes = await drive.drive.files.get({
-                  fileId: thumbnailFile.id,
-                  alt: 'media'
-                }, { responseType: 'stream' });
-                
-                const thumbnailMeta = await drive.drive.files.get({
-                  fileId: thumbnailFile.id,
-                  fields: 'mimeType, size'
-                });
-                
-                res.set('Content-Type', thumbnailMeta.data.mimeType || 'image/webp');
-                res.set('Content-Length', thumbnailMeta.data.size || 0);
-                res.set('Cache-Control', 'public, max-age=31536000');
-                
-                thumbnailRes.data.pipe(res);
-                return;
-              }
-            } catch (error) {
-              console.error(`[PROXY-DRIVE] Ошибка поиска thumbnail ${thumbnailName}:`, error.message);
-            }
-          }
-          
-          console.log(`[PROXY-DRIVE] ⚠️ Thumbnail не найден, возвращаем оригинал`);
-        }
-      } catch (error) {
-        console.error('[PROXY-DRIVE] Ошибка обработки thumbnail:', error.message);
-      }
+      console.log(`[PROXY-DRIVE] Запрос на проксирование файла ${fileId}`);
     }
     
     // Поддержка внешних URL
