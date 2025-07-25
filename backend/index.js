@@ -25,41 +25,45 @@ connectDB();
 
 const googleDrive = require('./config/googleDrive');
 
-// Инициализируем Google Drive с обработкой ошибок
-try {
-  googleDrive.initialize().then(() => {
-    console.log('[SERVER] ✅ Google Drive initialization completed');
-    
-    // Запускаем автообновление токенов через 10 секунд после инициализации
-    setTimeout(() => {
-      try {
-        if (googleDrive.isInitialized) {
-          console.log('[SERVER] 🔄 Запуск автообновления токенов...');
-          tokenAutoRefresher.initialize();
-          
-          // Загружаем токен из файла если есть
-          tokenAutoRefresher.loadTokenFromFile().then(() => {
-            // Запускаем автообновление каждые 30 минут
-            tokenAutoRefresher.startAutoRefresh(30);
-          }).catch((tokenError) => {
-            console.error('[SERVER] ❌ Token loading failed:', tokenError.message);
-            console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
-          });
+// Инициализируем Google Drive с обработкой ошибок (отложенная инициализация)
+console.log('[SERVER] 🔄 Starting Google Drive initialization in background...');
+
+setTimeout(() => {
+  try {
+    googleDrive.initialize().then(() => {
+      console.log('[SERVER] ✅ Google Drive initialization completed');
+      
+      // Запускаем автообновление токенов через 10 секунд после инициализации
+      setTimeout(() => {
+        try {
+          if (googleDrive.isInitialized) {
+            console.log('[SERVER] 🔄 Запуск автообновления токенов...');
+            tokenAutoRefresher.initialize();
+            
+            // Загружаем токен из файла если есть
+            tokenAutoRefresher.loadTokenFromFile().then(() => {
+              // Запускаем автообновление каждые 30 минут
+              tokenAutoRefresher.startAutoRefresh(30);
+            }).catch((tokenError) => {
+              console.error('[SERVER] ❌ Token loading failed:', tokenError.message);
+              console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
+            });
+          }
+        } catch (timeoutError) {
+          console.error('[SERVER] ❌ Timeout error:', timeoutError.message);
+          console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
         }
-      } catch (timeoutError) {
-        console.error('[SERVER] ❌ Timeout error:', timeoutError.message);
-        console.log('[SERVER] ⚠️ Server will continue without token auto-refresh');
-      }
-    }, 10000);
-    
-  }).catch((error) => {
-    console.error('[SERVER] ❌ Google Drive initialization failed:', error.message);
+      }, 10000);
+      
+    }).catch((error) => {
+      console.error('[SERVER] ❌ Google Drive initialization failed:', error.message);
+      console.log('[SERVER] ⚠️ Server will continue without Google Drive');
+    });
+  } catch (initError) {
+    console.error('[SERVER] ❌ Google Drive init error:', initError.message);
     console.log('[SERVER] ⚠️ Server will continue without Google Drive');
-  });
-} catch (initError) {
-  console.error('[SERVER] ❌ Google Drive init error:', initError.message);
-  console.log('[SERVER] ⚠️ Server will continue without Google Drive');
-}
+  }
+}, 5000); // Запускаем через 5 секунд после старта сервера
 
 const app = express();
 const server = http.createServer(app);
