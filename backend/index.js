@@ -292,9 +292,31 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
     }
 
     if (!drive.isInitialized) {
-      console.error('[PROXY-DRIVE] Google Drive не инициализирован');
-      res.set('Access-Control-Allow-Origin', '*');
-      return res.status(500).send('Google Drive not initialized');
+      console.error('[PROXY-DRIVE] Google Drive не инициализирован, используем fallback');
+      
+      // Fallback: попробуем прямой доступ к Google Drive
+      try {
+        const directUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+        console.log(`[PROXY-DRIVE] Fallback: пытаемся прямой доступ к ${directUrl}`);
+        
+        const response = await axios.get(directUrl, { 
+          responseType: 'arraybuffer',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          timeout: 10000
+        });
+        
+        res.set('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+        res.set('Cache-Control', 'public, max-age=31536000');
+        res.set('Access-Control-Allow-Origin', '*');
+        res.send(response.data);
+        return;
+      } catch (fallbackErr) {
+        console.error('[PROXY-DRIVE] Fallback также не сработал:', fallbackErr.message);
+        res.set('Access-Control-Allow-Origin', '*');
+        return res.status(500).send('Google Drive not available');
+      }
     }
 
     const meta = await drive.drive.files.get({
