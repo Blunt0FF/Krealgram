@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест обработки изображений</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .preview {
+            max-width: 300px;
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+            background: #ffe6e6;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            color: green;
+            background: #e6ffe6;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .info {
+            background: #e6f3ff;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест обработки изображений</h1>
+    
+    <div class="test-section">
+        <h2>Выберите изображение для тестирования</h2>
+        <input type="file" id="imageInput" accept="image/*" />
+        <div id="fileInfo"></div>
+        <div id="previewContainer"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Функция для сжатия изображений (копия из CreatePost.jsx)
+        const compressImage = async (file) => {
+            console.log('🔧 Starting compression for:', file.name, 'Size:', file.size, 'Type:', file.type);
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                
+                img.onload = () => {
+                    try {
+                        console.log('🔧 Image loaded successfully, dimensions:', img.width, 'x', img.height);
+                        
+                        // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
+                        const maxWidth = img.width; // Оригинальный размер
+                        const maxHeight = img.height; // Оригинальный размер
+                        let { width, height } = img;
+
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height = (height * maxWidth) / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width = (width * maxHeight) / height;
+                                height = maxHeight;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+
+                        console.log('🔧 Canvas dimensions:', width, 'x', height);
+
+                        // Рисуем изображение на canvas с правильной ориентацией
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Применяем легкое сглаживание для шумных изображений
+                        try {
+                            const imageData = ctx.getImageData(0, 0, width, height);
+                            const data = imageData.data;
+                            
+                            // Простое сглаживание для уменьшения шума
+                            for (let i = 0; i < data.length; i += 4) {
+                                // Легкое сглаживание RGB каналов
+                                data[i] = Math.min(255, data[i] * 0.95);     // R
+                                data[i + 1] = Math.min(255, data[i + 1] * 0.95); // G
+                                data[i + 2] = Math.min(255, data[i + 2] * 0.95); // B
+                                // Alpha остается без изменений
+                            }
+                            
+                            ctx.putImageData(imageData, 0, 0);
+                            console.log('🔧 Applied noise reduction');
+                        } catch (smoothingError) {
+                            console.warn('🔧 Could not apply noise reduction:', smoothingError);
+                            // Продолжаем без сглаживания
+                        }
+                        
+                        // Конвертируем в blob с более высоким качеством для сложных изображений
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                const compressedFile = new File([blob], file.name, {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                });
+                                console.log('🔧 Compression result:', {
+                                    originalSize: file.size,
+                                    compressedSize: compressedFile.size,
+                                    compressionRatio: (compressedFile.size / file.size * 100).toFixed(1) + '%'
+                                });
+                                resolve(compressedFile);
+                            } else {
+                                console.error('🔧 Failed to create blob from canvas');
+                                reject(new Error('Failed to compress image - blob creation failed'));
+                            }
+                        }, 'image/jpeg', 0.9); // Увеличиваем качество до 90% для сложных изображений
+                    } catch (error) {
+                        console.error('🔧 Error during image processing:', error);
+                        reject(new Error(`Image processing failed: ${error.message}`));
+                    }
+                };
+                
+                img.onerror = (error) => {
+                    console.error('🔧 Failed to load image:', error);
+                    reject(new Error('Failed to load image for processing'));
+                };
+                
+                // Добавляем обработку ошибок при установке src
+                try {
+                    img.src = URL.createObjectURL(file);
+                } catch (error) {
+                    console.error('🔧 Failed to create object URL:', error);
+                    reject(new Error('Failed to create image URL'));
+                }
+            });
+        };
+
+        document.getElementById('imageInput').addEventListener('change', async (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileInfo = document.getElementById('fileInfo');
+            const previewContainer = document.getElementById('previewContainer');
+            const result = document.getElementById('result');
+
+            // Очищаем предыдущие результаты
+            fileInfo.innerHTML = '';
+            previewContainer.innerHTML = '';
+            result.innerHTML = '';
+
+            // Показываем информацию о файле
+            fileInfo.innerHTML = `
+                <div class="info">
+                    <strong>Информация о файле:</strong><br>
+                    Имя: ${file.name}<br>
+                    Тип: ${file.type}<br>
+                    Размер: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                    Последнее изменение: ${new Date(file.lastModified).toLocaleString()}
+                </div>
+            `;
+
+            // Создаем превью оригинального файла
+            const originalPreview = document.createElement('img');
+            originalPreview.src = URL.createObjectURL(file);
+            originalPreview.className = 'preview';
+            originalPreview.alt = 'Оригинальное изображение';
+            previewContainer.appendChild(originalPreview);
+
+            // Пытаемся сжать изображение
+            try {
+                result.innerHTML = '<div class="info">Обрабатываем изображение...</div>';
+                
+                let compressed;
+                try {
+                    compressed = await compressImage(file);
+                } catch (compressionError) {
+                    console.warn('Primary compression failed, trying fallback:', compressionError);
+                    result.innerHTML = '<div class="info">Основная обработка не удалась, пробуем упрощенный метод...</div>';
+                    
+                    // Fallback: простая конвертация без сложной обработки
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    
+                    compressed = await new Promise((resolve, reject) => {
+                        img.onload = () => {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            
+                            canvas.toBlob((blob) => {
+                                if (blob) {
+                                    const fallbackFile = new File([blob], file.name, {
+                                        type: 'image/jpeg',
+                                        lastModified: Date.now()
+                                    });
+                                    console.log('Fallback compression successful');
+                                    resolve(fallbackFile);
+                                } else {
+                                    reject(new Error('Fallback compression failed'));
+                                }
+                            }, 'image/jpeg', 0.8);
+                        };
+                        img.onerror = () => reject(new Error('Failed to load image for fallback'));
+                        img.src = URL.createObjectURL(file);
+                    });
+                }
+                
+                // Создаем превью сжатого файла
+                const compressedPreview = document.createElement('img');
+                compressedPreview.src = URL.createObjectURL(compressed);
+                compressedPreview.className = 'preview';
+                compressedPreview.alt = 'Сжатое изображение';
+                previewContainer.appendChild(compressedPreview);
+
+                result.innerHTML = `
+                    <div class="success">
+                        <strong>✅ Обработка успешна!</strong><br>
+                        Оригинальный размер: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+                        Сжатый размер: ${(compressed.size / 1024 / 1024).toFixed(2)} MB<br>
+                        Степень сжатия: ${(compressed.size / file.size * 100).toFixed(1)}%
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error processing image:', error);
+                result.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Ошибка обработки:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html> 

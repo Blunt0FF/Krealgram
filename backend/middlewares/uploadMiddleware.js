@@ -306,15 +306,20 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // Увеличим лимит до 100MB для больших фото с iPhone
   },
   fileFilter: (req, file, cb) => {
+    console.log(`[MULTER_FILTER] Processing file: ${file.originalname}, type: ${file.mimetype}, size: ${file.size}`);
+    
     // Расширяем список поддерживаемых типов для iPhone (HEIC, MOV)
     const allowedMimeTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
       'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'
     ];
+    
     if (allowedMimeTypes.includes(file.mimetype)) {
+      console.log(`[MULTER_FILTER] ✅ File type accepted: ${file.mimetype}`);
       cb(null, true);
     } else {
-      cb(new Error('Unsupported file type!'), false);
+      console.error(`[MULTER_FILTER] ❌ Unsupported file type: ${file.mimetype}`);
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: ${allowedMimeTypes.join(', ')}`), false);
     }
   }
 });

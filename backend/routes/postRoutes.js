@@ -13,34 +13,35 @@ const optionalUpload = (req, res, next) => {
   if (contentType.includes('multipart/form-data')) {
     // Используем multer middleware для Google Drive
     upload.single('image')(req, res, async (err) => {
-      if (err) {
-        console.error('Multer upload error:', err);
-        
-        // Обработка ошибок Multer
-        if (err.code === 'LIMIT_FILE_SIZE') {
+              if (err) {
+          console.error('Multer upload error:', err);
+          
+          // Обработка ошибок Multer
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ 
+              message: 'File too large. Maximum size is 100MB.',
+              error: err.message 
+            });
+          }
+          
+          if (err.message && err.message.includes('Unsupported file type')) {
+            return res.status(400).json({ 
+              message: err.message,
+              error: err.message 
+            });
+          }
+          
+          // Если ошибка multer но есть videoUrl, игнорируем ошибку
+          if (req.body && req.body.videoUrl) {
+            console.log('Ignoring multer error due to videoUrl presence');
+            return next();
+          }
+          
           return res.status(400).json({ 
-            message: 'File too large. Maximum size is 50MB.',
+            message: 'File upload error. Please try again with a different file.',
             error: err.message 
           });
         }
-        
-        if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
-          return res.status(400).json({ 
-            message: 'Unsupported file type. Please upload images or videos only.', 
-            error: err.message 
-          });
-        }
-        
-        // Если ошибка multer но есть videoUrl, игнорируем ошибку
-        if (req.body && req.body.videoUrl) {
-          return next();
-        }
-        
-        return res.status(400).json({ 
-          message: 'File upload error',
-          error: err.message 
-        });
-      }
       
       // Если файл есть, загружаем на Google Drive
       if (req.file) {
@@ -81,20 +82,21 @@ router.post('/',
           // Обработка ошибок Multer
           if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({ 
-              message: 'File too large. Maximum size is 50MB.',
+              message: 'File too large. Maximum size is 100MB.',
               error: err.message 
             });
           }
           
-          if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
+          if (err.message && err.message.includes('Unsupported file type')) {
             return res.status(400).json({ 
-              message: 'Unsupported file type. Please upload images or videos only.', 
+              message: err.message,
               error: err.message 
             });
           }
           
           // Если ошибка multer но есть videoUrl, игнорируем ошибку
           if (req.body && req.body.videoUrl) {
+            console.log('Ignoring multer error due to videoUrl presence');
             return next();
           }
           
