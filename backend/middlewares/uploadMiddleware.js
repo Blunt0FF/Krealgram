@@ -362,14 +362,30 @@ const uploadToGoogleDrive = async (req, res, next) => {
       console.log(`[CONTEXT_DEBUG] Контекст определен как post`);
     }
 
-    // Используем файл как есть (уже сжатый на клиенте)
+    // Серверное сжатие изображений
     let fileBuffer;
-    if (fileMimetype.startsWith('image/')) {
-      console.log('[IMAGE_COMPRESSION] Используем клиентское сжатие');
+    if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
+      console.log('[IMAGE_COMPRESSION] Используем серверное сжатие');
       
-      // Читаем файл (уже сжатый на клиенте)
-      fileBuffer = await fsPromises.readFile(tempFilePath);
-      console.log(`[IMAGE_COMPRESSION] Размер файла: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+      // Читаем исходный файл
+      const originalBuffer = await fsPromises.readFile(tempFilePath);
+      console.log(`[IMAGE_COMPRESSION] Исходный размер: ${originalBuffer.length} байт (${(originalBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+      
+      try {
+        // Сжимаем на сервере
+        const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(originalBuffer, originalFilename);
+        if (optimized && optimized.buffer) {
+          fileBuffer = optimized.buffer;
+          console.log(`[IMAGE_COMPRESSION] Сжатый размер: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+        } else {
+          console.log('[IMAGE_COMPRESSION] Сжатие не удалось, используем исходный файл');
+          fileBuffer = originalBuffer;
+        }
+      } catch (compressionError) {
+        console.error('[IMAGE_COMPRESSION] Ошибка сжатия:', compressionError);
+        console.log('[IMAGE_COMPRESSION] Используем исходный файл');
+        fileBuffer = originalBuffer;
+      }
     } else {
       fileBuffer = await fsPromises.readFile(tempFilePath);
     }
@@ -396,6 +412,11 @@ const uploadToGoogleDrive = async (req, res, next) => {
     // Если это видео — всегда используем папку для видео
     if (fileMimetype.startsWith('video/')) {
       folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
+    }
+
+    // Проверяем что fileBuffer существует
+    if (!fileBuffer) {
+      throw new Error('File buffer is undefined after processing');
     }
 
     // Загрузка файла на Google Drive
