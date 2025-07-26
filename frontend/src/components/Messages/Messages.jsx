@@ -4,6 +4,7 @@ import io from 'socket.io-client';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
 import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { getImageUrl } from '../../utils/imageUtils';
+import { getVideoUrl } from '../../utils/mediaUrlResolver';
 import { formatLastSeen, formatMessageTime } from '../../utils/timeUtils';
 import PostModal from '../Post/PostModal';
 import ImageModal from '../common/ImageModal';
@@ -1141,7 +1142,7 @@ const Messages = ({ currentUser }) => {
                       {message.media && message.media.type === 'video' && (
                         <div className="message-video" style={{ marginTop: '4px' }}>
                           <video 
-                            src={message.media.url} 
+                            src={getVideoUrl(message.media.url)} 
                             controls
                             poster={(() => {
                               // Создаем превью для Cloudinary видео
