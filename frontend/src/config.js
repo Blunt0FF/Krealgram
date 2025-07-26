@@ -7,7 +7,6 @@ export let API_URL = REMOTE_URL;
 export let SOCKET_URL = import.meta.env.VITE_SOCKET_URL || `wss://${REMOTE_URL.split('://')[1]}`;
 
 export function setApiUrl(url) {
-  console.log('[CONFIG] Setting API_URL:', url);
   API_URL = url || REMOTE_URL;
   window.API_URL = API_URL;
 }

@@ -4,6 +4,7 @@ import { getImageUrl, getVideoUrl } from '../../utils/imageUtils';
 import { getMediaThumbnail } from '../../utils/videoUtils';
 import videoManager from '../../utils/videoManager';
 import ShareModal from '../Post/ShareModal';
+import VideoStoriesPreloader from './VideoStoriesPreloader';
 import { API_URL } from '../../config';
 import './VideoStoriesModal.css';
 
@@ -348,7 +349,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     }
     
     // Для обычных видео используем videoUrl или image, пропуская через getVideoUrl для проксирования
-    videoSrc = getVideoUrl(currentVideo?.videoUrl || currentVideo?.image);
+    videoSrc = window.getPreloadedStoriesVideoUrl?.(currentVideo._id) || getVideoUrl(currentVideo?.videoUrl || currentVideo?.image);
     
 
     
@@ -362,7 +363,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           autoPlay={true}
           muted={false}
           playsInline={true}
-          preload="metadata"
+          preload="auto" // Реальная загрузка видео
           style={{
             display: 'block',
             backgroundColor: '#000',
@@ -405,163 +406,166 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="video-stories-modal-overlay"
-      onClick={handleClose}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-    >
+    <>
+      <VideoStoriesPreloader videos={videos} currentIndex={currentIndex} />
       <div 
-        ref={modalRef}
-        className="video-stories-modal-content" 
-        onClick={(e) => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className="video-stories-modal-overlay"
+        onClick={handleClose}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
       >
-        
-        <button className="stories-close-btn" onClick={handleClose}>
-          ✕
-        </button>
+        <div 
+          ref={modalRef}
+          className="video-stories-modal-content" 
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          
+          <button className="stories-close-btn" onClick={handleClose}>
+            ✕
+          </button>
 
-        <div className="stories-progress-bar">
-          {videos.map((_, index) => (
-            <div 
-              key={index} 
-              className={`progress-segment ${index <= currentIndex ? 'active' : ''}`}
-              onClick={() => handleProgressSegmentClick(index)}
-              style={{ cursor: 'pointer' }}
-            />
-          ))}
-        </div>
+          <div className="stories-progress-bar">
+            {videos.map((_, index) => (
+              <div 
+                key={index} 
+                className={`progress-segment ${index <= currentIndex ? 'active' : ''}`}
+                onClick={() => handleProgressSegmentClick(index)}
+                style={{ cursor: 'pointer' }}
+              />
+            ))}
+          </div>
 
-        <div className="stories-header">
-          <a href={`/profile/${user.username}`} className="stories-avatar-link" tabIndex={-1} style={{display: 'flex', alignItems: 'center', textDecoration: 'none'}}>
-            <img
-              src={getAvatarThumbnailUrl(user.avatar)}
-              alt={user.username}
-              className="stories-avatar"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/default-avatar.png';
-              }}
-            />
-            <span className="stories-username" style={{marginLeft: 8}}>{user.username}</span>
-          </a>
-          <span className="stories-time">{formatStoryTime(currentVideo?.createdAt)}</span>
-        </div>
+          <div className="stories-header">
+            <a href={`/profile/${user.username}`} className="stories-avatar-link" tabIndex={-1} style={{display: 'flex', alignItems: 'center', textDecoration: 'none'}}>
+              <img
+                src={getAvatarThumbnailUrl(user.avatar)}
+                alt={user.username}
+                className="stories-avatar"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/default-avatar.png';
+                }}
+              />
+              <span className="stories-username" style={{marginLeft: 8}}>{user.username}</span>
+            </a>
+            <span className="stories-time">{formatStoryTime(currentVideo?.createdAt)}</span>
+          </div>
 
-        {videos.length > 0 && (
-          <>
-            {currentIndex > 0 && (
-              <button className="stories-nav-btn stories-prev-btn" onClick={handlePrevious}>
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-                </svg>
-              </button>
-            )}
-            {currentIndex < videos.length - 1 && (
-              <button className="stories-nav-btn stories-next-btn" onClick={handleNext}>
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                  <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-                </svg>
-              </button>
-            )}
-            
-            <div className="stories-video-container">
-              {renderVideo()}
-            </div>
-          </>
-        )}
-
-            <div className="stories-bottom-interface">
-              <div className="stories-actions">
-                <div className="stories-actions-left">
-                  <button 
-                    className={`stories-like-btn ${isLiked ? 'liked' : ''}`}
-                    onClick={handleLike}
-                  >
-                    <svg width="24" height="24" fill={isLiked ? "#ed4956" : "none"} stroke={isLiked ? "#ed4956" : "white"} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  </button>
-                  
-                  {likesCount > 0 && (
-                    <span className="stories-likes-count">
-                      {likesCount} {likesCount === 1 ? 'like' : 'likes'}
-                    </span>
-                  )}
-                </div>
-
-                <button 
-                  className="stories-share-btn"
-                  onClick={() => setShowShareModal(true)}
-                >
-                  <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
-                    <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          {videos.length > 0 && (
+            <>
+              {currentIndex > 0 && (
+                <button className="stories-nav-btn stories-prev-btn" onClick={handlePrevious}>
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
                   </svg>
                 </button>
+              )}
+              {currentIndex < videos.length - 1 && (
+                <button className="stories-nav-btn stories-next-btn" onClick={handleNext}>
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                  </svg>
+                </button>
+              )}
+              
+              <div className="stories-video-container">
+                {renderVideo()}
+              </div>
+            </>
+          )}
+
+          <div className="stories-bottom-interface">
+            <div className="stories-actions">
+              <div className="stories-actions-left">
+                <button 
+                  className={`stories-like-btn ${isLiked ? 'liked' : ''}`}
+                  onClick={handleLike}
+                >
+                  <svg width="24" height="24" fill={isLiked ? "#ed4956" : "none"} stroke={isLiked ? "#ed4956" : "white"} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                </button>
+                
+                {likesCount > 0 && (
+                  <span className="stories-likes-count">
+                    {likesCount} {likesCount === 1 ? 'like' : 'likes'}
+                  </span>
+                )}
               </div>
 
-              {currentVideo?.caption && (
-                <div className="stories-description">
-                  {currentVideo.caption}
-                </div>
-              )}
-
-              {comments.length > 0 && (
-                <div className="stories-comments-list">
-                  {showComments && comments.map((comment, index) => {
-                    const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
-                    return (
-                      <div key={comment._id || index} className="stories-comment">
-                        <span 
-                          className="comment-username clickable-username"
-                          onClick={() => {
-                            if (username !== 'Unknown User') {
-                              window.location.href = `/profile/${username}`;
-                            }
-                          }}
-                        >
-                          {username}
-                        </span>
-                        <span className="stories-comment-text">{comment.text}</span>
-                      </div>
-                    );
-                  })}
-                  
-                  <button 
-                    className="stories-view-comments"
-                    onClick={() => setShowComments(!showComments)}
-                  >
-                    {showComments 
-                      ? 'Hide comments' 
-                      : `Show comments (${comments.length})`
-                    }
-                  </button>
-                </div>
-              )}
-
-              <form className="stories-add-comment" onSubmit={handleAddComment}>
-                <input
-                  type="text"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="stories-comment-input"
-                  disabled={isSubmittingComment}
-                />
-                {newComment.trim() && (
-                  <button 
-                    type="submit" 
-                    className="stories-comment-submit"
-                    disabled={isSubmittingComment}
-                  >
-                    {isSubmittingComment ? '...' : 'Post'}
-                  </button>
-                )}
-              </form>
+              <button 
+                className="stories-share-btn"
+                onClick={() => setShowShareModal(true)}
+              >
+                <svg width="24" height="24" fill="none" stroke="white" viewBox="0 0 24 24">
+                  <path d="m3 3 3 9-3 9 19-9Z" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             </div>
+
+            {currentVideo?.caption && (
+              <div className="stories-description">
+                {currentVideo.caption}
+              </div>
+            )}
+
+            {comments.length > 0 && (
+              <div className="stories-comments-list">
+                {showComments && comments.map((comment, index) => {
+                  const username = comment.author?.username || comment.user?.username || comment.username || 'Unknown User';
+                  return (
+                    <div key={comment._id || index} className="stories-comment">
+                      <span 
+                        className="comment-username clickable-username"
+                        onClick={() => {
+                          if (username !== 'Unknown User') {
+                            window.location.href = `/profile/${username}`;
+                          }
+                        }}
+                      >
+                        {username}
+                      </span>
+                      <span className="stories-comment-text">{comment.text}</span>
+                    </div>
+                  );
+                })}
+                
+                <button 
+                  className="stories-view-comments"
+                  onClick={() => setShowComments(!showComments)}
+                >
+                  {showComments 
+                    ? 'Hide comments' 
+                    : `Show comments (${comments.length})`
+                  }
+                </button>
+              </div>
+            )}
+
+            <form className="stories-add-comment" onSubmit={handleAddComment}>
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Add a comment..."
+                className="stories-comment-input"
+                disabled={isSubmittingComment}
+              />
+              {newComment.trim() && (
+                <button 
+                  type="submit" 
+                  className="stories-comment-submit"
+                  disabled={isSubmittingComment}
+                >
+                  {isSubmittingComment ? '...' : 'Post'}
+                </button>
+              )}
+            </form>
+          </div>
+        </div>
       </div>
 
       {showShareModal && currentVideo && (
@@ -572,7 +576,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           onClose={() => setShowShareModal(false)}
         />
       )}
-    </div>
+    </>
   );
 };
 

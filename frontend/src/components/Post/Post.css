@@ -181,6 +181,7 @@
   justify-content: space-between;
   flex-shrink: 0;
   margin: 0 12px;
+  height: 30px;
 }
 
 .post-actions-left {
@@ -273,9 +274,9 @@
   }
 }
 
-.post-info {
+/* .post-info {
   padding: 0 16px 8px;
-}
+} */
 
 .post-likes {
   margin-bottom: 8px;
@@ -602,7 +603,7 @@
   text-decoration: none;
   color: inherit;
   transition: color 0.2s ease;
-  gap: 8px;
+  gap: 2px;
 }
 
 .user-link:hover .post-username {

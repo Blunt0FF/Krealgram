@@ -185,6 +185,7 @@
   padding: 16px;
   border-bottom: 1px solid #efefef;
   flex-shrink: 0;
+  height: 55px;
 }
 
 .author-avatar {
@@ -348,11 +349,6 @@
   color: #262626;
 }
 
-/* Убраны дублирующиеся стили .post-actions, .post-actions-left, .post-actions-right, 
-   .action-button, .likes-count-inline - они уже есть в Post.css */
-
-/* Убраны дублирующиеся стили .post-info, .post-likes, .likes-count - они уже есть в Post.css */
-
 .post-time {
   font-size: 12px;
   color: #8e8e8e;
@@ -363,7 +359,6 @@
   border-bottom: 1px solid #efefef;
 }
 
-/* Убраны дублирующиеся стили .comment-form, .comment-input, .comment-submit - они уже есть в Post.css */
 
 .comment-form-modal-bottom {
   background: white;
@@ -523,7 +518,7 @@
 .author-details-wrapper {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 2px;
 }
 
 .comment-author {
@@ -670,16 +665,16 @@
 
   .post-modal-content {
     width: 100vw;
-    height: calc(100vh - 60px); /* Уменьшаем высоту для устранения скролла */
+    height: calc(105vh - 60px);
     max-width: 100vw;
-    max-height: calc(100vh - 60px);
+    max-height: calc(105vh - 60px);
     border-radius: 0;
     flex-direction: column;
     box-sizing: border-box;
 
     @supports (height: 1dvh) {
-      height: calc(100dvh - 60px);
-      max-height: calc(100dvh - 60px);
+      height: calc(105dvh - 60px);
+      max-height: calc(105dvh - 60px);
     }
   }
 

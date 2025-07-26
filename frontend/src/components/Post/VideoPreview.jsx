@@ -67,32 +67,18 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
 
   // Управление воспроизведением видео
   const handleVideoPlay = () => {
-    if (!showVideo) {
+    // Проверяем, есть ли предзагруженное видео
+    const preloadedUrl = window.getPreloadedVideoUrl?.(post._id);
+    const isPreloaded = window.isVideoPreloaded?.(post._id);
+    
+    if (isPreloaded && preloadedUrl) {
+      // Используем предзагруженное видео
       setShowVideo(true);
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.play().catch(err => {
-            console.error('Video play error:', err);
-            // Просто сбрасываем состояние при ошибке воспроизведения
-            setShowVideo(false);
-            setIsVideoPlaying(false);
-          });
-          setIsVideoPlaying(true);
-        }
-      }, 100);
-    } else if (videoRef.current) {
-      if (isVideoPlaying) {
-        videoRef.current.pause();
-        setIsVideoPlaying(false);
-      } else {
-        videoRef.current.play().catch(err => {
-          console.error('Video play error:', err);
-          // Просто сбрасываем состояние при ошибке воспроизведения
-          setShowVideo(false);
-          setIsVideoPlaying(false);
-        });
-        setIsVideoPlaying(true);
-      }
+      setVideoLoaded(true);
+    } else {
+      // Обычное воспроизведение
+      setShowVideo(true);
+      setVideoLoaded(false);
     }
   };
 
@@ -166,7 +152,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={getVideoUrl(post.imageUrl || post.image)}
+          src={window.getPreloadedVideoUrl?.(post._id) || getVideoUrl(post.imageUrl || post.image)}
           type="video/mp4"
           style={{
             width: '100%',
@@ -183,7 +169,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          preload={isMobile() ? "metadata" : "auto"}
+          preload="auto" // Используем реальную загрузку видео
           muted={false} // Звук всегда включен
           onPlay={() => {
             setIsVideoPlaying(true);

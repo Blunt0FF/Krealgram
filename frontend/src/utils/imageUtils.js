@@ -184,18 +184,15 @@ export const getAvatarThumbnailUrl = (avatarPath) => {
       if (fileId) {
         // Возвращаем URL для thumbnail
         const thumbnailUrl = `${API_URL}/api/proxy-drive/${fileId}?type=thumbnail`;
-        console.log(`[AVATAR_THUMBNAIL] Для аватара ${fileId} используем thumbnail: ${thumbnailUrl}`);
         return thumbnailUrl;
       }
     } catch (error) {
-      console.error('[AVATAR_THUMBNAIL] Ошибка обработки Google Drive URL:', error);
       // В случае ошибки возвращаем оригинал
       return resolveAvatarUrl(avatarPath);
     }
   }
 
   // Для локальных файлов или других URL возвращаем оригинал
-  console.log(`[AVATAR_THUMBNAIL] Для аватара ${avatarPath} используем оригинал`);
   return resolveAvatarUrl(avatarPath);
 };
 
