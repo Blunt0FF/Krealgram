@@ -15,8 +15,8 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
 
     // Предзагружаем видео только для видимых постов (текущая страница)
     const videosToPreload = [];
-    const startIndex = Math.max(0, currentIndex - 3); // Начинаем с 3 постов назад
-    const endIndex = Math.min(posts.length, currentIndex + 7); // Заканчиваем на 7 постов вперед
+    const startIndex = Math.max(0, currentIndex - 2); // Уменьшаем с 3 до 2 постов назад
+    const endIndex = Math.min(posts.length, currentIndex + 4); // Уменьшаем с 7 до 4 постов вперед
     
     console.log(`[VIDEO_PRELOADER] Диапазон предзагрузки: ${startIndex} - ${endIndex} (всего постов: ${posts.length})`);
     
@@ -58,8 +58,8 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        // Более агрессивная предзагрузка для первых постов
-        video.preload = index < 5 ? 'auto' : (isSafari() ? 'auto' : 'metadata');
+        // Менее агрессивная предзагрузка - только для ближайших постов
+        video.preload = index <= currentIndex + 1 ? 'metadata' : 'none';
         video.muted = true;
         video.playsInline = true;
         

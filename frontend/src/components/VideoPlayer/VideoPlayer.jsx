@@ -80,7 +80,7 @@ const VideoPlayer = ({
     loop: loop,
     playsInline: true, // Важно для iOS
     webkitPlaysinline: true, // Для старых версий Safari
-    preload: isSafari ? 'auto' : 'metadata', // Более агрессивная загрузка для Safari
+    preload: 'metadata', // Менее агрессивная загрузка
     crossOrigin: 'anonymous',
     onLoadedMetadata: handleLoadedMetadata,
     onTimeUpdate: handleTimeUpdate,

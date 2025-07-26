@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
+const fsSync = require('fs'); // Добавляем для stat
 const googleDrive = require('../config/googleDrive');
 const { ImageCompressor } = require('../utils/imageCompressor');
 const imageCompressor = new ImageCompressor();
@@ -76,7 +77,17 @@ const uploadToGoogleDrive = async (req, res, next) => {
     // Сжимаем изображения перед загрузкой
     if (fileMimetype.startsWith('image/')) {
       console.log('[IMAGE_COMPRESSION] Сжимаем изображение потоковым методом');
+      console.log(`[IMAGE_COMPRESSION] Исходный файл: ${originalFilename} (${req.file.size} байт)`);
+      
       compressedFilePath = await imageCompressor.compressImage(tempFilePath, originalFilename);
+      
+      // Проверяем, изменился ли путь (значит сжатие произошло)
+      if (compressedFilePath !== tempFilePath) {
+        const compressedStats = await fs.stat(compressedFilePath);
+        console.log(`[IMAGE_COMPRESSION] ✅ Сжатие применено: ${compressedStats.size} байт`);
+      } else {
+        console.log(`[IMAGE_COMPRESSION] ⚠️ Сжатие не применено, используем оригинал`);
+      }
     }
 
     // Создаем превью для изображений

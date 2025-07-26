@@ -1,4 +1,5 @@
 const fs = require('fs').promises;
+const fsSync = require('fs'); // Добавляем синхронный fs для createReadStream
 const path = require('path');
 const sharp = require('sharp');
 const stream = require('stream');
@@ -11,8 +12,8 @@ class ImageCompressor {
     // Максимальный размер изображения в байтах (4 МБ)
     this.MAX_FILE_SIZE = 4 * 1024 * 1024;
     
-    // Максимальная ширина/высота изображения
-    this.MAX_DIMENSION = 2048;
+    // Максимальная ширина/высота изображения (уменьшаем для быстрого сжатия)
+    this.MAX_DIMENSION = 1600;
   }
 
   /**
@@ -45,11 +46,12 @@ class ImageCompressor {
       const outputPath = path.join(outputDir, `compressed_${originalName}`);
 
       // Создаем потоки для чтения и записи
-      const readStream = fs.createReadStream(inputPath);
+      const readStream = fsSync.createReadStream(inputPath);
       const writeStream = fs.createWriteStream(outputPath);
 
       // Создаем поток сжатия с sharp
       const compressStream = sharp()
+        .rotate() // Автоматически поворачивает изображение согласно EXIF
         .resize({
           width: this.MAX_DIMENSION,
           height: this.MAX_DIMENSION,
@@ -57,7 +59,7 @@ class ImageCompressor {
           withoutEnlargement: true
         })
         .jpeg({ 
-          quality: 75, 
+          quality: 85, 
           mozjpeg: true 
         });
 
@@ -122,6 +124,7 @@ class ImageCompressor {
   async createThumbnail(inputPath) {
     try {
       return await sharp(inputPath)
+        .rotate() // Автоматически поворачивает изображение согласно EXIF
         .resize(300, 300, { 
           fit: 'cover', 
           position: 'center' 

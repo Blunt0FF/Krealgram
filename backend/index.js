@@ -464,30 +464,9 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       }
     }
     
-    // Принудительно загружаем весь файл для видео
+    // Для видео используем стриминг вместо загрузки в память
     if (correctedMimeType.startsWith('video/')) {
-      
-      try {
-        const fileBuffer = await drive.drive.files.get({
-          fileId,
-          alt: 'media'
-        }, { responseType: 'arraybuffer' });
-        
-        // Упрощенные заголовки для видео
-        res.set({
-          'Content-Type': correctedMimeType,
-          'Content-Length': fileBuffer.data.byteLength,
-          'Accept-Ranges': 'bytes',
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=31536000'
-        });
-        
-        // Отправляем весь файл
-        res.end(Buffer.from(fileBuffer.data));
-        return;
-      } catch (error) {
-        // Fallback к стриму
-      }
+      console.log(`[PROXY-DRIVE] Стриминг видео: ${fileName} (${fileSize} байт)`);
     }
 
     const fileRes = await drive.drive.files.get({
@@ -514,7 +493,7 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
           ...videoHeaders,
           'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
           'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=31536000',
+          'Cache-Control': correctedMimeType.startsWith('video/') ? 'public, max-age=86400' : 'public, max-age=31536000',
           'Accept-Ranges': 'bytes'
         };
         
@@ -675,6 +654,15 @@ const startServer = () => {
 
 const server = startServer();
 
+// Мониторинг памяти (только в development)
+if (process.env.NODE_ENV !== 'production') {
+  // Запускаем мониторинг памяти каждые 15 минут (вместо 5)
+  setInterval(monitorMemory, 15 * 60 * 1000);
+  
+  // Первый запуск сразу после старта
+  monitorMemory();
+}
+
 // Мониторинг памяти
 const monitorMemory = () => {
   const memoryUsage = process.memoryUsage();
@@ -704,9 +692,3 @@ const monitorMemory = () => {
     }
   }
 };
-
-// Запускаем мониторинг памяти каждые 5 минут
-setInterval(monitorMemory, 5 * 60 * 1000);
-
-// Первый запуск сразу после старта
-monitorMemory();
