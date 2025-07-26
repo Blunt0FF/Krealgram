@@ -306,7 +306,11 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // Увеличим лимит до 100MB для больших фото с iPhone
   },
   fileFilter: (req, file, cb) => {
-    console.log(`[MULTER_FILTER] Processing file: ${file.originalname}, type: ${file.mimetype}, size: ${file.size}`);
+    console.log('[FILE_FILTER] Checking file:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
     
     // Расширяем список поддерживаемых типов для iPhone (HEIC, MOV)
     const allowedMimeTypes = [
@@ -314,12 +318,25 @@ const upload = multer({
       'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'
     ];
     
+    // Проверяем MIME тип
     if (allowedMimeTypes.includes(file.mimetype)) {
-      console.log(`[MULTER_FILTER] ✅ File type accepted: ${file.mimetype}`);
+      console.log('[FILE_FILTER] ✅ File type accepted:', file.mimetype);
       cb(null, true);
     } else {
-      console.error(`[MULTER_FILTER] ❌ Unsupported file type: ${file.mimetype}`);
-      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: ${allowedMimeTypes.join(', ')}`), false);
+      // Проверяем расширение файла как fallback
+      const fileExtension = path.extname(file.originalname).toLowerCase();
+      const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.mp4', '.mov', '.webm'];
+      
+      if (allowedExtensions.includes(fileExtension)) {
+        console.log('[FILE_FILTER] ✅ File extension accepted:', fileExtension);
+        cb(null, true);
+      } else {
+        console.log('[FILE_FILTER] ❌ File rejected:', {
+          mimetype: file.mimetype,
+          extension: fileExtension
+        });
+        cb(new Error(`Unsupported file type: ${file.mimetype || fileExtension}. Supported types: ${allowedMimeTypes.join(', ')}`), false);
+      }
     }
   }
 });

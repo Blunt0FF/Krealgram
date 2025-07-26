@@ -8,7 +8,7 @@ import './CreatePost.css';
 
 // Функция для сжатия изображений
 const compressImage = async (file) => {
-  console.log('🔧 Starting compression for:', file.name, 'Size:', file.size, 'Type:', file.type);
+  console.log('🔧 Starting compression for:', file.name, 'Size:', file.size);
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -16,8 +16,6 @@ const compressImage = async (file) => {
     
     img.onload = () => {
       try {
-        console.log('🔧 Image loaded successfully, dimensions:', img.width, 'x', img.height);
-        
         // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
         const maxWidth = img.width; // Оригинальный размер
         const maxHeight = img.height; // Оригинальный размер
@@ -43,28 +41,7 @@ const compressImage = async (file) => {
         // Рисуем изображение на canvas с правильной ориентацией
         ctx.drawImage(img, 0, 0, width, height);
         
-        // Применяем легкое сглаживание для шумных изображений
-        try {
-          const imageData = ctx.getImageData(0, 0, width, height);
-          const data = imageData.data;
-          
-          // Более мягкое сглаживание для изображений с каплями дождя
-          for (let i = 0; i < data.length; i += 4) {
-            // Очень легкое сглаживание RGB каналов (98% вместо 95%)
-            data[i] = Math.min(255, data[i] * 0.98);     // R
-            data[i + 1] = Math.min(255, data[i + 1] * 0.98); // G
-            data[i + 2] = Math.min(255, data[i + 2] * 0.98); // B
-            // Alpha остается без изменений
-          }
-          
-          ctx.putImageData(imageData, 0, 0);
-          console.log('🔧 Applied gentle noise reduction');
-        } catch (smoothingError) {
-          console.warn('🔧 Could not apply noise reduction:', smoothingError);
-          // Продолжаем без сглаживания
-        }
-        
-        // Конвертируем в blob с более высоким качеством для сложных изображений
+        // Конвертируем в blob
         canvas.toBlob((blob) => {
           if (blob) {
             const compressedFile = new File([blob], file.name, {
@@ -78,27 +55,24 @@ const compressImage = async (file) => {
             });
             resolve(compressedFile);
           } else {
-            console.error('🔧 Failed to create blob from canvas');
             reject(new Error('Failed to compress image - blob creation failed'));
           }
-        }, 'image/jpeg', 0.9); // Увеличиваем качество до 90% для сложных изображений
+        }, 'image/jpeg', 0.8); // Качество 80% для достижения 3.4MB
       } catch (error) {
-        console.error('🔧 Error during image processing:', error);
         reject(new Error(`Image processing failed: ${error.message}`));
       }
     };
     
     img.onerror = (error) => {
-      console.error('🔧 Failed to load image:', error);
-      reject(new Error('Failed to load image for processing'));
+      console.error('❌ Image load error:', error);
+      reject(new Error('Failed to load image. Please try a different photo.'));
     };
     
-    // Добавляем обработку ошибок при установке src
+    // Добавляем обработку ошибок для URL.createObjectURL
     try {
       img.src = URL.createObjectURL(file);
     } catch (error) {
-      console.error('🔧 Failed to create object URL:', error);
-      reject(new Error('Failed to create image URL'));
+      reject(new Error('Failed to create object URL for image.'));
     }
   });
 };
@@ -148,7 +122,7 @@ const CreatePost = () => {
         setCompressedFile(file);
         setOriginalFileName(file.name);
       } else {
-        // Обработка HEIC файлов
+        // Обработка HEIC файлов с iPhone
         let processedFile = file;
         if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
           console.log('🔄 Converting HEIC file to JPEG...');
@@ -162,65 +136,20 @@ const CreatePost = () => {
               type: 'image/jpeg',
               lastModified: Date.now()
             });
-            console.log('✅ HEIC conversion successful');
+            console.log('✅ HEIC file converted successfully');
           } catch (heicError) {
             console.error('❌ HEIC conversion failed:', heicError);
-            throw new Error('Failed to convert HEIC image. Please try a different image.');
+            throw new Error('Failed to convert HEIC image. Please try a different photo.');
           }
         }
 
-        // Валидация файла перед обработкой
-        if (processedFile.size > 50 * 1024 * 1024) { // 50MB
-          throw new Error('File size too large. Maximum size is 50MB.');
-        }
-
-        // Проверяем поддерживаемые типы файлов
-        const supportedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
-        if (!supportedTypes.includes(processedFile.type.toLowerCase())) {
-          throw new Error('Unsupported file type. Please use JPEG, PNG, WebP, GIF, or HEIC.');
-        }
-
         // Для изображений сжимаем
-        let compressed;
-        try {
-          compressed = await compressImage(processedFile);
-          console.log('📸 Compressed File Details:', {
-            name: compressed.name,
-            type: compressed.type,
-            size: compressed.size
-          });
-        } catch (compressionError) {
-          console.warn('📸 Primary compression failed, trying fallback:', compressionError);
-          
-          // Fallback: простая конвертация без сложной обработки
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          const img = new Image();
-          
-          compressed = await new Promise((resolve, reject) => {
-            img.onload = () => {
-              canvas.width = img.width;
-              canvas.height = img.height;
-              ctx.drawImage(img, 0, 0);
-              
-              canvas.toBlob((blob) => {
-                if (blob) {
-                  const fallbackFile = new File([blob], processedFile.name, {
-                    type: 'image/jpeg',
-                    lastModified: Date.now()
-                  });
-                  console.log('📸 Fallback compression successful');
-                  resolve(fallbackFile);
-                } else {
-                  reject(new Error('Fallback compression failed'));
-                }
-              }, 'image/jpeg', 0.8);
-            };
-            img.onerror = () => reject(new Error('Failed to load image for fallback'));
-            img.src = URL.createObjectURL(processedFile);
-          });
-        }
-        
+        const compressed = await compressImage(processedFile);
+        console.log('📸 Compressed File Details:', {
+          name: compressed.name,
+          type: compressed.type,
+          size: compressed.size
+        });
         setCompressedFile(compressed);
         setOriginalFileName(file.name);
         
@@ -390,11 +319,14 @@ const CreatePost = () => {
             <div className="file-input-icon">📸 Choose Image/Video</div>
             <input 
               type="file" 
-              accept=".jpg,.jpeg,.png,.gif,.mp4,.mov,.webm,image/*,video/*" 
+              accept=".jpg,.jpeg,.png,.gif,.heic,.heif,.mp4,.mov,.webm,image/*,video/*" 
               onChange={handleImageChange} 
               disabled={compressing}
             />
           </label>
+          <div className="file-upload-hint">
+            Supported formats: JPEG, PNG, GIF, HEIC, MP4, MOV, WebM
+          </div>
         </div>
 
         {compressing && (

@@ -18,6 +18,18 @@ console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downlo
 // @access  Private
 exports.createPost = async (req, res) => {
   try {
+    console.log('[POST_CONTROLLER] Creating post with data:', {
+      user: req.user ? req.user.username : 'Unknown',
+      hasFile: !!req.file,
+      hasUploadResult: !!req.uploadResult,
+      bodyKeys: Object.keys(req.body),
+      fileDetails: req.file ? {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size
+      } : null
+    });
+
     const { caption, videoUrl, videoData, image, youtubeData: incomingYoutubeData } = req.body;
     
     if (!req.user || !req.user.id) {
@@ -25,6 +37,34 @@ exports.createPost = async (req, res) => {
         message: 'Unauthorized: User not authenticated',
         error: 'User ID is missing'
       });
+    }
+
+    // Дополнительная валидация файла
+    if (req.file) {
+      console.log('[POST_CONTROLLER] File validation:', {
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        path: req.file.path
+      });
+
+      // Проверяем, что файл действительно существует
+      try {
+        const fs = require('fs');
+        if (!fs.existsSync(req.file.path)) {
+          console.error('[POST_CONTROLLER] File does not exist:', req.file.path);
+          return res.status(400).json({ 
+            message: 'Uploaded file is corrupted or missing. Please try again.',
+            error: 'File not found on server'
+          });
+        }
+      } catch (fileError) {
+        console.error('[POST_CONTROLLER] File validation error:', fileError);
+        return res.status(400).json({ 
+          message: 'Error validating uploaded file. Please try again.',
+          error: fileError.message
+        });
+      }
     }
 
     const authorId = req.user.id;
