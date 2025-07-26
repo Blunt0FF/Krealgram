@@ -10,6 +10,13 @@ import './CreatePost.css';
 const compressImage = async (file) => {
   console.log('🔧 Starting compression for:', file.name, 'Size:', file.size, 'Type:', file.type);
   
+  // Проверяем размер файла (4 МБ)
+  const maxSize = 4 * 1024 * 1024; // 4 МБ
+  if (file.size <= maxSize) {
+    console.log('🔧 File size is within limits, no compression needed');
+    return file;
+  }
+  
   // Проверяем, является ли файл HEIC/HEIF
   const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || 
                  file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');

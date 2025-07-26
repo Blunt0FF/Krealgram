@@ -8,8 +8,8 @@ const pipeline = util.promisify(stream.pipeline);
 
 class ImageCompressor {
   constructor() {
-    // Максимальный размер изображения в байтах (20 МБ)
-    this.MAX_FILE_SIZE = 20 * 1024 * 1024;
+    // Максимальный размер изображения в байтах (4 МБ)
+    this.MAX_FILE_SIZE = 4 * 1024 * 1024;
     
     // Максимальная ширина/высота изображения
     this.MAX_DIMENSION = 2048;
@@ -24,12 +24,19 @@ class ImageCompressor {
   async compressImage(inputPath, originalName) {
     try {
       const stats = await fs.stat(inputPath);
+      const fileSizeMB = (stats.size / 1024 / 1024).toFixed(2);
+      
+      console.log(`[IMAGE_COMPRESSOR] Обрабатываем файл: ${originalName}`);
+      console.log(`[IMAGE_COMPRESSOR] Размер файла: ${fileSizeMB} МБ`);
+      console.log(`[IMAGE_COMPRESSOR] Лимит сжатия: ${(this.MAX_FILE_SIZE / 1024 / 1024).toFixed(2)} МБ`);
       
       // Если файл меньше MAX_FILE_SIZE, возвращаем его без изменений
       if (stats.size <= this.MAX_FILE_SIZE) {
-        console.log(`[IMAGE_COMPRESSOR] Файл ${originalName} не требует сжатия`);
+        console.log(`[IMAGE_COMPRESSOR] Файл ${originalName} не требует сжатия (${fileSizeMB} МБ <= ${(this.MAX_FILE_SIZE / 1024 / 1024).toFixed(2)} МБ)`);
         return inputPath;
       }
+
+      console.log(`[IMAGE_COMPRESSOR] Начинаем сжатие файла ${originalName} (${fileSizeMB} МБ)`);
 
       // Создаем директорию для сжатых файлов
       const outputDir = path.join(path.dirname(inputPath), 'compressed');
@@ -61,12 +68,19 @@ class ImageCompressor {
         writeStream
       );
 
-      console.log(`[IMAGE_COMPRESSOR] Сжатие ${originalName}: 
-        Оригинал: ${(stats.size / 1024 / 1024).toFixed(2)} МБ`);
+      // Проверяем размер сжатого файла
+      const compressedStats = await fs.stat(outputPath);
+      const compressedSizeMB = (compressedStats.size / 1024 / 1024).toFixed(2);
+      const compressionRatio = ((1 - compressedStats.size / stats.size) * 100).toFixed(1);
+
+      console.log(`[IMAGE_COMPRESSOR] ✅ Сжатие завершено:`);
+      console.log(`[IMAGE_COMPRESSOR]   Оригинал: ${fileSizeMB} МБ`);
+      console.log(`[IMAGE_COMPRESSOR]   Сжатый: ${compressedSizeMB} МБ`);
+      console.log(`[IMAGE_COMPRESSOR]   Степень сжатия: ${compressionRatio}%`);
 
       return outputPath;
     } catch (error) {
-      console.error(`[IMAGE_COMPRESSOR] Ошибка сжатия ${originalName}:`, error);
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка сжатия ${originalName}:`, error);
       return inputPath; // В случае ошибки возвращаем оригинальный файл
     }
   }
