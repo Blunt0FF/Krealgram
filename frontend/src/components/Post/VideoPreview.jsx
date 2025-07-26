@@ -67,30 +67,32 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
 
   // Управление воспроизведением видео
   const handleVideoPlay = () => {
-    // Проверяем, есть ли предзагруженное видео
-    const preloadedUrl = window.getPreloadedVideoUrl?.(post._id);
-    const isPreloaded = window.isVideoPreloaded?.(post._id);
-    
-    if (isPreloaded && preloadedUrl) {
-      // Используем предзагруженное видео - воспроизводим сразу
+    if (!showVideo) {
       setShowVideo(true);
-      setVideoLoaded(true);
-      
-      // Автоматически запускаем воспроизведение через небольшую задержку
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.play().catch(err => {
             console.error('Video play error:', err);
+            // Просто сбрасываем состояние при ошибке воспроизведения
             setShowVideo(false);
             setIsVideoPlaying(false);
           });
           setIsVideoPlaying(true);
         }
       }, 100);
-    } else {
-      // Обычное воспроизведение - показываем видео с контролами
-      setShowVideo(true);
-      setVideoLoaded(false);
+    } else if (videoRef.current) {
+      if (isVideoPlaying) {
+        videoRef.current.pause();
+        setIsVideoPlaying(false);
+      } else {
+        videoRef.current.play().catch(err => {
+          console.error('Video play error:', err);
+          // Просто сбрасываем состояние при ошибке воспроизведения
+          setShowVideo(false);
+          setIsVideoPlaying(false);
+        });
+        setIsVideoPlaying(true);
+      }
     }
   };
 
@@ -164,7 +166,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={window.getPreloadedVideoUrl?.(post._id) || getVideoUrl(post.imageUrl || post.image)}
+          src={getVideoUrl(post.imageUrl || post.image)}
           type="video/mp4"
           style={{
             width: '100%',
@@ -174,16 +176,15 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             display: 'block',
             pointerEvents: 'auto'
           }}
-          controls={!window.isVideoPreloaded?.(post._id)} // Убираем контролы для предзагруженных видео
+          controls
           playsInline
           webkit-playsinline="true"
           x5-playsinline="true"
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          preload="auto" // Используем реальную загрузку видео
+          preload={isMobile() ? "metadata" : "auto"}
           muted={false} // Звук всегда включен
-          poster={window.isVideoPreloaded?.(post._id) ? thumbnailUrl : undefined} // Используем превью как poster для предзагруженных видео
           onPlay={() => {
             setIsVideoPlaying(true);
             videoManager.setCurrentVideo(videoRef.current);
@@ -203,15 +204,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             setShowVideo(false);
             setIsVideoPlaying(false);
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            // Если видео предзагружено и воспроизводится, останавливаем его
-            if (window.isVideoPreloaded?.(post._id) && isVideoPlaying) {
-              videoRef.current?.pause();
-              setIsVideoPlaying(false);
-              setShowVideo(false);
-            }
-          }}
+          onClick={(e) => e.stopPropagation()}
         />
       )}
 

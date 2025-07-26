@@ -106,7 +106,7 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
 
     return (
       <video
-        src={window.getPreloadedVideoUrl?.(postData._id) || getVideoUrl(postData.image || postData.imageUrl)}
+        src={getVideoUrl(postData.image || postData.imageUrl)}
         className="post-modal-video"
         controls
         autoPlay={true}
@@ -117,7 +117,7 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
         x5-video-player-fullscreen="true"
         x5-video-orientation="portrait"
         muted={isMobile ? true : false} // На мобильных сначала без звука для быстрой загрузки
-        preload="auto" // Реальная загрузка видео
+        preload={isMobile ? "metadata" : "auto"} // На мобильных загружаем только метаданные
         poster={isMobile ? posterUrl : (!isDesktop ? posterUrl : undefined)}
         style={{
           width: '100%',

@@ -349,7 +349,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
     }
     
     // Для обычных видео используем videoUrl или image, пропуская через getVideoUrl для проксирования
-    videoSrc = window.getPreloadedStoriesVideoUrl?.(currentVideo._id) || getVideoUrl(currentVideo?.videoUrl || currentVideo?.image);
+    videoSrc = getVideoUrl(currentVideo?.videoUrl || currentVideo?.image);
     
 
     
@@ -363,7 +363,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           autoPlay={true}
           muted={false}
           playsInline={true}
-          preload="auto" // Реальная загрузка видео
+          preload="metadata"
           style={{
             display: 'block',
             backgroundColor: '#000',

@@ -569,6 +569,8 @@ exports.getPostLikes = async (req, res) => {
 // @access  Private
 exports.getVideoUsers = async (req, res) => {
   try {
+    console.log('Getting video users...');
+    
     const videoUsers = await Post.aggregate([
       {
         $match: {
@@ -619,6 +621,7 @@ exports.getVideoUsers = async (req, res) => {
       }
     ]);
 
+    console.log(`Found ${videoUsers.length} video users`);
     res.json({ success: true, users: videoUsers });
   } catch (error) {
     console.error('Error fetching video users:', error);

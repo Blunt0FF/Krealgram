@@ -4,7 +4,6 @@ import { getVideoUrl } from '../../utils/mediaUrlResolver';
 const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
   const videoElements = useRef(new Map());
-  const videoUrls = useRef(new Map()); // Кэш для URL видео
 
   useEffect(() => {
     if (!videos || videos.length === 0) return;
@@ -39,7 +38,7 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
       }
     }
 
-    // Предзагружаем видео с реальной загрузкой
+    // Предзагружаем видео
     videosToPreload.forEach(({ id, url, index, isYouTube }) => {
       try {
         if (isYouTube) {
@@ -61,9 +60,8 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           img.addEventListener('error', handleError);
           img.src = url;
           videoElements.current.set(id, img);
-          videoUrls.current.set(id, url);
 
-          // Очистка через 60 секунд
+          // Очистка через 30 секунд
           setTimeout(() => {
             const img = videoElements.current.get(id);
             if (img) {
@@ -71,18 +69,17 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
               img.removeEventListener('error', handleError);
               img.src = '';
               videoElements.current.delete(id);
-              videoUrls.current.delete(id);
             }
-          }, 60000);
+          }, 30000);
         } else {
-          // Для обычных видео - реальная загрузка
+          // Для обычных видео
           const video = document.createElement('video');
           video.crossOrigin = 'anonymous';
-          video.preload = 'auto'; // Реальная загрузка видео
+          video.preload = 'metadata';
           video.muted = true;
           video.playsInline = true;
           
-          const handleCanPlay = () => {
+          const handleLoadedMetadata = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
             }
@@ -92,27 +89,25 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
             // Убираем логирование ошибок
           };
 
-          video.addEventListener('canplay', handleCanPlay, { once: true });
+          video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
           video.addEventListener('error', handleError);
-          video.addEventListener('loadeddata', handleCanPlay, { once: true });
+          video.addEventListener('canplay', handleLoadedMetadata, { once: true });
 
           video.src = url;
           videoElements.current.set(id, video);
-          videoUrls.current.set(id, url);
 
-          // Очистка через 60 секунд
+          // Очистка через 30 секунд
           setTimeout(() => {
             const video = videoElements.current.get(id);
             if (video) {
-              video.removeEventListener('canplay', handleCanPlay);
+              video.removeEventListener('loadedmetadata', handleLoadedMetadata);
               video.removeEventListener('error', handleError);
-              video.removeEventListener('loadeddata', handleCanPlay);
+              video.removeEventListener('canplay', handleLoadedMetadata);
               video.src = '';
               video.load();
               videoElements.current.delete(id);
-              videoUrls.current.delete(id);
             }
-          }, 60000);
+          }, 30000);
         }
       } catch (error) {
         // Убираем логирование ошибок
@@ -138,7 +133,6 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
         }
         videoElements.current.delete(id);
         preloadedVideos.current.delete(id);
-        videoUrls.current.delete(id);
       }
     });
 
@@ -154,26 +148,8 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
         }
       });
       videoElements.current.clear();
-      videoUrls.current.clear();
     };
   }, [videos, currentIndex]);
-
-  // Экспортируем функции для использования в других компонентах
-  useEffect(() => {
-    // Добавляем глобальные функции для доступа к предзагруженным видео в сторис
-    window.getPreloadedStoriesVideoUrl = (videoId) => {
-      return videoUrls.current.get(videoId);
-    };
-    
-    window.isStoriesVideoPreloaded = (videoId) => {
-      return preloadedVideos.current.has(videoId);
-    };
-
-    return () => {
-      delete window.getPreloadedStoriesVideoUrl;
-      delete window.isStoriesVideoPreloaded;
-    };
-  }, []);
 
   return null; // Компонент не рендерит ничего видимого
 };

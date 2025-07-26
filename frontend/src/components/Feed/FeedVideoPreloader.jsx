@@ -4,7 +4,11 @@ import { getVideoUrl } from '../../utils/mediaUrlResolver';
 const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
   const videoElements = useRef(new Map());
-  const videoUrls = useRef(new Map()); // Кэш для URL видео
+
+  // Функция для определения Safari
+  const isSafari = () => {
+    return navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
+  };
 
   useEffect(() => {
     if (!posts || posts.length === 0) return;
@@ -34,58 +38,57 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
       }
     }
 
-    // Предзагружаем видео с реальной загрузкой
+    // Сортируем по приоритету: сначала ближайшие к текущему индексу
+    videosToPreload.sort((a, b) => {
+      const aDistance = Math.abs(a.index - currentIndex);
+      const bDistance = Math.abs(b.index - currentIndex);
+      return aDistance - bDistance;
+    });
+
+    // Предзагружаем видео с приоритетом
     videosToPreload.forEach(({ id, url, index }) => {
       try {
         const resolvedUrl = getVideoUrl(url);
         
-        console.log(`[PRELOAD] Starting preload for video ${id} (index: ${index})`);
-        
-        // Сохраняем URL в кэше для быстрого доступа
-        videoUrls.current.set(id, resolvedUrl);
-        
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        // Реальная загрузка видео, как в сообщениях
-        video.preload = 'auto';
+        // Менее агрессивная предзагрузка - только для ближайших постов
+        video.preload = index <= currentIndex + 1 ? 'metadata' : 'none';
         video.muted = true;
         video.playsInline = true;
         
-        const handleCanPlay = () => {
+        const handleLoadedMetadata = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
-            console.log(`[PRELOAD] ✅ Video ${id} preloaded successfully`);
           }
         };
 
         const handleError = (e) => {
-          console.error(`[PRELOAD] ❌ Error preloading video ${id}:`, e);
+          // Убираем логирование ошибок предзагрузки, так как они не критичны
         };
 
-        video.addEventListener('canplay', handleCanPlay, { once: true });
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
         video.addEventListener('error', handleError);
-        video.addEventListener('loadeddata', handleCanPlay, { once: true });
+        video.addEventListener('canplay', handleLoadedMetadata, { once: true });
 
         video.src = resolvedUrl;
         videoElements.current.set(id, video);
 
-        // Очистка через 60 секунд (увеличиваем время для реальной загрузки)
+        // Очистка через 30 секунд
         setTimeout(() => {
           const video = videoElements.current.get(id);
           if (video) {
-            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
             video.removeEventListener('error', handleError);
-            video.removeEventListener('loadeddata', handleCanPlay);
+            video.removeEventListener('canplay', handleLoadedMetadata);
             video.src = '';
             video.load();
             videoElements.current.delete(id);
-            videoUrls.current.delete(id);
-            console.log(`[PRELOAD] 🗑️ Cleaned up video ${id}`);
           }
-        }, 60000);
+        }, 30000);
       } catch (error) {
-        console.error(`[PRELOAD] ❌ Error setting up preload for ${id}:`, error);
+        // Убираем логирование ошибок
       }
     });
 
@@ -104,7 +107,6 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         video.load();
         videoElements.current.delete(id);
         preloadedVideos.current.delete(id);
-        videoUrls.current.delete(id);
       }
     });
 
@@ -116,30 +118,8 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         video.load();
       });
       videoElements.current.clear();
-      videoUrls.current.clear();
     };
   }, [posts, currentIndex]);
-
-  // Экспортируем функции для использования в других компонентах
-  useEffect(() => {
-    // Добавляем глобальные функции для доступа к предзагруженным видео
-    window.getPreloadedVideoUrl = (postId) => {
-      const url = videoUrls.current.get(postId);
-      console.log(`[PRELOAD] Getting URL for ${postId}:`, url);
-      return url;
-    };
-    
-    window.isVideoPreloaded = (postId) => {
-      const isPreloaded = preloadedVideos.current.has(postId);
-      console.log(`[PRELOAD] Checking if ${postId} is preloaded:`, isPreloaded);
-      return isPreloaded;
-    };
-
-    return () => {
-      delete window.getPreloadedVideoUrl;
-      delete window.isVideoPreloaded;
-    };
-  }, []);
 
   return null; // Компонент не рендерит ничего видимого
 };
