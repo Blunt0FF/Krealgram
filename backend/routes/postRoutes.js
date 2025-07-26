@@ -19,14 +19,14 @@ const optionalUpload = (req, res, next) => {
         // Обработка ошибок Multer
         if (err.code === 'LIMIT_FILE_SIZE') {
           return res.status(400).json({ 
-            message: 'File too large. Maximum size is 50MB.',
+            message: 'File too large. Maximum size is 100MB.',
             error: err.message 
           });
         }
         
-        if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
+        if (err.message && err.message.includes('Unsupported file type')) {
           return res.status(400).json({ 
-            message: 'Unsupported file type. Please upload images or videos only.', 
+            message: 'Unsupported file type. Please upload images (JPEG, PNG, GIF, WebP, HEIC) or videos (MP4, WebM, MOV) only.', 
             error: err.message 
           });
         }
@@ -36,8 +36,9 @@ const optionalUpload = (req, res, next) => {
           return next();
         }
         
+        console.error('Multer upload error:', err);
         return res.status(400).json({ 
-          message: 'File upload error',
+          message: 'Error processing file. Please try again.',
           error: err.message 
         });
       }
@@ -63,8 +64,6 @@ const optionalUpload = (req, res, next) => {
   }
 };
 
-
-
 // @route   POST api/posts
 // @desc    Создать новый пост
 // @access  Private
@@ -81,12 +80,12 @@ router.post('/',
           console.error('Multer upload error:', err);
           
           // Обработка ошибок Multer
-                  if (err.code === 'LIMIT_FILE_SIZE') {
-          return res.status(400).json({ 
-            message: 'File too large. Maximum size is 50MB.',
-            error: err.message 
-          });
-        }
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ 
+              message: 'File too large. Maximum size is 50MB.',
+              error: err.message 
+            });
+          }
           
           if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
             return res.status(400).json({ 

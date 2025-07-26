@@ -78,42 +78,24 @@ const whitelist = [
   "www.krealgram.com"
 ];
 
-// Настройки CORS - простая рабочая версия от 2 июля
+// Настройки CORS
 const corsOptions = {
   origin: [
-    "http://localhost:4000",
-    "http://127.0.0.1:4000",
-    "https://krealgram.vercel.app",
-    "https://krealgram.com",
-    "https://www.krealgram.com",
-    "https://krealgram-backend.onrender.com"
+    'http://localhost:4000', 
+    'https://localhost:4000', 
+    'https://krealgram.com',
+    'https://www.krealgram.com',
+    'https://krealgram-backend.onrender.com',
+    /\.krealgram\.com$/  // Поддержка поддоменов
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  maxAge: 86400, // 24 часа
-  optionsSuccessStatus: 200 // для поддержки legacy браузеров
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
 
-// Дополнительная обработка preflight OPTIONS запросов
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.status(200).send();
-});
-
-// Логирование всех запросов
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} ${req.method} ${req.url} - Origin: ${req.get('Origin')} - User-Agent: ${req.get('User-Agent')}`);
-  next();
-});
-
-// Увеличиваем лимиты для больших файлов
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -634,22 +616,6 @@ io.on('connection', async (socket) => {
       }
     }
   });
-});
-
-// Обработка необработанных ошибок
-process.on('uncaughtException', (error) => {
-  console.error('[UNCAUGHT_EXCEPTION]', error);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('[UNHANDLED_REJECTION]', reason);
-  process.exit(1);
-});
-
-// Обработка ошибок памяти
-process.on('warning', (warning) => {
-  console.warn('[PROCESS_WARNING]', warning.name, warning.message);
 });
 
 const PORT = process.env.PORT || 3000;

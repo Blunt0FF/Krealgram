@@ -96,9 +96,9 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
       try {
         const sharp = require('sharp');
         thumbnailBuffer = await sharp(fileBuffer)
-          .resize(200, 200, { fit: 'cover', position: 'center' }) // Уменьшаем размер для экономии памяти
+          .resize(300, 300, { fit: 'cover', position: 'center' })
           .jpeg({ 
-            quality: 60, // Более агрессивное сжатие для превью
+            quality: 70, // Более агрессивное сжатие для превью
             progressive: true,
             mozjpeg: true
           })
@@ -303,7 +303,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // Увеличиваем лимит до 50MB
+    fileSize: 100 * 1024 * 1024, // Увеличим лимит до 100MB для больших фото с iPhone
   },
   fileFilter: (req, file, cb) => {
     // Расширяем список поддерживаемых типов для iPhone (HEIC, MOV)
@@ -311,7 +311,6 @@ const upload = multer({
       'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
       'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'
     ];
-    
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -362,30 +361,14 @@ const uploadToGoogleDrive = async (req, res, next) => {
       console.log(`[CONTEXT_DEBUG] Контекст определен как post`);
     }
 
-    // Серверное сжатие изображений
+    // Используем файл как есть (уже сжатый на клиенте)
     let fileBuffer;
-    if (fileMimetype.startsWith('image/') && !fileMimetype.includes('gif')) {
-      console.log('[IMAGE_COMPRESSION] Используем серверное сжатие');
+    if (fileMimetype.startsWith('image/')) {
+      console.log('[IMAGE_COMPRESSION] Используем клиентское сжатие');
       
-      // Читаем исходный файл
-      const originalBuffer = await fsPromises.readFile(tempFilePath);
-      console.log(`[IMAGE_COMPRESSION] Исходный размер: ${originalBuffer.length} байт (${(originalBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
-      
-      try {
-        // Сжимаем на сервере
-        const optimized = await imageCompressorInstance.optimizeForWebFromBuffer(originalBuffer, originalFilename);
-        if (optimized && optimized.buffer) {
-          fileBuffer = optimized.buffer;
-          console.log(`[IMAGE_COMPRESSION] Сжатый размер: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
-        } else {
-          console.log('[IMAGE_COMPRESSION] Сжатие не удалось, используем исходный файл');
-          fileBuffer = originalBuffer;
-        }
-      } catch (compressionError) {
-        console.error('[IMAGE_COMPRESSION] Ошибка сжатия:', compressionError);
-        console.log('[IMAGE_COMPRESSION] Используем исходный файл');
-        fileBuffer = originalBuffer;
-      }
+      // Читаем файл (уже сжатый на клиенте)
+      fileBuffer = await fsPromises.readFile(tempFilePath);
+      console.log(`[IMAGE_COMPRESSION] Размер файла: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
     } else {
       fileBuffer = await fsPromises.readFile(tempFilePath);
     }
@@ -412,11 +395,6 @@ const uploadToGoogleDrive = async (req, res, next) => {
     // Если это видео — всегда используем папку для видео
     if (fileMimetype.startsWith('video/')) {
       folderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID;
-    }
-
-    // Проверяем что fileBuffer существует
-    if (!fileBuffer) {
-      throw new Error('File buffer is undefined after processing');
     }
 
     // Загрузка файла на Google Drive
@@ -493,7 +471,22 @@ const uploadToGoogleDrive = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('[UPLOAD_MIDDLEWARE] Ошибка загрузки:', error);
-    next(error);
+    
+    // Очистка временного файла в случае ошибки
+    if (req.file && req.file.path) {
+      try {
+        await fsPromises.unlink(req.file.path);
+        console.log('[UPLOAD_MIDDLEWARE] Временный файл удален после ошибки');
+      } catch (cleanupError) {
+        console.error('[UPLOAD_MIDDLEWARE] Ошибка удаления временного файла:', cleanupError);
+      }
+    }
+    
+    // Возвращаем понятную ошибку пользователю
+    const errorMessage = error.message || 'Unknown upload error';
+    const userFriendlyError = new Error(`File upload failed: ${errorMessage}`);
+    userFriendlyError.status = 400;
+    next(userFriendlyError);
   }
 };
 

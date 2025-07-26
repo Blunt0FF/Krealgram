@@ -2,6 +2,7 @@ import { processMediaUrl } from './urlUtils';
 import axios from 'axios';
 import { API_URL } from '../config';
 import { getAvatarUrl as resolveAvatarUrl } from './mediaUrlResolver';
+import heic2any from 'heic2any';
 
 const isImageFile = (file) => {
   return file && file.type.startsWith('image/');
@@ -28,7 +29,38 @@ export const compressAvatar = async (file) => {
       throw new Error('Файл не является изображением.');
     }
 
-    console.log('🔧 Starting avatar compression for:', file.name, 'Size:', file.size);
+    console.log('🔧 Starting avatar compression for:', file.name, 'Size:', file.size, 'Type:', file.type);
+
+    // Проверяем, является ли файл HEIC/HEIF
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || 
+                   file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+    
+    let processedFile = file;
+    
+    if (isHeic) {
+      console.log('🔧 HEIC/HEIF file detected, converting to JPEG');
+      try {
+        // Конвертируем HEIC в JPEG
+        const convertedBlob = await heic2any({
+          blob: file,
+          toType: 'image/jpeg',
+          quality: 0.8
+        });
+        
+        processedFile = new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
+          type: 'image/jpeg',
+          lastModified: Date.now()
+        });
+        
+        console.log('🔧 HEIC converted to JPEG for avatar:', {
+          originalSize: file.size,
+          convertedSize: processedFile.size
+        });
+      } catch (conversionError) {
+        console.warn('⚠️ HEIC conversion failed for avatar, using original file:', conversionError);
+        processedFile = file;
+      }
+    }
 
     return new Promise((resolve, reject) => {
       const canvas = document.createElement('canvas');
@@ -64,7 +96,7 @@ export const compressAvatar = async (file) => {
         // Конвертируем в blob с качеством 65% для достижения 3-3.4MB
         canvas.toBlob((blob) => {
           if (blob) {
-            const compressedFile = new File([blob], file.name, {
+            const compressedFile = new File([blob], processedFile.name, {
               type: 'image/jpeg',
               lastModified: Date.now()
             });
@@ -83,7 +115,7 @@ export const compressAvatar = async (file) => {
       };
       
       img.onerror = () => reject(new Error('Failed to load avatar image'));
-      img.src = URL.createObjectURL(file);
+      img.src = URL.createObjectURL(processedFile);
     });
   } catch (error) {
     console.error('Ошибка сжатия аватара:', error);

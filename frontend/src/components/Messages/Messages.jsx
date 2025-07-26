@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
+import heic2any from 'heic2any';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
 import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
 import { getImageUrl } from '../../utils/imageUtils';
@@ -15,112 +16,105 @@ import { API_URL } from '../../config';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import axios from 'axios';
 
-// Функция для сжатия изображений (такая же как в CreatePost)
+// Функция для сжатия изображений (упрощенная версия как в CreatePost)
 const compressImage = async (file) => {
+  console.log('🔧 Starting compression for:', file.name, 'Size:', file.size, 'Type:', file.type);
+  
+  // Проверяем, является ли файл HEIC/HEIF
+  const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || 
+                 file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
+  
+  if (isHeic) {
+    console.log('🔧 HEIC/HEIF file detected, converting to JPEG');
+    try {
+      // Конвертируем HEIC в JPEG
+      const convertedBlob = await heic2any({
+        blob: file,
+        toType: 'image/jpeg',
+        quality: 0.8
+      });
+      
+      const convertedFile = new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
+        type: 'image/jpeg',
+        lastModified: Date.now()
+      });
+      
+      console.log('🔧 HEIC converted to JPEG:', {
+        originalSize: file.size,
+        convertedSize: convertedFile.size
+      });
+      
+      return convertedFile;
+    } catch (conversionError) {
+      console.warn('⚠️ HEIC conversion failed, using original file:', conversionError);
+      return file;
+    }
+  }
+  
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
     
-    // Устанавливаем crossOrigin для избежания проблем с CORS
-    img.crossOrigin = 'anonymous';
-    
     img.onload = () => {
-      try {
-        // Проверяем, что изображение имеет валидные размеры
-        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-          reject(new Error('Invalid image dimensions'));
-          return;
-        }
-
-        // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
-        const maxWidth = img.naturalWidth;
-        const maxHeight = img.naturalHeight;
-        let { width, height } = img;
-
-        if (width > height) {
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        // Очищаем canvas перед рисованием
-        ctx.clearRect(0, 0, width, height);
-        
-        // Рисуем изображение на canvas с правильной ориентацией
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Пробуем разные форматы и качества
-        const tryToBlob = (format, quality) => {
-          return new Promise((resolveBlob, rejectBlob) => {
-            canvas.toBlob((blob) => {
-              if (blob && blob.size > 0) {
-                resolveBlob(blob);
-              } else {
-                rejectBlob(new Error(`Failed to create blob with format ${format} and quality ${quality}`));
-              }
-            }, format, quality);
-          });
-        };
-
-        // Пробуем разные варианты
-        tryToBlob('image/jpeg', 0.8)
-          .then(blob => {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          })
-          .catch(() => {
-            // Если JPEG не работает, пробуем PNG
-            return tryToBlob('image/png', 0.8);
-          })
-          .then(blob => {
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.png'), {
-              type: 'image/png',
-              lastModified: Date.now()
-            });
-            resolve(compressedFile);
-          })
-          .catch((error) => {
-            reject(new Error('Failed to process image. Please try a different photo.'));
-          });
-
-      } catch (error) {
-        reject(new Error(`Image processing failed: ${error.message}`));
+      // Проверяем, что изображение загрузилось корректно
+      if (img.width === 0 || img.height === 0) {
+        console.warn('⚠️ Image has zero dimensions, using original file');
+        resolve(file);
+        return;
       }
+      
+      // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
+      const maxWidth = img.width; // Оригинальный размер
+      const maxHeight = img.height; // Оригинальный размер
+      let { width, height } = img;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      console.log('🔧 Canvas dimensions:', width, 'x', height);
+
+      // Рисуем изображение на canvas с правильной ориентацией
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Конвертируем в blob
+      canvas.toBlob((blob) => {
+        if (blob && blob.size > 0) {
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+          console.log('🔧 Compression result:', {
+            originalSize: file.size,
+            compressedSize: compressedFile.size,
+            compressionRatio: (compressedFile.size / file.size * 100).toFixed(1) + '%'
+          });
+          resolve(compressedFile);
+        } else {
+          console.warn('⚠️ Blob creation failed, using original file');
+          resolve(file);
+        }
+      }, 'image/jpeg', 0.8); // Качество 80% для достижения 3.4MB
     };
     
     img.onerror = (error) => {
-      reject(new Error('Failed to load image. Please try a different photo.'));
+      console.warn('⚠️ Image loading failed, using original file:', error);
+      resolve(file);
     };
     
-    // Добавляем обработку ошибок для URL.createObjectURL
-    try {
-      const objectUrl = URL.createObjectURL(file);
-      img.src = objectUrl;
-      
-      // Очищаем URL после загрузки
-      const originalOnLoad = img.onload;
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        if (originalOnLoad) {
-          originalOnLoad.call(img);
-        }
-      };
-    } catch (error) {
-      reject(new Error('Failed to create object URL for image.'));
-    }
+    img.src = URL.createObjectURL(file);
   });
 };
 
@@ -559,14 +553,21 @@ const Messages = ({ currentUser }) => {
         
         // Сжимаем только изображения, видео оставляем как есть
         if (file.type.startsWith('image/')) {
-          processedFile = await compressImage(file);
+          try {
+            processedFile = await compressImage(file);
+            console.log('✅ Image compressed successfully');
+          } catch (compressionError) {
+            console.warn('⚠️ Compression failed, using original file:', compressionError.message);
+            // В случае ошибки сжатия используем оригинальный файл
+            processedFile = file;
+          }
         }
         
         setImageToSend(processedFile);
         setImagePreview(URL.createObjectURL(processedFile));
       } catch (error) {
-        console.error('Error processing image:', error);
-        // В случае ошибки используем оригинальный файл
+        console.error('❌ Error processing file:', error);
+        // В случае любой ошибки используем оригинальный файл
         setImageToSend(file);
         setImagePreview(URL.createObjectURL(file));
       }

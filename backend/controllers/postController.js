@@ -18,7 +18,6 @@ console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downlo
 // @access  Private
 exports.createPost = async (req, res) => {
   try {
-
     const { caption, videoUrl, videoData, image, youtubeData: incomingYoutubeData } = req.body;
     
     if (!req.user || !req.user.id) {
@@ -120,8 +119,6 @@ exports.createPost = async (req, res) => {
       populatedPost.bytes = req.uploadResult.bytes;
     }
 
-    // Пост создан успешно
-    
     res.status(201).json(populatedPost);
 
   } catch (error) {
