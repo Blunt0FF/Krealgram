@@ -22,7 +22,7 @@ class ImageCompressor {
     this.MAX_FILE_SIZE = 4 * 1024 * 1024;
     
     // Максимальная ширина/высота изображения
-    this.MAX_DIMENSION = 1600;
+    this.MAX_DIMENSION = 2048;
   }
 
   /**
@@ -74,16 +74,16 @@ class ImageCompressor {
       switch (outputFormat) {
         case 'jpg':
         case 'jpeg':
-          pipeline.jpeg({ quality: 70, progressive: true, mozjpeg: true });
+          pipeline.jpeg({ quality: 80, progressive: true, mozjpeg: true });
           break;
         case 'png':
-          pipeline.png({ compressionLevel: 9, quality: 70, effort: 8 });
+          pipeline.png({ compressionLevel: 9, quality: 80, effort: 8 });
           break;
         case 'webp':
-          pipeline.webp({ quality: 70, effort: 6 });
+          pipeline.webp({ quality: 80, effort: 6 });
           break;
         default:
-          pipeline.jpeg({ quality: 70, progressive: true, mozjpeg: true });
+          pipeline.jpeg({ quality: 80, progressive: true, mozjpeg: true });
           outputFormat = 'jpg';
           break;
       }

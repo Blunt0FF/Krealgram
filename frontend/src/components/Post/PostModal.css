@@ -564,9 +564,9 @@
 
   .post-modal-content {
     width: 100vw;
-    height: 100vh; /* Занимает всю высоту видимого экрана */
+    height: calc(100vh - 10px); /* Уменьшаем на 10px для устранения скролла */
     max-width: 100vw;
-    max-height: 100vh;
+    max-height: calc(100vh - 10px);
     border-radius: 0;
     flex-direction: column;
     box-sizing: border-box;
@@ -670,16 +670,16 @@
 
   .post-modal-content {
     width: 100vw;
-    height: calc(110vh - 60px); /* Учитываем мобильную навигацию */
+    height: calc(110vh - 70px); /* Уменьшаем на 10px для устранения скролла */
     max-width: 100vw;
-    max-height: calc(110vh - 60px);
+    max-height: calc(110vh - 70px);
     border-radius: 0;
     flex-direction: column;
     box-sizing: border-box;
 
     @supports (height: 1dvh) {
-      height: calc(110dvh - 60px);
-      max-height: calc(110dvh - 60px);
+      height: calc(110dvh - 70px);
+      max-height: calc(110dvh - 70px);
     }
   }
 
