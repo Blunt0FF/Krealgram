@@ -1,26 +1,35 @@
-const fs = require('fs').promises;
-const fsSync = require('fs'); // Добавляем синхронный fs для createReadStream
-const path = require('path');
 const sharp = require('sharp');
-const stream = require('stream');
-const util = require('util');
+const path = require('path');
+const fs = require('fs').promises;
+const ffmpeg = require('fluent-ffmpeg');
 
-const pipeline = util.promisify(stream.pipeline);
+// Убедимся, что временные директории существуют
+const TEMP_DIR = path.resolve(process.cwd(), 'backend/temp');
+const TEMP_INPUT_DIR = path.join(TEMP_DIR, 'input');
+const TEMP_OUTPUT_DIR = path.join(TEMP_DIR, 'output');
+
+const ensureTempDirs = async () => {
+  await fs.mkdir(TEMP_INPUT_DIR, { recursive: true });
+  await fs.mkdir(TEMP_OUTPUT_DIR, { recursive: true });
+};
+
+// Вызовем функцию при инициализации модуля
+ensureTempDirs();
 
 class ImageCompressor {
   constructor() {
     // Максимальный размер изображения в байтах (4 МБ)
     this.MAX_FILE_SIZE = 4 * 1024 * 1024;
     
-    // Максимальная ширина/высота изображения (уменьшаем для быстрого сжатия)
+    // Максимальная ширина/высота изображения
     this.MAX_DIMENSION = 1600;
   }
 
   /**
-   * Потоковое сжатие изображения с минимальным использованием памяти
+   * Сжимает изображение из файла без потери качества
    * @param {string} inputPath - путь к исходному файлу
    * @param {string} originalName - оригинальное имя файла
-   * @returns {Promise<string>} путь к сжатому файлу
+   * @returns {Promise<{buffer: Buffer, info: Object}>}
    */
   async compressImage(inputPath, originalName) {
     try {
@@ -34,108 +43,131 @@ class ImageCompressor {
       // Если файл меньше MAX_FILE_SIZE, возвращаем его без изменений
       if (stats.size <= this.MAX_FILE_SIZE) {
         console.log(`[IMAGE_COMPRESSOR] Файл ${originalName} не требует сжатия (${fileSizeMB} МБ <= ${(this.MAX_FILE_SIZE / 1024 / 1024).toFixed(2)} МБ)`);
-        return inputPath;
+        const buffer = await fs.readFile(inputPath);
+        return {
+          buffer: buffer,
+          info: {
+            size: stats.size,
+            filename: originalName
+          }
+        };
       }
 
       console.log(`[IMAGE_COMPRESSOR] Начинаем сжатие файла ${originalName} (${fileSizeMB} МБ)`);
 
-      // Создаем директорию для сжатых файлов
-      const outputDir = path.join(path.dirname(inputPath), 'compressed');
-      await fs.mkdir(outputDir, { recursive: true });
+      const tempOutputPath = path.join(TEMP_OUTPUT_DIR, `compressed-${Date.now()}-${originalName}`);
       
-      const outputPath = path.join(outputDir, `compressed_${originalName}`);
+      const ext = path.extname(originalName).toLowerCase();
+      const filename = path.basename(originalName, ext);
+      
+      const pipeline = sharp(inputPath, { failOnError: false }).rotate(); // failOnError: false для обработки некорректных изображений
 
-      // Создаем потоки для чтения и записи
-      const readStream = fsSync.createReadStream(inputPath);
-      const writeStream = fs.createWriteStream(outputPath);
+      let outputFormat = ext.substring(1);
 
-      // Создаем поток сжатия с sharp
-      const compressStream = sharp()
-        .rotate() // Автоматически поворачивает изображение согласно EXIF
-        .resize({
-          width: this.MAX_DIMENSION,
-          height: this.MAX_DIMENSION,
-          fit: 'inside',
-          withoutEnlargement: true
-        })
-        .jpeg({ 
-          quality: 85, 
-          mozjpeg: true 
-        });
+      switch (outputFormat) {
+        case 'jpg':
+        case 'jpeg':
+          pipeline.jpeg({ quality: 85, progressive: true, mozjpeg: true });
+          break;
+        case 'png':
+          pipeline.png({ compressionLevel: 9, quality: 85, effort: 8 });
+          break;
+        case 'webp':
+          pipeline.webp({ quality: 85, effort: 6 });
+          break;
+        default:
+          pipeline.jpeg({ quality: 85, progressive: true, mozjpeg: true });
+          outputFormat = 'jpg';
+          break;
+      }
 
-      // Объединяем потоки
-      await pipeline(
-        readStream,
-        compressStream,
-        writeStream
-      );
+      const info = await pipeline.toFile(tempOutputPath);
+      const outputBuffer = await fs.readFile(tempOutputPath);
 
       // Проверяем размер сжатого файла
-      const compressedStats = await fs.stat(outputPath);
-      const compressedSizeMB = (compressedStats.size / 1024 / 1024).toFixed(2);
-      const compressionRatio = ((1 - compressedStats.size / stats.size) * 100).toFixed(1);
+      const compressedSizeMB = (outputBuffer.length / 1024 / 1024).toFixed(2);
+      const compressionRatio = ((1 - outputBuffer.length / stats.size) * 100).toFixed(1);
 
       console.log(`[IMAGE_COMPRESSOR] ✅ Сжатие завершено:`);
       console.log(`[IMAGE_COMPRESSOR]   Оригинал: ${fileSizeMB} МБ`);
       console.log(`[IMAGE_COMPRESSOR]   Сжатый: ${compressedSizeMB} МБ`);
       console.log(`[IMAGE_COMPRESSOR]   Степень сжатия: ${compressionRatio}%`);
 
-      return outputPath;
+      // Очистка временного файла
+      await fs.unlink(tempOutputPath).catch(err => console.error(`Failed to clean up temp file: ${tempOutputPath}`, err));
+
+      return {
+        buffer: outputBuffer,
+        info: {
+          ...info,
+          filename: `${filename}.${outputFormat}`
+        }
+      };
     } catch (error) {
       console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка сжатия ${originalName}:`, error);
-      return inputPath; // В случае ошибки возвращаем оригинальный файл
+      // В случае ошибки возвращаем оригинальный файл
+      const buffer = await fs.readFile(inputPath);
+      return {
+        buffer: buffer,
+        info: {
+          size: buffer.length,
+          filename: originalName
+        }
+      };
     }
   }
 
   /**
-   * Очистка временных файлов
+   * Создает превью для изображения из файла
    * @param {string} inputPath - путь к исходному файлу
-   */
-  async cleanupTempFiles(inputPath) {
-    try {
-      const compressedDir = path.join(path.dirname(inputPath), 'compressed');
-      
-      // Проверяем, существует ли директория
-      try {
-        await fs.access(compressedDir);
-      } catch (error) {
-        // Директория не существует, ничего не делаем
-        return;
-      }
-      
-      const files = await fs.readdir(compressedDir);
-      
-      for (const file of files) {
-        const filePath = path.join(compressedDir, file);
-        await fs.unlink(filePath);
-      }
-      
-      await fs.rmdir(compressedDir);
-    } catch (error) {
-      console.warn('[IMAGE_COMPRESSOR] Ошибка очистки временных файлов:', error);
-    }
-  }
-
-  /**
-   * Создание превью для изображения
-   * @param {string} inputPath - путь к исходному файлу
-   * @returns {Promise<Buffer>} буфер превью
+   * @returns {Promise<Buffer>}
    */
   async createThumbnail(inputPath) {
     try {
-      return await sharp(inputPath)
-        .rotate() // Автоматически поворачивает изображение согласно EXIF
-        .resize(300, 300, { 
-          fit: 'cover', 
-          position: 'center' 
-        })
-        .webp({ quality: 80 })
+      console.log(`[IMAGE_COMPRESSOR] Создаем превью 300x300`);
+      
+      return await sharp(inputPath, { failOnError: false })
+        .rotate()
+        .resize(300, 300, { fit: 'cover', position: 'center' })
+        .webp({ quality: 75 })
         .toBuffer();
+        
     } catch (error) {
-      console.error('[IMAGE_COMPRESSOR] Ошибка создания превью:', error);
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка создания превью:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Оптимизирует изображение для веба, работая с файловыми путями
+   * @param {string} inputPath - путь к исходному файлу
+   * @param {string} originalName - оригинальное имя файла
+   * @returns {Promise<Object>}
+   */
+  async optimizeForWeb(inputPath, originalName) {
+    try {
+      const compressed = await this.compressImage(inputPath, originalName);
+      const thumbnailBuffer = await this.createThumbnail(inputPath);
+      
+      return {
+        original: compressed,
+        thumbnail: {
+          buffer: thumbnailBuffer,
+          filename: `thumb_${compressed.info.filename.replace(/\.[^/.]+$/, '.webp')}`
+        }
+      };
+    } catch (error) {
+      console.error(`[IMAGE_COMPRESSOR] ❌ Ошибка оптимизации для веба:`, error);
       throw error;
     }
   }
 }
 
-module.exports = { ImageCompressor }; 
+const imageCompressor = new ImageCompressor();
+
+module.exports = {
+  ImageCompressor,
+  imageCompressor,
+  optimizeForWeb: imageCompressor.optimizeForWeb.bind(imageCompressor),
+  TEMP_INPUT_DIR, // Экспортируем для использования в middleware
+}; 

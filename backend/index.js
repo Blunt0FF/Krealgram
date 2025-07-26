@@ -652,17 +652,6 @@ const startServer = () => {
   return httpServer;
 };
 
-const server = startServer();
-
-// Мониторинг памяти (только в development)
-if (process.env.NODE_ENV !== 'production') {
-  // Запускаем мониторинг памяти каждые 15 минут (вместо 5)
-  setInterval(monitorMemory, 15 * 60 * 1000);
-  
-  // Первый запуск сразу после старта
-  monitorMemory();
-}
-
 // Мониторинг памяти
 const monitorMemory = () => {
   const memoryUsage = process.memoryUsage();
@@ -692,3 +681,14 @@ const monitorMemory = () => {
     }
   }
 };
+
+const server = startServer();
+
+// Мониторинг памяти (только в development)
+if (process.env.NODE_ENV !== 'production') {
+  // Запускаем мониторинг памяти каждые 15 минут (вместо 5)
+  setInterval(monitorMemory, 15 * 60 * 1000);
+  
+  // Первый запуск сразу после старта
+  monitorMemory();
+}
