@@ -72,11 +72,23 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
     const isPreloaded = window.isVideoPreloaded?.(post._id);
     
     if (isPreloaded && preloadedUrl) {
-      // Используем предзагруженное видео
+      // Используем предзагруженное видео - воспроизводим сразу
       setShowVideo(true);
       setVideoLoaded(true);
+      
+      // Автоматически запускаем воспроизведение через небольшую задержку
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(err => {
+            console.error('Video play error:', err);
+            setShowVideo(false);
+            setIsVideoPlaying(false);
+          });
+          setIsVideoPlaying(true);
+        }
+      }, 100);
     } else {
-      // Обычное воспроизведение
+      // Обычное воспроизведение - показываем видео с контролами
       setShowVideo(true);
       setVideoLoaded(false);
     }
@@ -162,7 +174,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             display: 'block',
             pointerEvents: 'auto'
           }}
-          controls
+          controls={!window.isVideoPreloaded?.(post._id)} // Убираем контролы для предзагруженных видео
           playsInline
           webkit-playsinline="true"
           x5-playsinline="true"
@@ -171,6 +183,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-orientation="portrait"
           preload="auto" // Используем реальную загрузку видео
           muted={false} // Звук всегда включен
+          poster={window.isVideoPreloaded?.(post._id) ? thumbnailUrl : undefined} // Используем превью как poster для предзагруженных видео
           onPlay={() => {
             setIsVideoPlaying(true);
             videoManager.setCurrentVideo(videoRef.current);
@@ -190,7 +203,15 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
             setShowVideo(false);
             setIsVideoPlaying(false);
           }}
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            // Если видео предзагружено и воспроизводится, останавливаем его
+            if (window.isVideoPreloaded?.(post._id) && isVideoPlaying) {
+              videoRef.current?.pause();
+              setIsVideoPlaying(false);
+              setShowVideo(false);
+            }
+          }}
         />
       )}
 

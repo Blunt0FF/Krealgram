@@ -39,6 +39,8 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
       try {
         const resolvedUrl = getVideoUrl(url);
         
+        console.log(`[PRELOAD] Starting preload for video ${id} (index: ${index})`);
+        
         // Сохраняем URL в кэше для быстрого доступа
         videoUrls.current.set(id, resolvedUrl);
         
@@ -53,11 +55,12 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         const handleCanPlay = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
+            console.log(`[PRELOAD] ✅ Video ${id} preloaded successfully`);
           }
         };
 
         const handleError = (e) => {
-          // Убираем логирование ошибок предзагрузки
+          console.error(`[PRELOAD] ❌ Error preloading video ${id}:`, e);
         };
 
         video.addEventListener('canplay', handleCanPlay, { once: true });
@@ -78,10 +81,11 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
             video.load();
             videoElements.current.delete(id);
             videoUrls.current.delete(id);
+            console.log(`[PRELOAD] 🗑️ Cleaned up video ${id}`);
           }
         }, 60000);
       } catch (error) {
-        // Убираем логирование ошибок
+        console.error(`[PRELOAD] ❌ Error setting up preload for ${id}:`, error);
       }
     });
 
@@ -120,11 +124,15 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
   useEffect(() => {
     // Добавляем глобальные функции для доступа к предзагруженным видео
     window.getPreloadedVideoUrl = (postId) => {
-      return videoUrls.current.get(postId);
+      const url = videoUrls.current.get(postId);
+      console.log(`[PRELOAD] Getting URL for ${postId}:`, url);
+      return url;
     };
     
     window.isVideoPreloaded = (postId) => {
-      return preloadedVideos.current.has(postId);
+      const isPreloaded = preloadedVideos.current.has(postId);
+      console.log(`[PRELOAD] Checking if ${postId} is preloaded:`, isPreloaded);
+      return isPreloaded;
     };
 
     return () => {
