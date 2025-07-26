@@ -43,8 +43,8 @@ googleDrive.initialize().then(() => {
 });
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
   cors: {
     origin: [
       "http://localhost:4000",
@@ -176,6 +176,26 @@ app.use('/api/search', searchRoutes);
 app.use('/api/likes', likeRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/notifications', notificationRoutes);
+
+// Health check route
+app.get('/health', (req, res) => {
+  const memoryUsage = process.memoryUsage();
+  const formatMemory = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+
+  res.status(200).json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    memoryUsage: {
+      rss: formatMemory(memoryUsage.rss),
+      heapTotal: formatMemory(memoryUsage.heapTotal),
+      heapUsed: formatMemory(memoryUsage.heapUsed),
+      external: formatMemory(memoryUsage.external),
+      arrayBuffers: formatMemory(memoryUsage.arrayBuffers)
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.use('/api/admin', adminRoutes);
 
 // Обработка OPTIONS запросов для прокси
@@ -620,8 +640,73 @@ io.on('connection', async (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
-  console.log(`[SERVER] 🚀 Server running on port ${PORT}`);
-  startUserStatusUpdater();
-  resetAllUsersToOffline();
-});
+// Запуск сервера с обработкой ошибок
+const startServer = () => {
+  const httpServer = app.listen(PORT, () => {
+    console.log(`[SERVER] 🚀 Server running on port ${PORT}`);
+    startUserStatusUpdater();
+    resetAllUsersToOffline();
+  });
+
+  httpServer.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`[SERVER] ❌ Port ${PORT} is already in use`);
+      console.log('[SERVER] 🔄 Trying to kill existing process...');
+      
+      // Пытаемся найти и убить процесс на порту 3000
+      const { exec } = require('child_process');
+      exec(`lsof -ti:${PORT} | xargs kill -9`, (err) => {
+        if (err) {
+          console.error('[SERVER] ❌ Failed to kill existing process:', err);
+          process.exit(1);
+        } else {
+          console.log('[SERVER] ✅ Existing process killed, restarting...');
+          setTimeout(startServer, 1000);
+        }
+      });
+    } else {
+      console.error('[SERVER] ❌ Server error:', error);
+      process.exit(1);
+    }
+  });
+
+  return httpServer;
+};
+
+const server = startServer();
+
+// Мониторинг памяти
+const monitorMemory = () => {
+  const memoryUsage = process.memoryUsage();
+  const formatMemory = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+
+  console.log('[MEMORY_MONITOR] Memory Usage:', {
+    rss: formatMemory(memoryUsage.rss),
+    heapTotal: formatMemory(memoryUsage.heapTotal),
+    heapUsed: formatMemory(memoryUsage.heapUsed),
+    external: formatMemory(memoryUsage.external),
+    arrayBuffers: formatMemory(memoryUsage.arrayBuffers)
+  });
+
+  // Если используется более 80% памяти, логируем предупреждение
+  const memoryThreshold = 0.8;
+  const totalMemory = require('os').totalmem();
+  const usedMemory = memoryUsage.rss;
+  const memoryUsagePercentage = usedMemory / totalMemory;
+
+  if (memoryUsagePercentage > memoryThreshold) {
+    console.warn(`[MEMORY_ALERT] High memory usage: ${(memoryUsagePercentage * 100).toFixed(2)}%`);
+    
+    // Принудительный запуск сборщика мусора
+    if (global.gc) {
+      console.log('[MEMORY_MONITOR] Forcing garbage collection');
+      global.gc();
+    }
+  }
+};
+
+// Запускаем мониторинг памяти каждые 5 минут
+setInterval(monitorMemory, 5 * 60 * 1000);
+
+// Первый запуск сразу после старта
+monitorMemory();

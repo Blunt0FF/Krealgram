@@ -2,11 +2,35 @@ services:
   - type: web
     name: krealgram-backend
     env: node
-    plan: free
     region: frankfurt
-    buildCommand: "cd backend && npm install"
-    startCommand: "cd backend && node index.js"
+    plan: starter
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
     envVars:
-      - fromGroup: Krealgram
-      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: false
+      - key: NODE_OPTIONS
+        value: "--max_old_space_size=460"
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+    healthCheckPath: /health
+    autoDeploy: false
+    disk:
+      name: backend-storage
+      mountPath: /opt/render/project/backend/storage
+      sizeGB: 10
+
+  - type: web
+    name: krealgram-frontend
+    env: static
+    region: frankfurt
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://krealgram-backend.onrender.com
+    autoDeploy: false
