@@ -670,9 +670,9 @@
 
   .post-modal-content {
     width: 100vw;
-    height: calc(95vh - 60px); /* Уменьшаем высоту для устранения скролла */
+    height: calc(100vh - 60px); /* Уменьшаем высоту для устранения скролла */
     max-width: 100vw;
-    max-height: calc(95vh - 60px);
+    max-height: calc(100vh - 60px);
     border-radius: 0;
     flex-direction: column;
     box-sizing: border-box;
