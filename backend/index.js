@@ -78,87 +78,38 @@ const whitelist = [
   "www.krealgram.com"
 ];
 
-// Настройки CORS
+// Настройки CORS - простая рабочая версия от 2 июля
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Разрешаем запросы без origin (например, мобильные приложения)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'http://localhost:4000', 
-      'https://localhost:4000',
-      'http://localhost:3000',
-      'https://localhost:3000',
-      'https://krealgram.com',
-      'http://krealgram.com',
-      'https://www.krealgram.com',
-      'http://www.krealgram.com',
-      'https://krealgram.vercel.app',
-      'http://krealgram.vercel.app',
-      'https://krealgram-backend.onrender.com'
-    ];
-    
-    // Проверяем точное совпадение
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // Проверяем поддомены krealgram.com
-    if (origin && origin.match(/^https?:\/\/(.*\.)?krealgram\.com$/)) {
-      return callback(null, true);
-    }
-    
-    console.log('[CORS] Blocked origin:', origin);
-    return callback(new Error('Not allowed by CORS'), false);
-  },
+  origin: [
+    "http://localhost:4000",
+    "http://127.0.0.1:4000",
+    "https://krealgram.vercel.app",
+    "https://krealgram.com",
+    "https://www.krealgram.com",
+    "https://krealgram-backend.onrender.com"
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
   credentials: true,
-  optionsSuccessStatus: 200,
-  preflightContinue: false
+  maxAge: 86400, // 24 часа
+  optionsSuccessStatus: 200 // для поддержки legacy браузеров
 };
 
 app.use(cors(corsOptions));
 
-// Дополнительная обработка CORS preflight запросов
-app.options('*', cors(corsOptions));
-
-// Middleware для логирования CORS запросов
-app.use((req, res, next) => {
-  console.log(`[CORS_DEBUG] ${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
-  
-  // Разрешаем ВСЕ запросы, включая без Origin (мобильные приложения)
-  const origin = req.headers.origin;
-  const allowedOrigins = [
-    'https://krealgram.com',
-    'http://krealgram.com',
-    'https://www.krealgram.com',
-    'http://www.krealgram.com',
-    'https://krealgram.vercel.app',
-    'http://krealgram.vercel.app',
-    'http://localhost:4000',
-    'https://localhost:4000'
-  ];
-  
-  // Если есть origin и он в списке разрешенных - используем его
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    // Для всех остальных (включая No origin) разрешаем все
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, User-Agent');
+// Дополнительная обработка preflight OPTIONS запросов
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.get('Origin') || '*');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
-  
-  // Обработка preflight запросов
-  if (req.method === 'OPTIONS' || req.method === 'HEAD') {
-    res.status(200).end();
-    return;
-  }
-  
+  res.status(200).send();
+});
+
+// Логирование всех запросов
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url} - Origin: ${req.get('Origin')} - User-Agent: ${req.get('User-Agent')}`);
   next();
 });
 

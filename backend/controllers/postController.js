@@ -127,19 +127,6 @@ exports.createPost = async (req, res) => {
   } catch (error) {
     console.error('Error creating post:', error);
     
-    // Логируем дополнительную информацию для мобильных устройств
-    console.error('[POST_CREATION_ERROR]', {
-      error: error.message,
-      stack: error.stack,
-      userAgent: req.headers['user-agent'],
-      origin: req.headers.origin,
-      file: req.file ? {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      } : 'No file'
-    });
-    
     // Очистка файлов в случае ошибки
     if (req.file && req.file.path) {
       try {
