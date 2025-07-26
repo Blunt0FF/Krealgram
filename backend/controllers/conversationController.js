@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('../utils/mediaHelper');
 const googleDrive = require('../config/googleDrive');
 const Post = require('../models/postModel'); // Добавляем импорт Post
+const { getMediaUrl } = require('../utils/urlUtils');
 // Удаляем импорт onlineUsers и io
 // const { onlineUsers, io } = require('../index');
 
@@ -341,8 +342,15 @@ exports.sendMessage = async (req, res) => {
 
   } catch (error) {
     console.error('Error sending message:', error);
-    await session.abortTransaction();
-    session.endSession();
+    try {
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
+    } catch (abortError) {
+      console.error('Error aborting transaction:', abortError);
+    } finally {
+      session.endSession();
+    }
     res.status(500).json({ message: 'Server error while sending message.', error: error.message });
   }
 };
@@ -427,8 +435,15 @@ exports.deleteMessage = async (req, res) => {
 
   } catch (error) {
     console.error('Error deleting message:', error);
-    await session.abortTransaction();
-    session.endSession();
+    try {
+      if (session.inTransaction()) {
+        await session.abortTransaction();
+      }
+    } catch (abortError) {
+      console.error('Error aborting transaction:', abortError);
+    } finally {
+      session.endSession();
+    }
     res.status(500).json({ message: 'Server error while deleting message.', error: error.message });
   }
 };

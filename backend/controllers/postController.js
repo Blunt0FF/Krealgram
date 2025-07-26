@@ -11,6 +11,8 @@ const googleDrive = require('../config/googleDrive');
 const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerator');
 const GoogleDriveFileManager = require('../utils/googleDriveFileManager');
 
+console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
+
 // @desc    Create a new post
 // @route   POST /api/posts
 // @access  Private
@@ -23,27 +25,6 @@ exports.createPost = async (req, res) => {
         message: 'Unauthorized: User not authenticated',
         error: 'User ID is missing'
       });
-    }
-
-    // Дополнительная валидация файла
-    if (req.file) {
-      // Проверяем, что файл действительно существует
-      try {
-        const fs = require('fs');
-        if (!fs.existsSync(req.file.path)) {
-          console.error('[POST_CONTROLLER] File does not exist:', req.file.path);
-          return res.status(400).json({ 
-            message: 'Uploaded file is corrupted or missing. Please try again.',
-            error: 'File not found on server'
-          });
-        }
-      } catch (fileError) {
-        console.error('[POST_CONTROLLER] File validation error:', fileError);
-        return res.status(400).json({ 
-          message: 'Error validating uploaded file. Please try again.',
-          error: fileError.message
-        });
-      }
     }
 
     const authorId = req.user.id;
@@ -428,7 +409,8 @@ exports.deletePost = async (req, res) => {
         
         if (thumbnailFileId) {
           fileIds.push(thumbnailFileId);
-        }
+          console.log(`[POST_DELETE] Добавлен ID превью: ${thumbnailFileId}`);
+      }
       } catch (error) {
         console.error(`[POST_DELETE] Ошибка извлечения ID превью: ${error.message}`);
       }
@@ -436,6 +418,8 @@ exports.deletePost = async (req, res) => {
 
     // Удаляем файлы из Google Drive
     const deleteResults = await GoogleDriveFileManager.deleteFiles(fileIds.filter(Boolean));
+
+    console.log('[POST_DELETE] Результаты удаления файлов:', deleteResults);
 
     // Удаляем пост из базы данных
     await Post.findByIdAndDelete(postId);
@@ -585,6 +569,8 @@ exports.getPostLikes = async (req, res) => {
 // @access  Private
 exports.getVideoUsers = async (req, res) => {
   try {
+    console.log('Getting video users...');
+    
     const videoUsers = await Post.aggregate([
       {
         $match: {
@@ -635,6 +621,7 @@ exports.getVideoUsers = async (req, res) => {
       }
     ]);
 
+    console.log(`Found ${videoUsers.length} video users`);
     res.json({ success: true, users: videoUsers });
   } catch (error) {
     console.error('Error fetching video users:', error);
@@ -690,6 +677,16 @@ exports.getUserVideos = async (req, res) => {
         }
       }
       
+      console.log('📹 Video data:', {
+        id: videoObj._id,
+        mediaType: videoObj.mediaType,
+        image: videoObj.image,
+        imageUrl: videoObj.imageUrl,
+        videoUrl: videoObj.videoUrl,
+        mobileThumbnailUrl: videoObj.mobileThumbnailUrl,
+        youtubeData: videoObj.youtubeData,
+      });
+      
       return {
         ...videoObj,
         likesCount: video.likes ? video.likes.length : 0,
@@ -712,6 +709,9 @@ exports.getUserVideos = async (req, res) => {
 // @access  Private
 exports.testVideoUsers = async (req, res) => {
   try {
+    console.log('Test video users endpoint called');
+    console.log('User from middleware:', req.user);
+    
     // Простой тест - найти все посты с видео
     const videoPosts = await Post.find({
       $or: [
@@ -720,6 +720,8 @@ exports.testVideoUsers = async (req, res) => {
         { videoUrl: { $exists: true, $ne: null } }
       ]
     }).populate('author', 'username avatar').limit(5);
+    
+    console.log(`Found ${videoPosts.length} video posts`);
     
     res.json({ 
       success: true, 
@@ -754,6 +756,8 @@ const detectPlatform = (url) => {
 // Instagram API извлечение
 const extractInstagramVideoAPI = async (url) => {
   try {
+    console.log('📷 Extracting Instagram video via improved methods...');
+    
     // Импортируем наш новый экстрактор
     const { extractInstagramVideo } = require('../utils/instagramExtractor');
     
@@ -761,6 +765,7 @@ const extractInstagramVideoAPI = async (url) => {
     const result = await extractInstagramVideo(url);
     
     if (result && result.success && result.videoUrl) {
+      console.log('✅ Instagram extraction successful via new extractor');
       return result.videoUrl; // Возвращаем простую строку как TikTok для совместимости
     }
     
@@ -771,6 +776,8 @@ const extractInstagramVideoAPI = async (url) => {
     
     // Fallback к старому SaveGram методу
     try {
+      console.log('🔄 Trying fallback SaveGram API...');
+      
       const shortcode = url.match(/\/p\/([^\/\?]+)/)?.[1] || url.match(/\/reel\/([^\/\?]+)/)?.[1];
       if (!shortcode) {
         throw new Error('Could not extract shortcode from Instagram URL');
@@ -790,6 +797,8 @@ const extractInstagramVideoAPI = async (url) => {
       });
 
       if (response.data && response.data.status === 'ok' && response.data.data) {
+        console.log('✅ SaveGram fallback response received');
+        
         const htmlData = response.data.data;
         const linkMatches = htmlData.match(/href="(https:\/\/dl\.snapcdn\.app\/get\?token=[^"]+)"/g);
         
@@ -808,6 +817,7 @@ const extractInstagramVideoAPI = async (url) => {
                 
                 if (payload.url && payload.url.includes('.mp4')) {
                   videoUrl = extractedUrl;
+                  console.log('✅ Found video URL via SaveGram fallback');
                   break;
                 }
               }
@@ -817,6 +827,7 @@ const extractInstagramVideoAPI = async (url) => {
           }
           
           if (videoUrl) {
+            console.log('✅ SaveGram fallback API successful');
             return videoUrl;
           }
         }
@@ -850,6 +861,7 @@ const extractTwitterVideoAPI = async (url) => {
       });
 
       if (response.data && response.data.download_url) {
+        console.log('✅ TwitterVid API successful');
         return {
           videoUrl: response.data.download_url,
           title: response.data.title || 'Twitter Video',
@@ -858,7 +870,7 @@ const extractTwitterVideoAPI = async (url) => {
         };
       }
     } catch (error) {
-      // API failed, continue to next
+      console.log('❌ TwitterVid API failed:', error.message);
     }
 
     // Подход 2: SaveTwitter API
@@ -876,6 +888,7 @@ const extractTwitterVideoAPI = async (url) => {
       });
 
       if (response.data && response.data.video_url) {
+        console.log('✅ SaveTwitter API successful');
         return {
           videoUrl: response.data.video_url,
           title: response.data.title || 'Twitter Video',
@@ -884,7 +897,7 @@ const extractTwitterVideoAPI = async (url) => {
         };
       }
     } catch (error) {
-      // API failed, continue to next
+      console.log('❌ SaveTwitter API failed:', error.message);
     }
 
     // Подход 3: TWOffline API
@@ -901,6 +914,7 @@ const extractTwitterVideoAPI = async (url) => {
       });
 
       if (response.data && response.data.download_link) {
+        console.log('✅ TWOffline API successful');
         return {
           videoUrl: response.data.download_link,
           title: response.data.title || 'Twitter Video',
@@ -909,10 +923,11 @@ const extractTwitterVideoAPI = async (url) => {
         };
       }
     } catch (error) {
-      // API failed, continue to next
+      console.log('❌ TWOffline API failed:', error.message);
     }
 
     // Fallback к демо-видео
+    console.log('🎬 All Twitter APIs failed, using demo video');
     return {
       videoUrl: 'https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4',
       title: 'Demo Video (Twitter API Unavailable)',
@@ -934,6 +949,8 @@ const extractTwitterVideoAPI = async (url) => {
 // Функция для скачивания файла по URL
 const downloadFile = async (url, filepath) => {
   try {
+    console.log('📥 Starting download from:', url.substring(0, 100) + '...');
+    
     const response = await axios({
       method: 'GET',
       url: url,
@@ -949,9 +966,11 @@ const downloadFile = async (url, filepath) => {
 
     return new Promise((resolve, reject) => {
       writer.on('finish', () => {
+        console.log('✅ Download completed successfully');
         resolve();
       });
       writer.on('error', (error) => {
+        console.log('❌ Download error:', error.message);
         reject(error);
       });
       
@@ -961,6 +980,7 @@ const downloadFile = async (url, filepath) => {
       }, 60000);
     });
   } catch (error) {
+    console.log('❌ Download request failed:', error.message);
     throw error;
   }
 };
@@ -974,11 +994,15 @@ exports.downloadExternalVideo = async (req, res) => {
     if (!url) {
       return res.status(400).json({ success: false, message: 'URL is required' });
     }
+
+    console.log(`🎬 Downloading video from URL: ${url}`);
     
     const downloader = new VideoDownloader();
     const result = await downloader.downloadVideo(url);
 
     if (result.success) {
+      console.log(`✅ Video downloaded and uploaded to Google Drive successfully`);
+      
       // Формируем данные для создания поста на фронтенде
       const videoData = {
         mediaType: "video",
@@ -1055,6 +1079,8 @@ exports.createExternalVideoPost = async (req, res) => {
 
 // Функция для извлечения видео через API сервисы (только для TikTok, Instagram, Twitter)
 const extractVideoFromPlatform = async (url, platform) => {
+  console.log(`🔗 Extracting ${platform} video via API...`);
+  
   try {
     if (platform === 'tiktok') {
       return await extractTikTokVideoAPI(url);
@@ -1068,7 +1094,7 @@ const extractVideoFromPlatform = async (url, platform) => {
       throw new Error(`Unsupported platform: ${platform}`);
     }
   } catch (error) {
-    console.error(`❌ API extraction failed for ${platform}:`, error.message);
+    console.log(`❌ API extraction failed for ${platform}:`, error.message);
     throw error;
   }
 };
@@ -1076,6 +1102,8 @@ const extractVideoFromPlatform = async (url, platform) => {
 // TikTok API извлечение
 const extractTikTokVideoAPI = async (url) => {
   try {
+    console.log('🎵 Extracting TikTok video via API...');
+    
     // Используем публичный API для TikTok
     const apiUrl = 'https://tikwm.com/api/';
     
@@ -1092,12 +1120,15 @@ const extractTikTokVideoAPI = async (url) => {
     if (response.data && response.data.code === 0 && response.data.data) {
       const videoUrl = response.data.data.hdplay || response.data.data.play;
       if (videoUrl) {
+        console.log('✅ TikTok video URL extracted via API');
         return videoUrl;
       }
     }
     
     throw new Error('Could not extract TikTok video URL');
   } catch (error) {
+    console.log('❌ TikTok API failed, trying alternative...');
+    
     // Альтернативный API
     try {
       const altResponse = await axios.get(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=1`);
@@ -1105,6 +1136,7 @@ const extractTikTokVideoAPI = async (url) => {
       if (altResponse.data && altResponse.data.code === 0 && altResponse.data.data) {
         const videoUrl = altResponse.data.data.hdplay || altResponse.data.data.play;
         if (videoUrl) {
+          console.log('✅ TikTok video URL extracted via alternative API');
           return videoUrl;
         }
       }

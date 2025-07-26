@@ -14,127 +14,53 @@ const compressImage = async (file) => {
     const ctx = canvas.getContext('2d');
     const img = new Image();
     
-    // Устанавливаем crossOrigin для избежания проблем с CORS
-    img.crossOrigin = 'anonymous';
-    
-    img.onload = () => {
-      try {
-        console.log('🔧 Image loaded successfully:', {
-          naturalWidth: img.naturalWidth,
-          naturalHeight: img.naturalHeight,
-          width: img.width,
-          height: img.height
-        });
+        img.onload = () => {
+      // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
+      const maxWidth = img.width; // Оригинальный размер
+      const maxHeight = img.height; // Оригинальный размер
+      let { width, height } = img;
 
-        // Проверяем, что изображение имеет валидные размеры
-        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-          reject(new Error('Invalid image dimensions'));
-          return;
+      if (width > height) {
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
         }
-
-        // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
-        const maxWidth = img.naturalWidth; // Используем naturalWidth
-        const maxHeight = img.naturalHeight; // Используем naturalHeight
-        let { width, height } = img;
-
-        if (width > height) {
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height;
-            height = maxHeight;
-          }
+      } else {
+        if (height > maxHeight) {
+          width = (width * maxHeight) / height;
+          height = maxHeight;
         }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        console.log('🔧 Canvas dimensions:', width, 'x', height);
-
-        // Очищаем canvas перед рисованием
-        ctx.clearRect(0, 0, width, height);
-        
-        // Рисуем изображение на canvas с правильной ориентацией
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Пробуем разные форматы и качества
-        const tryToBlob = (format, quality) => {
-          return new Promise((resolveBlob, rejectBlob) => {
-            canvas.toBlob((blob) => {
-              if (blob && blob.size > 0) {
-                resolveBlob(blob);
-              } else {
-                rejectBlob(new Error(`Failed to create blob with format ${format} and quality ${quality}`));
-              }
-            }, format, quality);
-          });
-        };
-
-        // Пробуем разные варианты
-        tryToBlob('image/jpeg', 0.8)
-          .then(blob => {
-            const compressedFile = new File([blob], file.name, {
-              type: 'image/jpeg',
-              lastModified: Date.now()
-            });
-            console.log('🔧 Compression result:', {
-              originalSize: file.size,
-              compressedSize: compressedFile.size,
-              compressionRatio: (compressedFile.size / file.size * 100).toFixed(1) + '%'
-            });
-            resolve(compressedFile);
-          })
-          .catch(() => {
-            // Если JPEG не работает, пробуем PNG
-            return tryToBlob('image/png', 0.8);
-          })
-          .then(blob => {
-            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.png'), {
-              type: 'image/png',
-              lastModified: Date.now()
-            });
-            console.log('🔧 PNG compression result:', {
-              originalSize: file.size,
-              compressedSize: compressedFile.size,
-              compressionRatio: (compressedFile.size / file.size * 100).toFixed(1) + '%'
-            });
-            resolve(compressedFile);
-          })
-          .catch((error) => {
-            console.error('❌ All compression attempts failed:', error);
-            reject(new Error('Failed to process image. Please try a different photo.'));
-          });
-
-      } catch (error) {
-        console.error('❌ Image processing error:', error);
-        reject(new Error(`Image processing failed: ${error.message}`));
       }
-    };
-    
-    img.onerror = (error) => {
-      console.error('❌ Image load error:', error);
-      reject(new Error('Failed to load image. Please try a different photo.'));
-    };
-    
-    // Добавляем обработку ошибок для URL.createObjectURL
-    try {
-      const objectUrl = URL.createObjectURL(file);
-      img.src = objectUrl;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      console.log('🔧 Canvas dimensions:', width, 'x', height);
+
+      // Рисуем изображение на canvas с правильной ориентацией
+      ctx.drawImage(img, 0, 0, width, height);
       
-      // Очищаем URL после загрузки
-      const originalOnLoad = img.onload;
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        if (originalOnLoad) {
-          originalOnLoad.call(img);
+      // Конвертируем в blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+          });
+          console.log('🔧 Compression result:', {
+            originalSize: file.size,
+            compressedSize: compressedFile.size,
+            compressionRatio: (compressedFile.size / file.size * 100).toFixed(1) + '%'
+          });
+          resolve(compressedFile);
+        } else {
+          reject(new Error('Failed to compress image'));
         }
-      };
-    } catch (error) {
-      reject(new Error('Failed to create object URL for image.'));
-    }
+      }, 'image/jpeg', 0.8); // Качество 80% для достижения 3.4MB
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = URL.createObjectURL(file);
   });
 };
 
@@ -165,16 +91,8 @@ const CreatePost = () => {
     console.log('📸 Original File Details:', {
       name: file.name,
       type: file.type,
-      size: file.size,
-      lastModified: new Date(file.lastModified).toISOString()
+      size: file.size
     });
-
-    // Проверяем размер файла
-    const maxSize = 100 * 1024 * 1024; // 100MB
-    if (file.size > maxSize) {
-      setError(`File is too large. Maximum size is ${(maxSize / 1024 / 1024).toFixed(0)}MB.`);
-      return;
-    }
 
     setCompressing(true);
     setError('');
@@ -191,56 +109,23 @@ const CreatePost = () => {
         setCompressedFile(file);
         setOriginalFileName(file.name);
       } else {
-        // Обработка HEIC файлов с iPhone
-        let processedFile = file;
-        if (file.type === 'image/heic' || file.type === 'image/heif' || file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
-          console.log('🔄 Converting HEIC file to JPEG...');
-          try {
-            const convertedBlob = await heic2any({
-              blob: file,
-              toType: 'image/jpeg',
-              quality: 0.8
-            });
-            processedFile = new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
-              type: 'image/jpeg',
-              lastModified: Date.now()
-            });
-            console.log('✅ HEIC file converted successfully');
-          } catch (heicError) {
-            console.error('❌ HEIC conversion failed:', heicError);
-            throw new Error('Failed to convert HEIC image. Please try a different photo.');
-          }
-        }
-
-        // Для изображений сжимаем с fallback
-        try {
-          const compressed = await compressImage(processedFile);
-          console.log('📸 Compressed File Details:', {
-            name: compressed.name,
-            type: compressed.type,
-            size: compressed.size
-          });
-          setCompressedFile(compressed);
-          setOriginalFileName(file.name);
-          
-          // Создаем превью для изображения
-          const imageUrl = URL.createObjectURL(compressed);
-          setPreviewUrl(imageUrl);
-        } catch (compressionError) {
-          console.warn('⚠️ Compression failed, using original file:', compressionError.message);
-          
-          // Fallback: используем оригинальный файл
-          setCompressedFile(processedFile);
-          setOriginalFileName(file.name);
-          
-          // Создаем превью для изображения
-          const imageUrl = URL.createObjectURL(processedFile);
-          setPreviewUrl(imageUrl);
-        }
+        // Для изображений сжимаем
+        const compressed = await compressImage(file);
+        console.log('📸 Compressed File Details:', {
+          name: compressed.name,
+          type: compressed.type,
+          size: compressed.size
+        });
+        setCompressedFile(compressed);
+        setOriginalFileName(file.name);
+        
+        // Создаем превью для изображения
+        const imageUrl = URL.createObjectURL(compressed);
+        setPreviewUrl(imageUrl);
       }
     } catch (error) {
       console.error('Error processing file:', error);
-      setError(error.message || 'Error processing file. Please try again.');
+      setError('Error processing file. Please try again.');
     } finally {
       setCompressing(false);
     }
@@ -400,12 +285,11 @@ const CreatePost = () => {
             <div className="file-input-icon">📸 Choose Image/Video</div>
             <input 
               type="file" 
-              accept=".jpg,.jpeg,.png,.gif,.heic,.heif,.mp4,.mov,.webm,image/*,video/*" 
+              accept=".jpg,.jpeg,.png,.gif,.mp4,.mov,.webm,image/*,video/*" 
               onChange={handleImageChange} 
               disabled={compressing}
             />
           </label>
-
         </div>
 
         {compressing && (

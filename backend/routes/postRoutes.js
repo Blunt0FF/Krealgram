@@ -81,14 +81,14 @@ router.post('/',
           // Обработка ошибок Multer
           if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({ 
-              message: 'File too large. Maximum size is 100MB.',
+              message: 'File too large. Maximum size is 50MB.',
               error: err.message 
             });
           }
           
-          if (err.message && err.message.includes('Unsupported file type')) {
+          if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
             return res.status(400).json({ 
-              message: 'Unsupported file type. Please upload images (JPEG, PNG, GIF, HEIC) or videos (MP4, MOV, WebM) only.', 
+              message: 'Unsupported file type. Please upload images or videos only.', 
               error: err.message 
             });
           }
@@ -99,7 +99,7 @@ router.post('/',
           }
           
           return res.status(400).json({ 
-            message: 'File upload error. Please try again with a different file.',
+            message: 'File upload error',
             error: err.message 
           });
         }
