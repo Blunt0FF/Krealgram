@@ -306,14 +306,29 @@ const upload = multer({
     fileSize: 50 * 1024 * 1024, // Увеличиваем лимит до 50MB
   },
   fileFilter: (req, file, cb) => {
+    // Логируем информацию о файле для отладки
+    console.log('[MOBILE_FILE_DEBUG]', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      userAgent: req.headers['user-agent'],
+      origin: req.headers.origin
+    });
+    
     // Расширяем список поддерживаемых типов для iPhone (HEIC, MOV)
     const allowedMimeTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif',
       'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'
     ];
+    
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
+      console.error('[MOBILE_FILE_REJECTED]', {
+        mimetype: file.mimetype,
+        originalname: file.originalname,
+        userAgent: req.headers['user-agent']
+      });
       cb(new Error('Unsupported file type!'), false);
     }
   }

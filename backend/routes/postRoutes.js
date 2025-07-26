@@ -31,6 +31,14 @@ const optionalUpload = (req, res, next) => {
           });
         }
         
+        // Для мобильных устройств - более подробная ошибка
+        console.error('[MOBILE_UPLOAD_ERROR]', {
+          error: err.message,
+          code: err.code,
+          userAgent: req.headers['user-agent'],
+          origin: req.headers.origin
+        });
+        
         // Если ошибка multer но есть videoUrl, игнорируем ошибку
         if (req.body && req.body.videoUrl) {
           return next();
@@ -62,6 +70,44 @@ const optionalUpload = (req, res, next) => {
     next();
   }
 };
+
+// @route   POST api/posts/test-upload
+// @desc    Тестовый endpoint для проверки загрузки файлов
+// @access  Private
+router.post('/test-upload', 
+  authMiddleware,
+  upload.single('image'),
+  (req, res) => {
+    try {
+      console.log('[TEST_UPLOAD] File received:', {
+        file: req.file ? {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : 'No file',
+        userAgent: req.headers['user-agent'],
+        origin: req.headers.origin
+      });
+      
+      res.json({
+        success: true,
+        message: 'File upload test successful',
+        file: req.file ? {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : null
+      });
+    } catch (error) {
+      console.error('[TEST_UPLOAD_ERROR]', error);
+      res.status(500).json({
+        success: false,
+        message: 'Test upload failed',
+        error: error.message
+      });
+    }
+  }
+);
 
 // @route   POST api/posts
 // @desc    Создать новый пост

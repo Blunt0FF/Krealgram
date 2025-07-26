@@ -127,7 +127,7 @@ app.options('*', cors(corsOptions));
 app.use((req, res, next) => {
   console.log(`[CORS_DEBUG] ${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
   
-  // Принудительно добавляем CORS заголовки для всех запросов
+  // Разрешаем ВСЕ запросы, включая без Origin (мобильные приложения)
   const origin = req.headers.origin;
   const allowedOrigins = [
     'https://krealgram.com',
@@ -140,19 +140,21 @@ app.use((req, res, next) => {
     'https://localhost:4000'
   ];
   
+  // Если есть origin и он в списке разрешенных - используем его
   if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
   } else {
+    // Для всех остальных (включая No origin) разрешаем все
     res.header('Access-Control-Allow-Origin', '*');
   }
   
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, User-Agent');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
   
   // Обработка preflight запросов
-  if (req.method === 'OPTIONS') {
+  if (req.method === 'OPTIONS' || req.method === 'HEAD') {
     res.status(200).end();
     return;
   }
