@@ -80,22 +80,87 @@ const whitelist = [
 
 // Настройки CORS
 const corsOptions = {
-  origin: [
-    'http://localhost:4000', 
-    'https://localhost:4000', 
-    'https://krealgram.com',
-    'https://www.krealgram.com',
-    'https://krealgram-backend.onrender.com',
-    /\.krealgram\.com$/  // Поддержка поддоменов
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, мобильные приложения)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:4000', 
+      'https://localhost:4000',
+      'http://localhost:3000',
+      'https://localhost:3000',
+      'https://krealgram.com',
+      'http://krealgram.com',
+      'https://www.krealgram.com',
+      'http://www.krealgram.com',
+      'https://krealgram.vercel.app',
+      'http://krealgram.vercel.app',
+      'https://krealgram-backend.onrender.com'
+    ];
+    
+    // Проверяем точное совпадение
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Проверяем поддомены krealgram.com
+    if (origin && origin.match(/^https?:\/\/(.*\.)?krealgram\.com$/)) {
+      return callback(null, true);
+    }
+    
+    console.log('[CORS] Blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'), false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  preflightContinue: false
 };
 
 app.use(cors(corsOptions));
 
+// Дополнительная обработка CORS preflight запросов
+app.options('*', cors(corsOptions));
+
+// Middleware для логирования CORS запросов
+app.use((req, res, next) => {
+  console.log(`[CORS_DEBUG] ${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
+  
+  // Принудительно добавляем CORS заголовки для всех запросов
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://krealgram.com',
+    'http://krealgram.com',
+    'https://www.krealgram.com',
+    'http://www.krealgram.com',
+    'https://krealgram.vercel.app',
+    'http://krealgram.vercel.app',
+    'http://localhost:4000',
+    'https://localhost:4000'
+  ];
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Обработка preflight запросов
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
+
+// Увеличиваем лимиты для больших файлов
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -616,6 +681,22 @@ io.on('connection', async (socket) => {
       }
     }
   });
+});
+
+// Обработка необработанных ошибок
+process.on('uncaughtException', (error) => {
+  console.error('[UNCAUGHT_EXCEPTION]', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED_REJECTION]', reason);
+  process.exit(1);
+});
+
+// Обработка ошибок памяти
+process.on('warning', (warning) => {
+  console.warn('[PROCESS_WARNING]', warning.name, warning.message);
 });
 
 const PORT = process.env.PORT || 3000;

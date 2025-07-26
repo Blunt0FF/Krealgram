@@ -96,9 +96,9 @@ const createAndUploadThumbnail = async (fileBuffer, originalFilename, fileMimety
       try {
         const sharp = require('sharp');
         thumbnailBuffer = await sharp(fileBuffer)
-          .resize(300, 300, { fit: 'cover', position: 'center' })
+          .resize(200, 200, { fit: 'cover', position: 'center' }) // Уменьшаем размер для экономии памяти
           .jpeg({ 
-            quality: 70, // Более агрессивное сжатие для превью
+            quality: 60, // Более агрессивное сжатие для превью
             progressive: true,
             mozjpeg: true
           })
@@ -303,7 +303,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // Увеличим лимит до 100MB для больших фото с iPhone
+    fileSize: 50 * 1024 * 1024, // Увеличиваем лимит до 50MB
   },
   fileFilter: (req, file, cb) => {
     // Расширяем список поддерживаемых типов для iPhone (HEIC, MOV)

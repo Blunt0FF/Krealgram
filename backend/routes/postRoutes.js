@@ -79,12 +79,12 @@ router.post('/',
           console.error('Multer upload error:', err);
           
           // Обработка ошибок Multer
-          if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ 
-              message: 'File too large. Maximum size is 50MB.',
-              error: err.message 
-            });
-          }
+                  if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ 
+            message: 'File too large. Maximum size is 50MB.',
+            error: err.message 
+          });
+        }
           
           if (err.message && err.message.includes('Поддерживаются только изображения и видео файлы')) {
             return res.status(400).json({ 
