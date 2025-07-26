@@ -464,10 +464,39 @@ app.get('/api/proxy-drive/:id', async (req, res) => {
       }
     }
     
-    // Для видео используем стриминг вместо загрузки в память
-    if (correctedMimeType.startsWith('video/')) {
-      console.log(`[PROXY-DRIVE] Стриминг видео: ${fileName} (${fileSize} байт)`);
-    }
+         // Проверяем, содержит ли имя файла кириллицу
+     const hasCyrillic = /[а-яё]/i.test(fileName);
+     
+     // Для ВСЕХ видео используем загрузку в память для надежности
+     if (correctedMimeType.startsWith('video/')) {
+       console.log(`[PROXY-DRIVE] 🎬 Загружаем видео в память: ${fileName} (${fileSize} байт)${hasCyrillic ? ' [КИРИЛЛИЦА]' : ''}`);
+       
+       try {
+         const fileBuffer = await drive.drive.files.get({
+           fileId,
+           alt: 'media'
+         }, { responseType: 'arraybuffer' });
+         
+         console.log(`[PROXY-DRIVE] ✅ Видео загружено: ${fileBuffer.data.byteLength} байт`);
+         
+         // Устанавливаем заголовки
+         res.set({
+           'Content-Type': correctedMimeType,
+           'Content-Length': fileBuffer.data.byteLength,
+           'Accept-Ranges': 'bytes',
+           'Access-Control-Allow-Origin': '*',
+           'Cache-Control': 'public, max-age=86400'
+         });
+         
+         // Отправляем весь файл
+         res.end(Buffer.from(fileBuffer.data));
+         return;
+       } catch (error) {
+         console.error(`[PROXY-DRIVE] ❌ Ошибка загрузки видео ${fileId}:`, error.message);
+         // Fallback к стриму
+         console.log(`[PROXY-DRIVE] 🔄 Переключаемся на стриминг для ${fileId}`);
+       }
+     }
 
     const fileRes = await drive.drive.files.get({
       fileId,

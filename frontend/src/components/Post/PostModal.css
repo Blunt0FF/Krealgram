@@ -678,8 +678,8 @@
     box-sizing: border-box;
 
     @supports (height: 1dvh) {
-      height: calc(95dvh - 60px);
-      max-height: calc(95dvh - 60px);
+      height: calc(100dvh - 60px);
+      max-height: calc(100dvh - 60px);
     }
   }
 
