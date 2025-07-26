@@ -60,23 +60,30 @@ class ImageCompressor {
       const ext = path.extname(originalName).toLowerCase();
       const filename = path.basename(originalName, ext);
       
-      const pipeline = sharp(inputPath, { failOnError: false }).rotate(); // failOnError: false для обработки некорректных изображений
+      const pipeline = sharp(inputPath, { failOnError: false })
+        .rotate() // failOnError: false для обработки некорректных изображений
+        .resize({
+          width: this.MAX_DIMENSION,
+          height: this.MAX_DIMENSION,
+          fit: 'inside',
+          withoutEnlargement: true
+        });
 
       let outputFormat = ext.substring(1);
 
       switch (outputFormat) {
         case 'jpg':
         case 'jpeg':
-          pipeline.jpeg({ quality: 85, progressive: true, mozjpeg: true });
+          pipeline.jpeg({ quality: 70, progressive: true, mozjpeg: true });
           break;
         case 'png':
-          pipeline.png({ compressionLevel: 9, quality: 85, effort: 8 });
+          pipeline.png({ compressionLevel: 9, quality: 70, effort: 8 });
           break;
         case 'webp':
-          pipeline.webp({ quality: 85, effort: 6 });
+          pipeline.webp({ quality: 70, effort: 6 });
           break;
         default:
-          pipeline.jpeg({ quality: 85, progressive: true, mozjpeg: true });
+          pipeline.jpeg({ quality: 70, progressive: true, mozjpeg: true });
           outputFormat = 'jpg';
           break;
       }
