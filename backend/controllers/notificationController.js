@@ -20,7 +20,7 @@ const processNotificationPost = (post) => {
     type: post.type
   };
 
-  console.log('[NOTIFICATION_DEBUG] Post Details:', JSON.stringify(debugPost, null, 2));
+
 
   return debugPost;
 };

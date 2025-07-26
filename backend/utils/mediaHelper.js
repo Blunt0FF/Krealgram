@@ -6,7 +6,7 @@ const getMediaConfig = () => {
   return {
     isDevelopment: process.env.NODE_ENV !== 'production',
     localUploadPath: 'uploads/',
-    maxFileSize: 10 * 1024 * 1024, // 10MB
+    maxFileSize: 100 * 1024 * 1024, // 100MB
     allowedTypes: {
       image: [
         'image/jpeg', 

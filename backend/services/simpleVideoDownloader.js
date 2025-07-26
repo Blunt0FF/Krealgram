@@ -31,7 +31,6 @@ class SimpleVideoDownloader {
           .outputOptions('-vf', 'scale=320:-2')
           .toFormat('gif')
           .on('end', () => {
-            console.log(`✅ Превью успешно создано: ${outputPath}`);
             resolve(outputPath);
           })
           .on('error', (err) => {
@@ -48,8 +47,6 @@ class SimpleVideoDownloader {
 
   async uploadPreviewToGoogleDrive(thumbnailPath, platform, videoId) {
     try {
-      console.log(`🔄 Загружаю превью в Google Drive: ${thumbnailPath}`);
-      
       const fileMetadata = {
         name: `${platform}_${videoId}_preview.gif`,
         parents: [process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID]
@@ -66,7 +63,6 @@ class SimpleVideoDownloader {
         fields: 'id, webViewLink, webContentLink'
       });
 
-      console.log(`✅ Превью успешно загружено в Google Drive:`, result.data.webContentLink);
       return result.data.webContentLink;
     } catch (error) {
       console.error('❌ Ошибка загрузки превью в Google Drive:', error);

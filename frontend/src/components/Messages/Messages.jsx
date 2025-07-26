@@ -14,6 +14,115 @@ import { API_URL } from '../../config';
 import { getMediaThumbnail, extractYouTubeId, createYouTubeData } from '../../utils/videoUtils';
 import axios from 'axios';
 
+// Функция для сжатия изображений (такая же как в CreatePost)
+const compressImage = async (file) => {
+  return new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    // Устанавливаем crossOrigin для избежания проблем с CORS
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      try {
+        // Проверяем, что изображение имеет валидные размеры
+        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+          reject(new Error('Invalid image dimensions'));
+          return;
+        }
+
+        // Устанавливаем размеры canvas (оригинальный размер для достижения 3.4MB)
+        const maxWidth = img.naturalWidth;
+        const maxHeight = img.naturalHeight;
+        let { width, height } = img;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Очищаем canvas перед рисованием
+        ctx.clearRect(0, 0, width, height);
+        
+        // Рисуем изображение на canvas с правильной ориентацией
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Пробуем разные форматы и качества
+        const tryToBlob = (format, quality) => {
+          return new Promise((resolveBlob, rejectBlob) => {
+            canvas.toBlob((blob) => {
+              if (blob && blob.size > 0) {
+                resolveBlob(blob);
+              } else {
+                rejectBlob(new Error(`Failed to create blob with format ${format} and quality ${quality}`));
+              }
+            }, format, quality);
+          });
+        };
+
+        // Пробуем разные варианты
+        tryToBlob('image/jpeg', 0.8)
+          .then(blob => {
+            const compressedFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now()
+            });
+            resolve(compressedFile);
+          })
+          .catch(() => {
+            // Если JPEG не работает, пробуем PNG
+            return tryToBlob('image/png', 0.8);
+          })
+          .then(blob => {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, '.png'), {
+              type: 'image/png',
+              lastModified: Date.now()
+            });
+            resolve(compressedFile);
+          })
+          .catch((error) => {
+            reject(new Error('Failed to process image. Please try a different photo.'));
+          });
+
+      } catch (error) {
+        reject(new Error(`Image processing failed: ${error.message}`));
+      }
+    };
+    
+    img.onerror = (error) => {
+      reject(new Error('Failed to load image. Please try a different photo.'));
+    };
+    
+    // Добавляем обработку ошибок для URL.createObjectURL
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
+      
+      // Очищаем URL после загрузки
+      const originalOnLoad = img.onload;
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        if (originalOnLoad) {
+          originalOnLoad.call(img);
+        }
+      };
+    } catch (error) {
+      reject(new Error('Failed to create object URL for image.'));
+    }
+  });
+};
+
 // Компонент превью поста для модального окна выбора пользователя
 const PostPreview = ({ post }) => {
   const isVideo = () => {
@@ -437,14 +546,29 @@ const Messages = ({ currentUser }) => {
   };
   
   // Обновленный обработчик выбора файла
-  const handleImageSelect = (e) => {
+  const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) {
       if (imagePreview) {
         URL.revokeObjectURL(imagePreview);
       }
-      setImageToSend(file);
-      setImagePreview(URL.createObjectURL(file));
+      
+      try {
+        let processedFile = file;
+        
+        // Сжимаем только изображения, видео оставляем как есть
+        if (file.type.startsWith('image/')) {
+          processedFile = await compressImage(file);
+        }
+        
+        setImageToSend(processedFile);
+        setImagePreview(URL.createObjectURL(processedFile));
+      } catch (error) {
+        console.error('Error processing image:', error);
+        // В случае ошибки используем оригинальный файл
+        setImageToSend(file);
+        setImagePreview(URL.createObjectURL(file));
+      }
     }
   };
 
@@ -645,7 +769,7 @@ const Messages = ({ currentUser }) => {
   const deleteMessage = async (messageId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/conversations/messages/${selectedConversation._id}/${messageId}`, {
+      const response = await fetch(`${API_URL}/api/conversations/messages/${messageId}`, {
         method: 'DELETE',
         headers: { 
           'Authorization': `Bearer ${token}`,

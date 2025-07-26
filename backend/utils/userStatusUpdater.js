@@ -16,7 +16,6 @@ const updateInactiveUsers = async () => {
       }
     );
     
-    console.log('Inactive users updated to offline');
   } catch (error) {
     console.error('Error updating inactive users:', error);
   }

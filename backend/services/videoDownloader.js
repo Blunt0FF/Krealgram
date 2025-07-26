@@ -9,8 +9,6 @@ const { generateVideoThumbnail } = require('../utils/imageCompressor');
 // Функция для создания GIF-превью из видео
 const generateGifThumbnail = async (videoPath) => {
   try {
-    console.log('[GIF_THUMBNAIL] Создаем GIF-превью из видео:', videoPath);
-    
     // Проверяем существование файла
     if (!fs.existsSync(videoPath)) {
       console.error('[GIF_THUMBNAIL] ❌ Видео файл не найден:', videoPath);
@@ -18,11 +16,8 @@ const generateGifThumbnail = async (videoPath) => {
     }
     
     const tempGifPath = path.join(path.dirname(videoPath), `gif-preview-${Date.now()}.gif`);
-    console.log('[GIF_THUMBNAIL] Временный GIF путь:', tempGifPath);
     
     return new Promise((resolve, reject) => {
-      console.log('[GIF_THUMBNAIL] Запускаем ffmpeg...');
-      
       ffmpeg(videoPath)
         .outputOptions([
           '-vf', 'fps=15,scale=320:-1',
@@ -30,16 +25,8 @@ const generateGifThumbnail = async (videoPath) => {
           '-compression_level', '6'
         ])
         .toFormat('gif')
-        .on('start', (commandLine) => {
-          console.log('[GIF_THUMBNAIL] FFmpeg команда:', commandLine);
-        })
-        .on('progress', (progress) => {
-          console.log('[GIF_THUMBNAIL] Прогресс:', progress.percent, '%');
-        })
         .on('end', async () => {
           try {
-            console.log('[GIF_THUMBNAIL] FFmpeg завершен, читаем файл...');
-            
             // Проверяем существование созданного файла
             if (!fs.existsSync(tempGifPath)) {
               console.error('[GIF_THUMBNAIL] ❌ GIF файл не создан:', tempGifPath);
@@ -49,7 +36,6 @@ const generateGifThumbnail = async (videoPath) => {
             
             // Читаем файл
             const gifBuffer = await fs.promises.readFile(tempGifPath);
-            console.log('[GIF_THUMBNAIL] Файл прочитан, размер:', gifBuffer.length, 'байт');
             
             // Проверяем размер GIF
             const maxSizeMB = 5;
@@ -62,7 +48,6 @@ const generateGifThumbnail = async (videoPath) => {
               return;
             }
             
-            console.log(`[GIF_THUMBNAIL] ✅ GIF создан, размер: ${sizeMB.toFixed(2)}MB`);
             resolve({
               buffer: gifBuffer,
               path: tempGifPath,
@@ -145,11 +130,8 @@ class VideoDownloader {
 
   async downloadTikTokVideo(url) {
     try {
-      console.log('🎵 Downloading TikTok video:', url);
-      
       const { videoUrl, title, uploader, duration, thumbnailUrl: originalThumbnailUrl } = await this.extractTikTokVideoAPI(url);
 
-      console.log('📥 Downloading video buffer from:', videoUrl);
       const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
       
       const videoBuffer = Buffer.from(response.data, 'binary');
@@ -158,9 +140,6 @@ class VideoDownloader {
         throw new Error('Downloaded video file is empty (0 bytes).');
       }
       
-      console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
-      
-      console.log('📤 Uploading to Google Drive...');
       const timestamp = Date.now();
       const driveResult = await googleDrive.uploadFile(videoBuffer, `tiktok-video-${timestamp}.mp4`, 'video/mp4', process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID);
 
@@ -170,7 +149,6 @@ class VideoDownloader {
       let generatedThumbnailUrl = null;
       try {
         const gifResult = await generateGifThumbnail(tempVideoPath);
-        console.log('🖼️ GIF Preview создан:', gifResult);
 
         if (gifResult && gifResult.buffer) {
           const thumbnailDriveResult = await googleDrive.uploadFile(
@@ -212,8 +190,6 @@ class VideoDownloader {
 
   async downloadInstagramVideo(url) {
     try {
-      console.log('📷 Downloading Instagram video:', url);
-      
       // Используем наш Instagram экстрактор
       const { extractInstagramVideo } = require('../utils/instagramExtractor');
       
@@ -223,7 +199,6 @@ class VideoDownloader {
         throw new Error('Failed to extract Instagram video URL');
       }
 
-      console.log('📥 Downloading video buffer from:', result.videoUrl);
       const response = await axios.get(result.videoUrl, { 
         responseType: 'arraybuffer',
         headers: {
@@ -237,9 +212,6 @@ class VideoDownloader {
         throw new Error('Downloaded video file is empty (0 bytes).');
       }
       
-      console.log('✅ Video downloaded, size:', videoBuffer.length, 'bytes');
-      
-      console.log('📤 Uploading to Google Drive...');
       const timestamp = Date.now();
       const driveResult = await googleDrive.uploadFile(
         videoBuffer, 
@@ -297,27 +269,22 @@ class VideoDownloader {
 
   async downloadYouTubeShorts(url) {
     try {
-      console.log('📱 Downloading YouTube Shorts:', url);
-      
       // Используем yt-dlp для скачивания YouTube Shorts
       const videoInfo = await this.getVideoInfo(url);
       const tempVideoPath = path.join(this.tempDir, `youtube-shorts-${Date.now()}.mp4`);
       
-      console.log('📥 Downloading video file...');
       const downloadedPath = await this.downloadVideoFile(url, tempVideoPath);
       
       if (!downloadedPath) {
         throw new Error('Failed to download YouTube Shorts video');
       }
       
-      console.log('📖 Reading video buffer...');
       const videoBuffer = await fs.promises.readFile(downloadedPath);
       
       if (videoBuffer.length === 0) {
         throw new Error('Downloaded video file is empty (0 bytes).');
       }
       
-      console.log(`📤 Uploading to Google Drive...`);
       const timestamp = Date.now();
       const driveResult = await googleDrive.uploadFile(
         videoBuffer, 
@@ -330,7 +297,6 @@ class VideoDownloader {
       let generatedThumbnailUrl = null;
       try {
         const gifResult = await generateGifThumbnail(downloadedPath);
-        console.log('🖼️ GIF Preview создан:', gifResult);
 
         if (gifResult && gifResult.buffer) {
           const thumbnailDriveResult = await googleDrive.uploadFile(
@@ -374,11 +340,7 @@ class VideoDownloader {
 
   async downloadVKVideo(url) {
     try {
-      console.log('🔵 Downloading VK video:', url);
-      
-      // Для VK пока используем внешние ссылки
-      // В будущем можно добавить поддержку VK API
-      
+      // VK видео остается как внешняя ссылка
       return {
         success: true,
         platform: 'vk',
@@ -475,7 +437,6 @@ class VideoDownloader {
 
       ytDlp.stderr.on('data', (data) => {
         errorOutput += data.toString();
-        console.log('yt-dlp:', data.toString().trim());
       });
 
       ytDlp.on('close', async (code) => {

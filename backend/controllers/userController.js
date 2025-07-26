@@ -13,7 +13,6 @@ const fs = require('fs').promises; // Импортируем fs.promises
 exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
-    console.log(`[PROFILE_FETCH_DEBUG] Fetching profile for identifier: ${identifier}`);
 
     let user;
 
@@ -53,11 +52,9 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     }
 
-    console.log(`[PROFILE_FETCH_DEBUG] User found: ${!!user}`);
     if (!user) {
       // Дополнительная проверка существования пользователя
       const userExists = await User.findOne({ username: identifier }).select('_id');
-      console.log(`[PROFILE_FETCH_DEBUG] User exists in DB: ${!!userExists}`);
       
       return res.status(404).json({ 
         message: 'Пользователь не найден.',
@@ -65,25 +62,6 @@ exports.getUserProfile = async (req, res) => {
           identifier,
           userExists: !!userExists
         }
-      });
-    }
-
-    console.log(`[PROFILE_FETCH_DEBUG] Posts count: ${user.posts ? user.posts.length : 0}`);
-    console.log(`[PROFILE_FETCH_DEBUG] User details:`, {
-      username: user.username,
-      avatar: user.avatar,
-      postsCount: user.posts ? user.posts.length : 0
-    });
-
-    // Расширенная отладка постов
-    if (user.posts) {
-      user.posts.forEach((post, index) => {
-        console.log(`[PROFILE_FETCH_DEBUG] Post ${index} details:`, {
-          postId: post._id,
-          image: post.image,
-          videoData: post.videoData,
-          author: post.author
-        });
       });
     }
     
@@ -195,15 +173,12 @@ exports.updateUserProfile = async (req, res) => {
       
       // Используем только secure_url
       fieldsToUpdate.avatar = avatarUrl;
-      console.log(`[AVATAR_UPDATE_DEBUG] Новый аватар: ${fieldsToUpdate.avatar}`);
       
       // Создаем новый thumbnail для аватарки
       try {
         // Используем thumbnailUrl из uploadResult, если он есть
         if (req.uploadResult.thumbnailUrl) {
-          console.log(`[AVATAR] Используем готовый thumbnail: ${req.uploadResult.thumbnailUrl}`);
-        } else {
-          console.log(`[AVATAR] Thumbnail не был создан в uploadMiddleware`);
+          // thumbnailUrl уже обработан
         }
       } catch (thumbError) {
         console.error(`[AVATAR] Не удалось обработать thumbnail: ${thumbError.message}`);
@@ -216,10 +191,6 @@ exports.updateUserProfile = async (req, res) => {
               const fileId = currentUser.avatar.split('id=')[1];
               if (fileId) {
                 await googleDrive.deleteFile(fileId);
-                console.log(`[AVATAR] Аватар ${fileId} удален по запросу.`);
-                
-                // Превью аватарки будет удалено в uploadMiddleware.js
-                console.log(`[AVATAR] Превью аватарки будет удалено в uploadMiddleware.js`);
               }
           } catch(e) {
               console.error(`[AVATAR] Не удалось удалить аватар по запросу: ${e.message}`);

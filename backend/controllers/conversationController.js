@@ -24,13 +24,25 @@ exports.getConversations = async (req, res) => {
       .lean();
 
     // Модифицируем результат, чтобы participants был объектом другого пользователя, а не массивом
+    const { getMediaUrl } = require('../utils/urlUtils');
     const formattedConversations = conversations.map(conv => {
       // Убедимся, что есть участники и сообщения (для случаев новых пустых диалогов)
       const otherParticipant = conv.participants.find(p => p._id.toString() !== userId);
       // Получаем последнее сообщение из массива сообщений
-      const lastMessage = conv.messages && conv.messages.length > 0 
+      let lastMessage = conv.messages && conv.messages.length > 0 
         ? conv.messages.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] 
         : null;
+      
+      // Обрабатываем URL для медиа в последнем сообщении
+      if (lastMessage) {
+        if (lastMessage.media && lastMessage.media.url) {
+          lastMessage.media.url = getMediaUrl(lastMessage.media.url, lastMessage.media.type || 'image');
+        }
+        if (lastMessage.image) {
+          lastMessage.image = getMediaUrl(lastMessage.image, 'image');
+        }
+      }
+      
       return {
         _id: conv._id,
         participant: otherParticipant,
@@ -107,10 +119,22 @@ exports.getMessagesForConversation = async (req, res) => {
 
     const paginatedMessages = sortedMessages.slice(startIndex, endIndex);
 
+    // Обрабатываем URL для медиа в сообщениях - используем прокси для Google Drive
+    const { getMediaUrl } = require('../utils/urlUtils');
+    const processedMessages = paginatedMessages.map(message => {
+      if (message.media && message.media.url) {
+        message.media.url = getMediaUrl(message.media.url, message.media.type || 'image');
+      }
+      if (message.image) {
+        message.image = getMediaUrl(message.image, 'image');
+      }
+      return message;
+    });
+
     res.status(200).json({
       message: 'Conversation messages fetched successfully',
       conversationId,
-      messages: paginatedMessages,
+      messages: processedMessages,
       totalCount: totalMessages,
       limit,
       offset
@@ -168,14 +192,11 @@ exports.sendMessage = async (req, res) => {
     // Обработка пересланного поста
     if (sharedPostString) {
       try {
-        console.log('Received sharedPost JSON:', sharedPostString);
         const sharedPost = JSON.parse(sharedPostString);
-        console.log('Parsed sharedPost:', JSON.stringify(sharedPost, null, 2));
 
         if (sharedPost && (sharedPost.id || sharedPost._id)) {
           // Проверяем, существует ли пост в базе данных
           const existingPost = await Post.findById(sharedPost.id || sharedPost._id);
-          console.log('Existing post:', existingPost ? 'Found' : 'Not found');
           
           if (existingPost) {
             newMessage.sharedPost = {
@@ -193,8 +214,6 @@ exports.sendMessage = async (req, res) => {
               youtubeData: sharedPost.youtubeData,
               createdAt: sharedPost.createdAt || new Date()
             });
-            
-            console.log('Creating temporary post:', JSON.stringify(tempPost, null, 2));
             
             const savedTempPost = await tempPost.save({ session });
             
@@ -216,16 +235,7 @@ exports.sendMessage = async (req, res) => {
         const fileType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
         validateMediaFile(req.file, fileType);
         
-        console.group('📸 Медиа в сообщении');
-        console.log('Тип файла:', fileType);
-        console.log('Оригинальное имя:', req.file.originalname);
-        console.log('Путь файла:', req.file.path);
-        console.log('Имя файла:', req.file.filename);
-        console.log('Размер файла:', req.file.size);
-        console.log('MIME-тип:', req.file.mimetype);
-        console.log('Google Drive Upload Result:', req.uploadResult);
-        
-        // Создаем ответ для медиа - используем только Google Drive
+        // Сохраняем прямой Google Drive URL, как было раньше
         const mediaResponse = {
           type: fileType,
           url: req.uploadResult.secure_url,
@@ -233,10 +243,6 @@ exports.sendMessage = async (req, res) => {
           size: req.file.size,
           mimetype: req.file.mimetype
         };
-        
-        console.log('Медиа ответ:', JSON.stringify(mediaResponse, null, 2));
-        console.groupEnd();
-        
         newMessage.media = mediaResponse;
         newMessage.image = mediaResponse.url; // Для обратной совместимости
       } catch (error) {
@@ -247,23 +253,13 @@ exports.sendMessage = async (req, res) => {
       }
     } else if (media) {
       // Медиа передано в JSON (например, для прямых ссылок)
-      console.group('🌐 Медиа из JSON');
-      console.log('Входящие медиа:', media);
-      console.log('Полный объект медиа:', JSON.stringify(media, null, 2));
-      console.groupEnd();
-      
       newMessage.media = media;
     } else if (youtubeUrl) {
       // Обработка YouTube ссылки
       try {
-        console.group('📺 YouTube медиа');
-        console.log('YouTube URL:', youtubeUrl);
-        
         const youtubeData = processYouTubeUrl(youtubeUrl);
-        console.log('Обработанные данные YouTube:', youtubeData);
         
         newMessage.media = createMediaResponse(null, youtubeData);
-        console.groupEnd();
       } catch (error) {
         console.error('❌ Ошибка обработки YouTube URL:', error);
         await session.abortTransaction();
@@ -306,13 +302,34 @@ exports.sendMessage = async (req, res) => {
         ]
       }
     ]);
-    const sentMessage = conversation.messages[lastMessageIndex];
+    let sentMessage = conversation.messages[lastMessageIndex];
+    
+    // Обрабатываем URL для медиа в отправленном сообщении
+    if (sentMessage.media && sentMessage.media.url) {
+      sentMessage.media.url = getMediaUrl(sentMessage.media.url, sentMessage.media.type || 'image');
+    }
+    if (sentMessage.image) {
+      sentMessage.image = getMediaUrl(sentMessage.image, 'image');
+    }
 
     // Отправляем уведомление получателю через Socket.IO, если io доступен
     if (io) {
+      // Создаем копию сообщения для Socket.IO с правильными URL
+      const socketMessage = {
+        ...sentMessage.toObject ? sentMessage.toObject() : sentMessage
+      };
+      
+      // Обрабатываем URL для медиа в Socket.IO сообщении
+      if (socketMessage.media && socketMessage.media.url) {
+        socketMessage.media.url = getMediaUrl(socketMessage.media.url, socketMessage.media.type || 'image');
+      }
+      if (socketMessage.image) {
+        socketMessage.image = getMediaUrl(socketMessage.image, 'image');
+      }
+      
       io.to(recipientId).emit('newMessage', {
         conversationId: conversation._id,
-        message: sentMessage,
+        message: socketMessage,
         sender: req.user
       });
     }

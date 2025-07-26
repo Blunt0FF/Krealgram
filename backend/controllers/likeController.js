@@ -11,8 +11,6 @@ exports.toggleLikePost = async (req, res) => {
   const { postId } = req.params;
   const userId = req.user.id;
 
-  console.log('Toggle like request:', { postId, userId });
-
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -91,15 +89,8 @@ exports.toggleLikePost = async (req, res) => {
 
     const likeCount = updatedPost.likes.length;
 
-    console.log('Updated post like status:', {
-      postId,
-      liked: !existingLike, // If there was no existing like, it means we added one
-      likeCount,
-      likes: updatedPost.likes
-    });
-
-    res.status(200).json({
-      message: !existingLike ? 'Post liked successfully' : 'Post unliked successfully',
+    res.json({
+      success: true,
       liked: !existingLike,
       likeCount,
       likes: updatedPost.likes
@@ -109,9 +100,6 @@ exports.toggleLikePost = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error('Error toggling like:', error);
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({ message: 'Validation error: ' + error.message });
-    }
-    res.status(500).json({ message: 'Server error while toggling like.', error: error.message });
+    res.status(500).json({ message: 'Server error.' });
   }
 };
