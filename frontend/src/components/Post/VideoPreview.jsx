@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { getVideoPreviewThumbnail, getStaticThumbnail } from '../../utils/videoUtils';
 import { getVideoUrl, getImageUrl } from '../../utils/imageUtils';
 import videoManager from '../../utils/videoManager';
+import videoCache from '../../utils/videoCache';
 
 // Функция для определения мобильного устройства
 const isMobile = () => {
@@ -106,6 +107,12 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   // Обработка загрузки видео
   const handleVideoLoaded = () => {
     setVideoLoaded(true);
+    const videoUrl = getVideoUrl(post.imageUrl || post.image);
+    if (videoCache.hasVideo(videoUrl)) {
+      console.log(`🎯 Video loaded from cache: ${videoUrl}`);
+    } else {
+      console.log(`📥 Video loaded from network: ${videoUrl}`);
+    }
   };
 
   // Очистка при размонтировании
@@ -166,7 +173,9 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={getVideoUrl(post.imageUrl || post.image)}
+          src={videoCache.hasVideo(getVideoUrl(post.imageUrl || post.image)) ? 
+               videoCache.getPreloadedVideo(getVideoUrl(post.imageUrl || post.image)).src : 
+               getVideoUrl(post.imageUrl || post.image)}
           type="video/mp4"
           style={{
             width: '100%',

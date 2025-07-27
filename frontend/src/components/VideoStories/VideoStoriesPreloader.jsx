@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { getVideoUrl } from '../../utils/mediaUrlResolver';
 import { getOriginalFileName } from '../../utils/fileMetadata';
+import videoCache from '../../utils/videoCache';
 
 const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
@@ -121,6 +122,9 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
 
           video.src = url;
           videoElements.current.set(id, video);
+          
+          // Добавляем видео в кэш для использования в компонентах
+          videoCache.addPreloadedVideo(url, video);
           
           // Проверяем, что видео действительно загружается
           setTimeout(() => {
