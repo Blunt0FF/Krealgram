@@ -13,8 +13,6 @@ const fs = require('fs').promises; // Импортируем fs.promises
 exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
-    
-    console.log(`🔍 getUserProfile called with identifier: ${identifier}`);
 
     let user;
 
@@ -37,48 +35,28 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      // Сначала найдем пользователя без populate
-      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
+        .populate({
+            path: 'posts',
+            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+            populate: [
+                { path: 'author', select: 'username avatar _id' },
+                { 
+                    path: 'comments', 
+                    select: 'text user createdAt _id',
+                    populate: { path: 'user', select: 'username avatar _id' }
+                }
+            ]
+        })
         .lean();
-      
-      if (basicUser) {
-        console.log(`✅ Basic user found: ${basicUser.username} (ID: ${basicUser._id})`);
-        // Если пользователь найден, добавим populate
-        user = await User.findById(basicUser._id)
-          .select('-password -email')
-          .populate({
-              path: 'posts',
-              select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-              populate: [
-                  { path: 'author', select: 'username avatar _id' },
-                  { 
-                      path: 'comments', 
-                      select: 'text user createdAt _id',
-                      populate: { path: 'user', select: 'username avatar _id' }
-                  }
-              ]
-          })
-          .lean();
-      }
     }
 
     if (!user) {
-      // Дополнительная проверка существования пользователя с case-insensitive поиском
-      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
-      
-      console.log(`🔍 User search failed. Identifier: ${identifier}`);
-      console.log(`🔍 User exists check: ${!!userExists}`);
-      if (userExists) {
-        console.log(`🔍 Found user ID: ${userExists._id}`);
-      }
-      
       return res.status(404).json({ 
         message: 'Пользователь не найден.',
         details: {
-          identifier,
-          userExists: !!userExists,
-          userExistsId: userExists?._id
+          identifier
         }
       });
     }
