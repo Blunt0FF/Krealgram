@@ -17,39 +17,26 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
     const videosToPreload = [];
     const maxPreloadPosts = Math.min(10, posts.length);
     
-    console.log(`🎬 FeedVideoPreloader: Processing ${maxPreloadPosts} posts, currentIndex: ${currentIndex}`);
-    
     for (let i = 0; i < maxPreloadPosts; i++) {
       const post = posts[i];
-      if (post && !preloadedVideos.current.has(post._id)) {
+      if (post && (post.imageUrl || post.image) && !preloadedVideos.current.has(post._id)) {
         // Проверяем, является ли это видео
         const isVideo = 
           post.mediaType === 'video' ||
-          post.videoUrl ||
-          post.youtubeData ||
           (post.imageUrl && (post.imageUrl.includes('.mp4') || post.imageUrl.includes('video/'))) ||
-          (post.image && (post.image.includes('.mp4') || post.image.includes('video/')));
+          (post.image && (post.image.includes('.mp4') || post.image.includes('video/'))) ||
+          post.videoUrl ||
+          post.youtubeData;
         
         if (isVideo) {
-          let videoUrl = post.videoUrl || post.imageUrl || post.image;
-          
-          // Для YouTube видео используем оригинальный URL
-          if (post.youtubeData && post.youtubeData.originalUrl) {
-            videoUrl = post.youtubeData.originalUrl;
-          }
-          
           videosToPreload.push({
             id: post._id,
-            url: videoUrl,
-            index: i,
-            post: post
+            url: post.imageUrl || post.image,
+            index: i
           });
-          console.log(`🎬 Found video at index ${i}: ${post._id} (${videoUrl.split('/').pop() || 'unknown'})`);
         }
       }
     }
-    
-    console.log(`🎬 Total videos to preload: ${videosToPreload.length}`);
 
     // Сортируем по приоритету: сначала ближайшие к текущему индексу
     videosToPreload.sort((a, b) => {
@@ -59,28 +46,26 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
     });
 
     // Предзагружаем видео с приоритетом
-    videosToPreload.forEach(({ id, url, index, post }) => {
+    videosToPreload.forEach(({ id, url, index }) => {
       try {
-        console.log(`🎬 Starting preload for video ${id} at index ${index}`);
         const resolvedUrl = getVideoUrl(url);
         
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        // Агрессивная предзагрузка для всех видео в видимом диапазоне
-        video.preload = 'metadata';
+        // Менее агрессивная предзагрузка - только для ближайших постов
+        video.preload = index <= currentIndex + 1 ? 'metadata' : 'none';
         video.muted = true;
         video.playsInline = true;
         
         const handleLoadedMetadata = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
-            console.log(`🎬 Video preloaded successfully: ${url.split('/').pop() || 'unknown'} (ID: ${id})`);
           }
         };
 
         const handleError = (e) => {
-          console.warn(`🎬 Video preload failed: ${url.split('/').pop() || 'unknown'} (ID: ${id})`, e);
+          // Убираем логирование ошибок предзагрузки, так как они не критичны
         };
 
         video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });

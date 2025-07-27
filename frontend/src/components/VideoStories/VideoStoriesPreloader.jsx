@@ -49,7 +49,6 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           const handleLoad = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
             }
           };
 
@@ -83,7 +82,6 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           const handleLoadedMetadata = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
             }
           };
 

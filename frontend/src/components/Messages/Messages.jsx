@@ -288,19 +288,6 @@ const Messages = ({ currentUser }) => {
     }
   }, [isChatOpen]);
 
-  // Функция для обновления данных пользователей в localStorage
-  const updateRecentUsersData = async () => {
-    try {
-      const recent = getRecentUsers();
-      if (recent.length === 0) return;
-
-      // Просто обновляем состояние без лишних запросов
-      setRecentUsers(recent);
-    } catch (error) {
-      console.error('Error updating recent users data:', error);
-    }
-  };
-
   const searchUsers = useCallback(async () => {
     if (!searchQuery.trim()) {
         setSearchResults([]);
@@ -376,8 +363,6 @@ const Messages = ({ currentUser }) => {
   useEffect(() => {
     if (showNewMessageModal) {
       document.body.classList.add('modal-open');
-      // Обновляем данные недавних пользователей при открытии модального окна
-      updateRecentUsersData();
     } else {
       document.body.classList.remove('modal-open');
     }
@@ -1096,7 +1081,7 @@ const Messages = ({ currentUser }) => {
                 }}
               >
                 <img 
-                  src={selectedConversation.participant?.avatar ? getAvatarThumbnailUrl(selectedConversation.participant.avatar) : '/default-avatar.png'} 
+                  src={getAvatarThumbnailUrl(selectedConversation.participant?.avatar)} 
                   alt={selectedConversation.participant?.username}
                   className={`chat-avatar ${!selectedConversation.participant?.username ? 'deleted-user-avatar' : ''}`}
                   onError={(e) => {
@@ -1140,7 +1125,7 @@ const Messages = ({ currentUser }) => {
                 >
                   {message.sender?._id !== currentUser?._id && (
                     <img
-                      src={message.sender?.avatar ? getAvatarThumbnailUrl(message.sender.avatar) : '/default-avatar.png'}
+                      src={getAvatarThumbnailUrl(message.sender?.avatar)}
                       alt={message.sender?.username || 'User'}
                       className="message-avatar"
                       onError={(e) => {
@@ -1408,13 +1393,7 @@ const Messages = ({ currentUser }) => {
                         className="user-avatar"
                         onError={(e) => {
                           e.target.onerror = null;
-                          // Пытаемся обновить аватар только при ошибке
-                          try {
-                            const { refreshAvatarOnError } = require('../../utils/imageUtils');
-                            refreshAvatarOnError(e.target, user.avatar);
-                          } catch (error) {
-                            e.target.src = '/default-avatar.png';
-                          }
+                          e.target.src = '/default-avatar.png';
                         }}
                       />
                       <span className="user-username">{user.username}</span>

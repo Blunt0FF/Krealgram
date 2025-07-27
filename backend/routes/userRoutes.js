@@ -57,6 +57,4 @@ router.get('/:userId/following', userController.getFollowingList);
 // @access  Private
 router.delete('/:userId/followers/:followerId', authMiddleware, userController.removeFollower);
 
-
-
 module.exports = router; 

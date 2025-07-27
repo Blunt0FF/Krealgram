@@ -35,7 +35,7 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      user = await User.findOne({ username: identifier })
         .select('-password -email')
         .populate({
             path: 'posts',
@@ -53,21 +53,14 @@ exports.getUserProfile = async (req, res) => {
     }
 
     if (!user) {
-      return res.status(404).json({ 
-        message: 'Пользователь не найден.',
-        details: {
-          identifier
-        }
-      });
-    }
-    
-    // Проверяем, что пользователь активен (не удален)
-    if (!user.username || user.username.trim() === '') {
+      // Дополнительная проверка существования пользователя
+      const userExists = await User.findOne({ username: identifier }).select('_id');
+      
       return res.status(404).json({ 
         message: 'Пользователь не найден.',
         details: {
           identifier,
-          reason: 'empty_username'
+          userExists: !!userExists
         }
       });
     }
