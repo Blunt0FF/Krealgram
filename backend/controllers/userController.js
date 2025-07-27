@@ -68,8 +68,27 @@ exports.getUserProfile = async (req, res) => {
           console.log(`🔍 Populated user result:`, user ? `Found with ${user.posts?.length || 0} posts` : 'Not found after populate');
         } catch (populateError) {
           console.error(`🔍 Populate error:`, populateError);
-          // Если populate не работает, используем базового пользователя
-          user = basicUser;
+          // Если populate не работает, попробуем получить посты отдельно
+          try {
+            const posts = await Post.find({ author: basicUser._id })
+              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
+              .populate([
+                { path: 'author', select: 'username avatar _id' },
+                { 
+                  path: 'comments', 
+                  select: 'text user createdAt _id',
+                  populate: { path: 'user', select: 'username avatar _id' }
+                }
+              ])
+              .lean();
+            
+            console.log(`🔍 Found ${posts.length} posts separately for ${basicUser.username}`);
+            user = { ...basicUser, posts };
+          } catch (postsError) {
+            console.error(`🔍 Posts fetch error:`, postsError);
+            // Если и это не работает, используем базового пользователя
+            user = basicUser;
+          }
         }
       }
     }
@@ -83,18 +102,31 @@ exports.getUserProfile = async (req, res) => {
       if (userExists) {
         console.log(`🔍 Found user ID: ${userExists._id}`);
         
-        // Если пользователь существует, но populate не сработал, попробуем вернуть базового пользователя
+        // Если пользователь существует, но populate не сработал, попробуем получить посты отдельно
         try {
           const basicUser = await User.findById(userExists._id)
             .select('-password -email')
             .lean();
           
           if (basicUser) {
-            console.log(`🔍 Returning basic user without populate: ${basicUser.username}`);
-            user = basicUser;
+            console.log(`🔍 Getting posts separately for: ${basicUser.username}`);
+            const posts = await Post.find({ author: basicUser._id })
+              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
+              .populate([
+                { path: 'author', select: 'username avatar _id' },
+                { 
+                  path: 'comments', 
+                  select: 'text user createdAt _id',
+                  populate: { path: 'user', select: 'username avatar _id' }
+                }
+              ])
+              .lean();
+            
+            console.log(`🔍 Found ${posts.length} posts separately for ${basicUser.username}`);
+            user = { ...basicUser, posts };
           }
         } catch (error) {
-          console.error(`🔍 Error getting basic user:`, error);
+          console.error(`🔍 Error getting basic user or posts:`, error);
         }
       }
       

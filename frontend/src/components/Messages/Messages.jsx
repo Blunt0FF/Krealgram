@@ -3,7 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import io from 'socket.io-client';
 import heic2any from 'heic2any';
 import { getRecentUsers, addRecentUser } from '../../utils/recentUsers';
-import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl, refreshAvatarOnError } from '../../utils/imageUtils';
 import { getImageUrl } from '../../utils/imageUtils';
 import { getVideoUrl } from '../../utils/mediaUrlResolver';
 import { formatLastSeen, formatMessageTime } from '../../utils/timeUtils';
@@ -1410,7 +1410,6 @@ const Messages = ({ currentUser }) => {
                           e.target.onerror = null;
                           // Пытаемся обновить аватар только при ошибке
                           try {
-                            const { refreshAvatarOnError } = require('../../utils/imageUtils');
                             refreshAvatarOnError(e.target, user.avatar);
                           } catch (error) {
                             e.target.src = '/default-avatar.png';
