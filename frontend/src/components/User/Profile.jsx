@@ -676,16 +676,17 @@ const Profile = ({ user: currentUserProp }) => {
   }, [username, currentUserProp]);
 
   useEffect(() => {
-    // Добавляем отладку URL аватара
-    console.group('🕵️ Avatar Debug');
-    console.log('Profile User:', profile?.user);
-    console.log('Avatar Raw:', profile?.user?.avatar);
-    const avatarUrl = getAvatarUrl(profile?.user?.avatar);
-    console.log('Resolved Avatar URL:', avatarUrl);
-    console.groupEnd();
-
-    // Вызываем тест резолвера URL
-    // testMediaUrlResolver(); // This line was commented out in the original file, so it's commented out here.
+    // Video preloading system:
+    // 1. FeedVideoPreloader - предзагружает видео для первых 10 постов в ленте
+    // 2. VideoStoriesPreloader - предзагружает следующие 2 видео в stories
+    // 3. VideoPreloader - предзагружает отдельные видео с приоритетом
+    // 4. useVideoPreloader hook - для кастомной предзагрузки
+    // 
+    // Система оптимизирована для:
+    // - Safari (более агрессивная предзагрузка)
+    // - Мобильных устройств (ограниченная предзагрузка)
+    // - Производительности (очистка через 30 секунд)
+    // - YouTube видео (предзагрузка thumbnails)
   }, [profile]);
 
   if (loadingProfile) {

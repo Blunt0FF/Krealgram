@@ -26,6 +26,7 @@ const useVideoPreloader = (videoUrl, priority = 'low') => {
 
     const handleLoadedMetadata = () => {
       setIsPreloaded(true);
+      console.log(`🎬 Hook video preloaded: ${resolvedUrl.split('/').pop() || 'unknown'}`);
     };
 
     const handleError = (e) => {

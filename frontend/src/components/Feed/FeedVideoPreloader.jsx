@@ -61,6 +61,7 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         const handleLoadedMetadata = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
+            console.log(`🎬 Video preloaded: ${url.split('/').pop() || 'unknown'}`);
           }
         };
 

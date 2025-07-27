@@ -27,6 +27,7 @@ const VideoPreloader = ({ videoUrl, onLoad, onError, priority = 'low' }) => {
     const handleLoadedMetadata = () => {
       setIsLoaded(true);
       onLoad?.(resolvedUrl);
+      console.log(`🎥 Video preloaded: ${resolvedUrl.split('/').pop() || 'unknown'}`);
     };
 
     const handleError = (e) => {

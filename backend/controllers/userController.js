@@ -14,13 +14,12 @@ exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
     
-    console.log(`🔍 Looking for user with identifier: ${identifier}`);
+    console.log(`🔍 getUserProfile called with identifier: ${identifier}`);
 
     let user;
 
     // Проверяем, является ли идентификатор валидным ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
-      console.log(`🔍 Searching by ObjectId: ${identifier}`);
       user = await User.findById(identifier)
         .select('-password -email')
         .populate({
@@ -38,45 +37,54 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      // Используем case-insensitive поиск
-      console.log(`🔍 Searching by username (case-insensitive): ${identifier}`);
-      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      // Сначала найдем пользователя без populate
+      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
-        .populate({
-            path: 'posts',
-            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            populate: [
-                { path: 'author', select: 'username avatar _id' },
-                { 
-                    path: 'comments', 
-                    select: 'text user createdAt _id',
-                    populate: { path: 'user', select: 'username avatar _id' }
-                }
-            ]
-        })
         .lean();
+      
+      if (basicUser) {
+        console.log(`✅ Basic user found: ${basicUser.username} (ID: ${basicUser._id})`);
+        // Если пользователь найден, добавим populate
+        user = await User.findById(basicUser._id)
+          .select('-password -email')
+          .populate({
+              path: 'posts',
+              select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+              populate: [
+                  { path: 'author', select: 'username avatar _id' },
+                  { 
+                      path: 'comments', 
+                      select: 'text user createdAt _id',
+                      populate: { path: 'user', select: 'username avatar _id' }
+                  }
+              ]
+          })
+          .lean();
+      }
     }
 
     if (!user) {
       // Дополнительная проверка существования пользователя с case-insensitive поиском
       const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
       
-      console.log(`❌ User not found. Identifier: ${identifier}, UserExists: ${!!userExists}`);
+      console.log(`🔍 User search failed. Identifier: ${identifier}`);
+      console.log(`🔍 User exists check: ${!!userExists}`);
+      if (userExists) {
+        console.log(`🔍 Found user ID: ${userExists._id}`);
+      }
       
       return res.status(404).json({ 
         message: 'Пользователь не найден.',
         details: {
           identifier,
-          userExists: !!userExists
+          userExists: !!userExists,
+          userExistsId: userExists?._id
         }
       });
     }
     
-    console.log(`✅ User found: ${user.username} (ID: ${user._id})`);
-    
     // Проверяем, что пользователь активен (не удален)
     if (!user.username || user.username.trim() === '') {
-      console.log(`❌ User ${user._id} has empty username`);
       return res.status(404).json({ 
         message: 'Пользователь не найден.',
         details: {
