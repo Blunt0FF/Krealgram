@@ -191,6 +191,14 @@ const EditProfile = ({ user, setUser }) => {
         ...finalUpdatedUser
       }));
 
+      // Обновляем данные пользователя в недавних пользователях
+      try {
+        const { updateRecentUser } = await import('../../utils/recentUsers');
+        updateRecentUser(finalUpdatedUser._id, finalUpdatedUser);
+      } catch (error) {
+        console.error('Error updating recent users:', error);
+      }
+
       // Показываем успешное обновление
       setLoading(false);
       navigate('/profile/' + finalUpdatedUser.username);
