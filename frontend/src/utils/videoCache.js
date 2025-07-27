@@ -46,27 +46,15 @@ class VideoCache {
   createVideoElement(url) {
     const preloadedVideo = this.getPreloadedVideo(url);
     
-    if (preloadedVideo) {
-      // Создаем новый элемент и копируем свойства предзагруженного
-      const newVideo = document.createElement('video');
-      newVideo.crossOrigin = preloadedVideo.crossOrigin;
-      newVideo.preload = preloadedVideo.preload;
-      newVideo.muted = preloadedVideo.muted;
-      newVideo.playsInline = preloadedVideo.playsInline;
-      
-      // Если предзагруженное видео уже загружено, используем его src
-      if (preloadedVideo.readyState >= 1) {
-        newVideo.src = preloadedVideo.src;
-        console.log(`🚀 Using preloaded video data: ${url}`);
-      } else {
-        // Если еще не загружено, используем обычный URL
-        newVideo.src = url;
-      }
-      
+    if (preloadedVideo && preloadedVideo.readyState >= 1) {
+      // Если видео уже загружено, клонируем элемент
+      const newVideo = preloadedVideo.cloneNode(true);
+      newVideo.style.display = 'block'; // Показываем клонированный элемент
+      console.log(`🚀 Using preloaded video data: ${url} (readyState: ${preloadedVideo.readyState})`);
       return newVideo;
     }
     
-    // Если нет в кэше, создаем обычный элемент
+    // Если нет в кэше или не загружено, создаем обычный элемент
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
     video.preload = 'metadata';

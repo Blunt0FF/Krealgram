@@ -115,6 +115,20 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
     }
   };
 
+  // Используем предзагруженное видео при создании элемента
+  useEffect(() => {
+    if (showVideo && videoRef.current) {
+      const videoUrl = getVideoUrl(post.imageUrl || post.image);
+      const preloadedVideo = videoCache.getPreloadedVideo(videoUrl);
+      
+      if (preloadedVideo && preloadedVideo.readyState >= 1) {
+        // Если есть предзагруженное видео, заменяем src
+        videoRef.current.src = preloadedVideo.src;
+        console.log(`🚀 Replaced with preloaded video: ${videoUrl}`);
+      }
+    }
+  }, [showVideo, post.imageUrl, post.image]);
+
   // Очистка при размонтировании
   useEffect(() => {
     return () => {
@@ -173,9 +187,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
       {showVideo && (post.imageUrl || post.image) && (
         <video
           ref={videoRef}
-          src={videoCache.hasVideo(getVideoUrl(post.imageUrl || post.image)) ? 
-               videoCache.getPreloadedVideo(getVideoUrl(post.imageUrl || post.image)).src : 
-               getVideoUrl(post.imageUrl || post.image)}
+          src={getVideoUrl(post.imageUrl || post.image)}
           type="video/mp4"
           style={{
             width: '100%',

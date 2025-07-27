@@ -44,17 +44,20 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        // Для первых 10 постов загружаем более агрессивно
-        video.preload = index < 10 ? 'metadata' : (index <= currentIndex + 3 ? 'metadata' : 'none');
+        // Для первых 10 постов загружаем полностью
+        video.preload = index < 10 ? 'auto' : (index <= currentIndex + 3 ? 'metadata' : 'none');
         video.muted = true;
         video.playsInline = true;
         video.style.display = 'none'; // Скрываем элемент
         
+        const startTime = Date.now();
+        
         const handleLoadedMetadata = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
+            const loadTime = Date.now() - startTime;
             const prefix = index < 10 ? '🔥' : '🎬';
-            console.log(`${prefix} Video preloaded: ${originalFileName} (post ${index + 1})`);
+            console.log(`${prefix} Video preloaded: ${originalFileName} (post ${index + 1}) in ${loadTime}ms`);
             
             // Дополнительная проверка для Safari
             if (isSafari()) {
@@ -80,6 +83,18 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         
         // Добавляем видео в кэш для использования в компонентах
         videoCache.addPreloadedVideo(resolvedUrl, video);
+        
+        // Для первых 10 постов принудительно загружаем видео
+        if (index < 10) {
+          video.load();
+          // Принудительно начинаем загрузку
+          video.play().then(() => {
+            video.pause();
+            video.currentTime = 0;
+          }).catch(() => {
+            // Игнорируем ошибки автовоспроизведения
+          });
+        }
         
         // Проверяем, что видео действительно загружается
         setTimeout(() => {
