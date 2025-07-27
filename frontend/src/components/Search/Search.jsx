@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getAvatarUrl, getAvatarThumbnailUrl } from '../../utils/imageUtils';
+import { getAvatarUrl, getAvatarThumbnailUrl, refreshAvatarOnError } from '../../utils/imageUtils';
 import { API_URL } from '../../config';
 import './Search.css';
 
@@ -69,7 +69,8 @@ const Search = () => {
               className="user-avatar"
               onError={(e) => {
                 e.target.onerror = null;
-                e.target.src = '/default-avatar.png';
+                // Используем улучшенную функцию для обработки ошибок
+                refreshAvatarOnError(e.target, user.avatar);
               }}
             />
             <div className="user-info">
