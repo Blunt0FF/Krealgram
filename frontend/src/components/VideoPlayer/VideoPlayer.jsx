@@ -27,20 +27,6 @@ const VideoPlayer = ({
   const videoRef = useRef(null);
   const [videoUrl, setVideoUrl] = useState(null);
 
-  // Функция для извлечения имени файла
-  const getFileName = (url) => {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const fileName = pathname.split('/').pop();
-      return fileName || 'unknown';
-    } catch {
-      // Если не удается распарсить URL, берем последнюю часть
-      const parts = url.split('/');
-      return parts[parts.length - 1] || 'unknown';
-    }
-  };
-
   // Обрабатываем URL видео
   useEffect(() => {
     if (!src) return;
@@ -54,8 +40,6 @@ const VideoPlayer = ({
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
       setIsLoaded(true);
-      const fileName = getFileName(videoRef.current.src);
-      console.log(`🎬 VideoPlayer loaded: ${fileName}`);
       onLoad?.(videoRef.current);
     }
   }, [onLoad]);
@@ -84,6 +68,9 @@ const VideoPlayer = ({
     setIsLoaded(true);
   }, []);
 
+  // Safari-специфичные настройки
+  const isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
+  
   const videoProps = {
     ref: videoRef,
     src: videoUrl,
@@ -93,7 +80,7 @@ const VideoPlayer = ({
     loop: loop,
     playsInline: true, // Важно для iOS
     webkitPlaysinline: true, // Для старых версий Safari
-    preload: 'auto', // Используем предзагруженное видео
+    preload: 'metadata', // Менее агрессивная загрузка
     crossOrigin: 'anonymous',
     onLoadedMetadata: handleLoadedMetadata,
     onTimeUpdate: handleTimeUpdate,
@@ -109,9 +96,9 @@ const VideoPlayer = ({
     }
   };
 
-  // Автозапуск
+  // Автозапуск для Safari
   useEffect(() => {
-    if (autoplay && videoRef.current) {
+    if (autoplay && videoRef.current && isSafari) {
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch(error => {
@@ -119,7 +106,7 @@ const VideoPlayer = ({
         });
       }
     }
-  }, [autoplay]);
+  }, [autoplay, isSafari]);
 
   if (!videoUrl) return null;
 
@@ -130,10 +117,7 @@ const VideoPlayer = ({
         <VideoPreloader 
           videoUrl={videoUrl} 
           priority={priority}
-          onLoad={() => {
-            const fileName = getFileName(videoUrl);
-            console.log('VideoPlayer preloader completed:', fileName);
-          }}
+          onLoad={() => console.log('Video preloaded:', videoUrl)}
           onError={(e) => console.error('Video preload error:', e)}
         />
       )}

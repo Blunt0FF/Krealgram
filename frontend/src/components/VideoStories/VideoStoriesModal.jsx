@@ -363,7 +363,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           autoPlay={true}
           muted={false}
           playsInline={true}
-          preload="auto" // Используем предзагруженное видео
+          preload="metadata"
           style={{
             display: 'block',
             backgroundColor: '#000',
@@ -376,20 +376,6 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           }}
           onCanPlay={() => {
             setVideoLoading(false);
-            // Извлекаем имя файла для логирования
-            const getFileName = (url) => {
-              try {
-                const urlObj = new URL(url);
-                const pathname = urlObj.pathname;
-                const fileName = pathname.split('/').pop();
-                return fileName || 'unknown';
-              } catch {
-                const parts = url.split('/');
-                return parts[parts.length - 1] || 'unknown';
-              }
-            };
-            const fileName = getFileName(videoSrc);
-            console.log(`🎬 VideoStoriesModal loaded: ${fileName} (story ${currentIndex + 1})`);
           }}
           onEnded={() => {
             // Автоматически переходим к следующему видео

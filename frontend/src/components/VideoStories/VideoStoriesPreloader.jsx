@@ -5,20 +5,6 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
   const videoElements = useRef(new Map());
 
-  // Функция для извлечения имени файла
-  const getFileName = (url) => {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const fileName = pathname.split('/').pop();
-      return fileName || 'unknown';
-    } catch {
-      // Если не удается распарсить URL, берем последнюю часть
-      const parts = url.split('/');
-      return parts[parts.length - 1] || 'unknown';
-    }
-  };
-
   useEffect(() => {
     if (!videos || videos.length === 0) return;
 
@@ -63,8 +49,7 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           const handleLoad = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              const fileName = getFileName(url);
-              console.log(`📱 Stories YouTube preloaded: ${fileName} (story ${index + 1})`);
+              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
             }
           };
 
@@ -77,7 +62,7 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           img.src = url;
           videoElements.current.set(id, img);
 
-          // Очистка через 60 секунд
+          // Очистка через 30 секунд
           setTimeout(() => {
             const img = videoElements.current.get(id);
             if (img) {
@@ -86,22 +71,19 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
               img.src = '';
               videoElements.current.delete(id);
             }
-          }, 60000);
+          }, 30000);
         } else {
           // Для обычных видео
           const video = document.createElement('video');
           video.crossOrigin = 'anonymous';
-          
-          // Загружаем само видео, а не только метаданные
-          video.preload = 'auto';
+          video.preload = 'metadata';
           video.muted = true;
           video.playsInline = true;
           
-          const handleCanPlayThrough = () => {
+          const handleLoadedMetadata = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              const fileName = getFileName(url);
-              console.log(`📱 Stories video preloaded: ${fileName} (story ${index + 1})`);
+              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
             }
           };
 
@@ -109,23 +91,25 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
             // Убираем логирование ошибок
           };
 
-          video.addEventListener('canplaythrough', handleCanPlayThrough, { once: true });
+          video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
           video.addEventListener('error', handleError);
+          video.addEventListener('canplay', handleLoadedMetadata, { once: true });
 
           video.src = url;
           videoElements.current.set(id, video);
 
-          // Очистка через 60 секунд
+          // Очистка через 30 секунд
           setTimeout(() => {
             const video = videoElements.current.get(id);
             if (video) {
-              video.removeEventListener('canplaythrough', handleCanPlayThrough);
+              video.removeEventListener('loadedmetadata', handleLoadedMetadata);
               video.removeEventListener('error', handleError);
+              video.removeEventListener('canplay', handleLoadedMetadata);
               video.src = '';
               video.load();
               videoElements.current.delete(id);
             }
-          }, 60000);
+          }, 30000);
         }
       } catch (error) {
         // Убираем логирование ошибок

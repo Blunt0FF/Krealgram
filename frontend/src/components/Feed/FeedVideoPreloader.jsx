@@ -5,18 +5,9 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
   const videoElements = useRef(new Map());
 
-  // Функция для извлечения имени файла
-  const getFileName = (url) => {
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const fileName = pathname.split('/').pop();
-      return fileName || 'unknown';
-    } catch {
-      // Если не удается распарсить URL, берем последнюю часть
-      const parts = url.split('/');
-      return parts[parts.length - 1] || 'unknown';
-    }
+  // Функция для определения Safari
+  const isSafari = () => {
+    return navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
   };
 
   useEffect(() => {
@@ -62,17 +53,15 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        
-        // Загружаем само видео, а не только метаданные
-        video.preload = 'auto';
+        // Менее агрессивная предзагрузка - только для ближайших постов
+        video.preload = index <= currentIndex + 1 ? 'metadata' : 'none';
         video.muted = true;
         video.playsInline = true;
         
-        const handleCanPlayThrough = () => {
+        const handleLoadedMetadata = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
-            const fileName = getFileName(url);
-            console.log(`🎬 Feed video preloaded: ${fileName} (post ${index + 1})`);
+            console.log(`🎬 Video preloaded: ${url.split('/').pop() || 'unknown'}`);
           }
         };
 
@@ -80,23 +69,25 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
           // Убираем логирование ошибок предзагрузки, так как они не критичны
         };
 
-        video.addEventListener('canplaythrough', handleCanPlayThrough, { once: true });
+        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
         video.addEventListener('error', handleError);
+        video.addEventListener('canplay', handleLoadedMetadata, { once: true });
 
         video.src = resolvedUrl;
         videoElements.current.set(id, video);
 
-        // Очистка через 60 секунд (увеличиваем время для лучшей производительности)
+        // Очистка через 30 секунд
         setTimeout(() => {
           const video = videoElements.current.get(id);
           if (video) {
-            video.removeEventListener('canplaythrough', handleCanPlayThrough);
+            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
             video.removeEventListener('error', handleError);
+            video.removeEventListener('canplay', handleLoadedMetadata);
             video.src = '';
             video.load();
             videoElements.current.delete(id);
           }
-        }, 60000);
+        }, 30000);
       } catch (error) {
         // Убираем логирование ошибок
       }

@@ -117,7 +117,7 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
         x5-video-player-fullscreen="true"
         x5-video-orientation="portrait"
         muted={isMobile ? true : false} // На мобильных сначала без звука для быстрой загрузки
-        preload="auto" // Используем предзагруженное видео
+        preload={isMobile ? "metadata" : "auto"} // На мобильных загружаем только метаданные
         poster={isMobile ? posterUrl : (!isDesktop ? posterUrl : undefined)}
         style={{
           width: '100%',
@@ -128,23 +128,7 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
           display: 'block'
         }}
         onLoad={onLoad}
-        onLoadedData={(e) => {
-          // Извлекаем имя файла для логирования
-          const getFileName = (url) => {
-            try {
-              const urlObj = new URL(url);
-              const pathname = urlObj.pathname;
-              const fileName = pathname.split('/').pop();
-              return fileName || 'unknown';
-            } catch {
-              const parts = url.split('/');
-              return parts[parts.length - 1] || 'unknown';
-            }
-          };
-          const fileName = getFileName(e.target.src);
-          console.log(`🎬 ModalMedia loaded: ${fileName}`);
-          onLoad();
-        }}
+        onLoadedData={onLoad}
         onError={onError}
         onPlay={(e) => {
           videoManager.setCurrentVideo(e.target);
