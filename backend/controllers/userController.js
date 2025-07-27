@@ -82,16 +82,32 @@ exports.getUserProfile = async (req, res) => {
       console.log(`🔍 User exists check: ${!!userExists}`);
       if (userExists) {
         console.log(`🔍 Found user ID: ${userExists._id}`);
+        
+        // Если пользователь существует, но populate не сработал, попробуем вернуть базового пользователя
+        try {
+          const basicUser = await User.findById(userExists._id)
+            .select('-password -email')
+            .lean();
+          
+          if (basicUser) {
+            console.log(`🔍 Returning basic user without populate: ${basicUser.username}`);
+            user = basicUser;
+          }
+        } catch (error) {
+          console.error(`🔍 Error getting basic user:`, error);
+        }
       }
       
-      return res.status(404).json({ 
-        message: 'Пользователь не найден.',
-        details: {
-          identifier,
-          userExists: !!userExists,
-          userExistsId: userExists?._id
-        }
-      });
+      if (!user) {
+        return res.status(404).json({ 
+          message: 'Пользователь не найден.',
+          details: {
+            identifier,
+            userExists: !!userExists,
+            userExistsId: userExists?._id
+          }
+        });
+      }
     }
     
     // Проверяем, что пользователь активен (не удален)
@@ -106,7 +122,7 @@ exports.getUserProfile = async (req, res) => {
     }
     
     // Добавляем безопасную обработку image
-    if (user.posts && user.posts.length > 0) {
+    if (user.posts && Array.isArray(user.posts) && user.posts.length > 0) {
       user.posts = user.posts.map(post => {
         // Используем ту же логику, что и в уведомлениях - приоритет для thumbnailUrl
         let imageUrl;
