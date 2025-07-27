@@ -28,17 +28,11 @@ const VideoPreloader = ({ videoUrl, onLoad, onError, priority = 'low' }) => {
     // Создаем скрытый video элемент для предзагрузки
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
-    video.preload = 'metadata';
+    video.preload = 'auto'; // Загружаем само видео
     video.muted = true;
     video.playsInline = true;
-    
-    // Для Safari используем более агрессивную предзагрузку
-    const isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
-    if (isSafari) {
-      video.preload = 'auto';
-    }
 
-    const handleLoadedMetadata = () => {
+    const handleCanPlayThrough = () => {
       setIsLoaded(true);
       onLoad?.(resolvedUrl);
       const fileName = getFileName(resolvedUrl);
@@ -51,18 +45,16 @@ const VideoPreloader = ({ videoUrl, onLoad, onError, priority = 'low' }) => {
       onError?.(e);
     };
 
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('canplaythrough', handleCanPlayThrough);
     video.addEventListener('error', handleError);
-    video.addEventListener('canplay', handleLoadedMetadata);
 
     video.src = resolvedUrl;
     videoRef.current = video;
 
     return () => {
       if (videoRef.current) {
-        videoRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        videoRef.current.removeEventListener('canplaythrough', handleCanPlayThrough);
         videoRef.current.removeEventListener('error', handleError);
-        videoRef.current.removeEventListener('canplay', handleLoadedMetadata);
         videoRef.current.src = '';
         videoRef.current.load();
       }

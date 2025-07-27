@@ -84,9 +84,6 @@ const VideoPlayer = ({
     setIsLoaded(true);
   }, []);
 
-  // Safari-специфичные настройки
-  const isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
-  
   const videoProps = {
     ref: videoRef,
     src: videoUrl,
@@ -96,7 +93,7 @@ const VideoPlayer = ({
     loop: loop,
     playsInline: true, // Важно для iOS
     webkitPlaysinline: true, // Для старых версий Safari
-    preload: 'metadata', // Менее агрессивная загрузка
+    preload: 'auto', // Используем предзагруженное видео
     crossOrigin: 'anonymous',
     onLoadedMetadata: handleLoadedMetadata,
     onTimeUpdate: handleTimeUpdate,
@@ -112,9 +109,9 @@ const VideoPlayer = ({
     }
   };
 
-  // Автозапуск для Safari
+  // Автозапуск
   useEffect(() => {
-    if (autoplay && videoRef.current && isSafari) {
+    if (autoplay && videoRef.current) {
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
         playPromise.catch(error => {
@@ -122,7 +119,7 @@ const VideoPlayer = ({
         });
       }
     }
-  }, [autoplay, isSafari]);
+  }, [autoplay]);
 
   if (!videoUrl) return null;
 

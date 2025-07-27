@@ -363,7 +363,7 @@ const VideoStoriesModal = ({ user, isOpen, onClose }) => {
           autoPlay={true}
           muted={false}
           playsInline={true}
-          preload="metadata"
+          preload="auto" // Используем предзагруженное видео
           style={{
             display: 'block',
             backgroundColor: '#000',

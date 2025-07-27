@@ -117,7 +117,7 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
         x5-video-player-fullscreen="true"
         x5-video-orientation="portrait"
         muted={isMobile ? true : false} // На мобильных сначала без звука для быстрой загрузки
-        preload={isMobile ? "metadata" : "auto"} // На мобильных загружаем только метаданные
+        preload="auto" // Используем предзагруженное видео
         poster={isMobile ? posterUrl : (!isDesktop ? posterUrl : undefined)}
         style={{
           width: '100%',

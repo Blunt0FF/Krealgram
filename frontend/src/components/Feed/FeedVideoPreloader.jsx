@@ -5,11 +5,6 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
   const videoElements = useRef(new Map());
 
-  // Функция для определения Safari
-  const isSafari = () => {
-    return navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
-  };
-
   // Функция для извлечения имени файла
   const getFileName = (url) => {
     try {
@@ -68,19 +63,12 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
         
-        // Настройки предзагрузки в зависимости от браузера
-        if (isSafari()) {
-          // Для Safari более агрессивная предзагрузка
-          video.preload = index <= currentIndex + 2 ? 'auto' : 'metadata';
-        } else {
-          // Для других браузеров менее агрессивная
-          video.preload = index <= currentIndex + 1 ? 'metadata' : 'none';
-        }
-        
+        // Загружаем само видео, а не только метаданные
+        video.preload = 'auto';
         video.muted = true;
         video.playsInline = true;
         
-        const handleLoadedMetadata = () => {
+        const handleCanPlayThrough = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
             const fileName = getFileName(url);
@@ -92,25 +80,23 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
           // Убираем логирование ошибок предзагрузки, так как они не критичны
         };
 
-        video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
+        video.addEventListener('canplaythrough', handleCanPlayThrough, { once: true });
         video.addEventListener('error', handleError);
-        video.addEventListener('canplay', handleLoadedMetadata, { once: true });
 
         video.src = resolvedUrl;
         videoElements.current.set(id, video);
 
-        // Очистка через 30 секунд
+        // Очистка через 60 секунд (увеличиваем время для лучшей производительности)
         setTimeout(() => {
           const video = videoElements.current.get(id);
           if (video) {
-            video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            video.removeEventListener('canplaythrough', handleCanPlayThrough);
             video.removeEventListener('error', handleError);
-            video.removeEventListener('canplay', handleLoadedMetadata);
             video.src = '';
             video.load();
             videoElements.current.delete(id);
           }
-        }, 30000);
+        }, 60000);
       } catch (error) {
         // Убираем логирование ошибок
       }

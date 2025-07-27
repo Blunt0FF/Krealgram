@@ -18,7 +18,6 @@ import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
 import { API_URL, LOCAL_URL, REMOTE_URL, checkAndSetApiUrl } from './config';
 import { initializeAvatarCache } from './utils/imageUtils';
-import { testSafariVideoPreload, checkPreloadSupport, monitorVideoPreload } from './utils/safariVideoTest';
 import './App.css';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
@@ -77,20 +76,6 @@ const App = () => {
 
       if (isLocal) {
         await checkAndSetApiUrl();
-      }
-
-      // Инициализируем тестирование предзагрузки видео
-      console.log('🚀 Initializing video preload testing...');
-      testSafariVideoPreload();
-      checkPreloadSupport();
-      
-      // Запускаем мониторинг производительности предзагрузки
-      try {
-        const performanceObserver = monitorVideoPreload();
-        // Сохраняем observer для очистки при необходимости
-        window.videoPreloadObserver = performanceObserver;
-      } catch (error) {
-        console.log('PerformanceObserver not supported in this browser');
       }
 
       const token = localStorage.getItem('token');
@@ -175,32 +160,159 @@ const App = () => {
               <ForgotPassword />
             </PublicRoute>
           } />
-          <Route path="/reset-password" element={
+          <Route path="/reset-password/:token" element={
             <PublicRoute isAuthenticated={isAuthenticated}>
               <ResetPassword />
             </PublicRoute>
           } />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/*" element={
+          <Route path="/verify-email/:token" element={
+            <PublicRoute isAuthenticated={isAuthenticated}>
+              <VerifyEmail />
+            </PublicRoute>
+          } />
+          <Route path="/feed" element={
             isAuthenticated ? (
-              <div className="main-layout">
-                <Sidebar user={user} onLogout={handleLogout} unreadCount={unreadCount} setUnreadCount={setUnreadCount} />
-                <main className="main-content main-content-with-sidebar">
-                  <Routes>
-                    <Route path="feed" element={<Feed user={user} />} />
-                    <Route path="search" element={<SearchPage />} />
-                    <Route path="messages" element={<Messages currentUser={user} />} />
-                    <Route path="profile/:username" element={<Profile user={user} />} />
-                    <Route path="edit-profile" element={<EditProfile user={user} setUser={setUser} />} />
-                    <Route path="create-post" element={<CreatePost />} />
-                    <Route path="post/:id" element={<PostPage />} />
-                    <Route path="notifications_mobile" element={<MobileNotificationsPage setUnreadCountGlobal={setUnreadCount} />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
-                <MobileNavigation user={user} onLogout={handleLogout} unreadCount={unreadCount} />
-              </div>
-            ) : <Navigate to="/" replace />
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <Feed user={user} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
+          } />
+          <Route path="/create-post" element={
+            isAuthenticated ? (
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <CreatePost user={user} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
+          } />
+          <Route path="/profile/:identifier" element={
+            isAuthenticated ? (
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <Profile currentUser={user} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
+          } />
+          <Route path="/edit-profile" element={
+            isAuthenticated ? (
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <EditProfile user={user} setUser={setUser} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
+          } />
+          <Route path="/messages" element={
+            isAuthenticated ? (
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <Messages user={user} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
+          } />
+          <Route path="/post/:postId" element={
+            isAuthenticated ? (
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <PostPage currentUser={user} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
+          } />
+          <Route path="/search" element={
+            isAuthenticated ? (
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <SearchPage user={user} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
+          } />
+          <Route path="/notifications" element={
+            isAuthenticated ? (
+              <>
+                <Sidebar 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                  setUnreadCount={setUnreadCount}
+                />
+                <MobileNotificationsPage user={user} />
+                <MobileNavigation 
+                  user={user} 
+                  onLogout={handleLogout}
+                  unreadCount={unreadCount}
+                />
+              </>
+            ) : <Navigate to="/" />
           } />
           <Route path="*" element={<NotFound />} />
         </Routes>

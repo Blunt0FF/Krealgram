@@ -198,7 +198,7 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
           x5-video-player-type="h5"
           x5-video-player-fullscreen="true"
           x5-video-orientation="portrait"
-          preload={isMobile() ? "metadata" : "auto"}
+          preload="auto" // Используем предзагруженное видео
           muted={false} // Звук всегда включен
           onPlay={() => {
             setIsVideoPlaying(true);
