@@ -57,4 +57,41 @@ router.get('/:userId/following', userController.getFollowingList);
 // @access  Private
 router.delete('/:userId/followers/:followerId', authMiddleware, userController.removeFollower);
 
+// Тестовый маршрут для проверки существования пользователя
+router.get('/test/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    console.log(`🧪 Testing user existence: ${username}`);
+    
+    // Проверяем точное совпадение
+    const exactMatch = await require('../models/userModel').findOne({ username });
+    console.log(`🧪 Exact match:`, exactMatch ? exactMatch.username : 'NOT FOUND');
+    
+    // Проверяем case-insensitive поиск
+    const caseInsensitiveMatch = await require('../models/userModel').findOne({ 
+      username: { $regex: new RegExp(`^${username}$`, 'i') } 
+    });
+    console.log(`🧪 Case-insensitive match:`, caseInsensitiveMatch ? caseInsensitiveMatch.username : 'NOT FOUND');
+    
+    // Проверяем частичное совпадение
+    const partialMatch = await require('../models/userModel').findOne({ 
+      username: { $regex: new RegExp(username, 'i') } 
+    });
+    console.log(`🧪 Partial match:`, partialMatch ? partialMatch.username : 'NOT FOUND');
+    
+    res.json({
+      username,
+      exactMatch: !!exactMatch,
+      caseInsensitiveMatch: !!caseInsensitiveMatch,
+      partialMatch: !!partialMatch,
+      exactMatchUser: exactMatch ? { username: exactMatch.username, _id: exactMatch._id } : null,
+      caseInsensitiveMatchUser: caseInsensitiveMatch ? { username: caseInsensitiveMatch.username, _id: caseInsensitiveMatch._id } : null,
+      partialMatchUser: partialMatch ? { username: partialMatch.username, _id: partialMatch._id } : null
+    });
+  } catch (error) {
+    console.error('Test route error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router; 
