@@ -288,6 +288,19 @@ const Messages = ({ currentUser }) => {
     }
   }, [isChatOpen]);
 
+  // Функция для обновления данных пользователей в localStorage
+  const updateRecentUsersData = async () => {
+    try {
+      const recent = getRecentUsers();
+      if (recent.length === 0) return;
+
+      // Просто обновляем состояние без лишних запросов
+      setRecentUsers(recent);
+    } catch (error) {
+      console.error('Error updating recent users data:', error);
+    }
+  };
+
   const searchUsers = useCallback(async () => {
     if (!searchQuery.trim()) {
         setSearchResults([]);
@@ -363,6 +376,8 @@ const Messages = ({ currentUser }) => {
   useEffect(() => {
     if (showNewMessageModal) {
       document.body.classList.add('modal-open');
+      // Обновляем данные недавних пользователей при открытии модального окна
+      updateRecentUsersData();
     } else {
       document.body.classList.remove('modal-open');
     }
@@ -705,8 +720,8 @@ const Messages = ({ currentUser }) => {
     }
 };
 
-  const openImageModal = (imageSrc) => {
-    setSelectedImage(imageSrc);
+  const openImageModal = (mediaSrc, mediaType = 'image') => {
+    setSelectedImage({ src: mediaSrc, type: mediaType });
     setImageModalOpen(true);
   };
 
@@ -876,36 +891,99 @@ const Messages = ({ currentUser }) => {
     }
 
     try {
-      // Список всех возможных источников URL
-      const urlSources = [
-        message.media.url,
-        message.media.imageUrl,
-        message.media.thumbnailUrl,
-        message.media.image,
-        '/default-post-placeholder.png'
-      ].filter(Boolean);
+      const mediaType = message.media.type || 'image';
+      
+      if (mediaType === 'video') {
+        // Для видео показываем превью с кнопкой воспроизведения
+        const posterUrl = (() => {
+          // Создаем превью для Cloudinary видео
+          if (message.media.url && message.media.url.includes('cloudinary.com')) {
+            return message.media.url.replace(
+              '/video/upload/',
+              '/video/upload/w_400,c_limit,f_jpg,so_0,q_auto/'
+            );
+          }
+          // Используем thumbnailUrl если есть
+          if (message.media.thumbnailUrl) {
+            return getImageUrl(message.media.thumbnailUrl);
+          }
+          // Fallback на placeholder
+          return '/video-placeholder.png';
+        })();
 
-      const processedUrl = getImageUrl(urlSources[0], 'image');
+        return (
+          <div className="message-video-preview" style={{ position: 'relative', display: 'inline-block' }}>
+            <img 
+              src={posterUrl} 
+              alt="Video preview" 
+              style={{ 
+                maxWidth: '300px', 
+                maxHeight: '300px', 
+                objectFit: 'cover',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+              onClick={() => openImageModal(message.media.url, 'video')}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/video-placeholder.png';
+              }}
+            />
+            <div 
+              className="video-play-overlay"
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                background: 'rgba(0, 0, 0, 0.7)',
+                borderRadius: '50%',
+                width: '50px',
+                height: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer'
+              }}
+              onClick={() => openImageModal(message.media.url, 'video')}
+            >
+              <span style={{ color: 'white', fontSize: '20px' }}>▶</span>
+            </div>
+          </div>
+        );
+      } else {
+        // Для изображений используем старую логику
+        const urlSources = [
+          message.media.url,
+          message.media.imageUrl,
+          message.media.thumbnailUrl,
+          message.media.image,
+          '/default-post-placeholder.png'
+        ].filter(Boolean);
 
-      const handleImageError = (e) => {
-        e.target.src = urlSources[urlSources.length - 1];
-      };
+        const processedUrl = getImageUrl(urlSources[0], 'image');
 
-      return (
-        <img 
-          src={processedUrl} 
-          alt="Медиа в сообщении" 
-          onClick={() => openImageModal(processedUrl)}
-          onError={handleImageError}
-          style={{ 
-            maxWidth: '300px', 
-            maxHeight: '300px', 
-            objectFit: 'contain', 
-            cursor: 'pointer' 
-          }}
-        />
-      );
+        const handleImageError = (e) => {
+          e.target.src = urlSources[urlSources.length - 1];
+        };
+
+        return (
+          <img 
+            src={processedUrl} 
+            alt="Медиа в сообщении" 
+            onClick={() => openImageModal(processedUrl, 'image')}
+            onError={handleImageError}
+            style={{ 
+              maxWidth: '300px', 
+              maxHeight: '300px', 
+              objectFit: 'contain', 
+              cursor: 'pointer' 
+            }}
+          />
+        );
+      }
     } catch (error) {
+      console.error('Error rendering message media:', error);
       return null;
     }
   };
@@ -1018,7 +1096,7 @@ const Messages = ({ currentUser }) => {
                 }}
               >
                 <img 
-                  src={getAvatarThumbnailUrl(selectedConversation.participant?.avatar)} 
+                  src={selectedConversation.participant?.avatar ? getAvatarThumbnailUrl(selectedConversation.participant.avatar) : '/default-avatar.png'} 
                   alt={selectedConversation.participant?.username}
                   className={`chat-avatar ${!selectedConversation.participant?.username ? 'deleted-user-avatar' : ''}`}
                   onError={(e) => {
@@ -1062,7 +1140,7 @@ const Messages = ({ currentUser }) => {
                 >
                   {message.sender?._id !== currentUser?._id && (
                     <img
-                      src={getAvatarThumbnailUrl(message.sender?.avatar)}
+                      src={message.sender?.avatar ? getAvatarThumbnailUrl(message.sender.avatar) : '/default-avatar.png'}
                       alt={message.sender?.username || 'User'}
                       className="message-avatar"
                       onError={(e) => {
@@ -1330,7 +1408,13 @@ const Messages = ({ currentUser }) => {
                         className="user-avatar"
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = '/default-avatar.png';
+                          // Пытаемся обновить аватар только при ошибке
+                          try {
+                            const { refreshAvatarOnError } = require('../../utils/imageUtils');
+                            refreshAvatarOnError(e.target, user.avatar);
+                          } catch (error) {
+                            e.target.src = '/default-avatar.png';
+                          }
                         }}
                       />
                       <span className="user-username">{user.username}</span>
@@ -1376,12 +1460,13 @@ const Messages = ({ currentUser }) => {
         />
       )}
 
-      <ImageModal
-        src={selectedImage}
-        alt="Message image"
-        isOpen={imageModalOpen}
-        onClose={closeImageModal}
-      />
+              <ImageModal
+          src={selectedImage?.src}
+          alt={selectedImage?.type === 'video' ? 'Video preview' : 'Message image'}
+          isOpen={imageModalOpen}
+          onClose={closeImageModal}
+          mediaType={selectedImage?.type}
+        />
 
               {showDeleteConfirm && (
          <div className="share-modal-overlay" onClick={cancelDelete}>

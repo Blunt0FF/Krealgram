@@ -5,6 +5,7 @@ const { processYouTubeUrl, createMediaResponse, validateMediaFile } = require('.
 const googleDrive = require('../config/googleDrive');
 const Post = require('../models/postModel'); // Добавляем импорт Post
 const { getMediaUrl } = require('../utils/urlUtils');
+const { sendNewMessageNotification } = require('../utils/emailService');
 // Удаляем импорт onlineUsers и io
 // const { onlineUsers, io } = require('../index');
 
@@ -333,6 +334,101 @@ exports.sendMessage = async (req, res) => {
         message: socketMessage,
         sender: req.user
       });
+    }
+
+    // Отправляем email уведомление получателю
+    try {
+      // Получаем данные получателя
+      const recipient = await User.findById(recipientId).select('username email avatar');
+      
+      if (recipient && recipient.email) {
+        // Подготавливаем данные для email
+        console.log('📧 Email data preparation:', {
+          sentMessage: JSON.stringify(sentMessage, null, 2),
+          sharedPost: sentMessage.sharedPost,
+          media: sentMessage.media
+        });
+
+        const messageData = {
+          text: sentMessage.text,
+          media: sentMessage.media,
+          sharedPost: null
+        };
+
+        // Обрабатываем пересланный пост
+        if (sentMessage.sharedPost && sentMessage.sharedPost.post) {
+          const post = sentMessage.sharedPost.post;
+          
+          // Определяем, что показывать для видео
+          let imageUrl = post.image || post.imageUrl || post.thumbnailUrl;
+          let gifUrl = null;
+          
+          // Для видео постов используем gifPreview если есть
+          if (post.mediaType === 'video') {
+            gifUrl = post.gifPreview || post.youtubeData?.thumbnailUrl;
+            // Если нет gif, используем thumbnail как fallback
+            if (!gifUrl) {
+              gifUrl = post.thumbnailUrl || post.youtubeData?.thumbnailUrl;
+            }
+          }
+          
+          messageData.sharedPost = {
+            image: imageUrl,
+            gif: gifUrl,
+            caption: post.caption || '',
+            author: post.author?.username || 'Unknown'
+          };
+          console.log('📧 Shared post data:', messageData.sharedPost);
+        }
+
+        // Обрабатываем медиа вложения
+        if (sentMessage.media) {
+          if (sentMessage.media.type === 'image') {
+            messageData.mediaImage = sentMessage.media.url;
+          }
+          messageData.hasMedia = true;
+        }
+
+        // Проксируем изображения через наш сервер для email
+        const emailTemplateManager = require('../utils/emailTemplateManager');
+        
+        if (messageData.sharedPost) {
+          if (messageData.sharedPost.image) {
+            messageData.sharedPost.image = emailTemplateManager.getProxiedImageUrl(messageData.sharedPost.image);
+          }
+          if (messageData.sharedPost.gif) {
+            messageData.sharedPost.gif = emailTemplateManager.getProxiedImageUrl(messageData.sharedPost.gif);
+          }
+        }
+        
+        if (messageData.mediaImage) {
+          messageData.mediaImage = emailTemplateManager.getProxiedImageUrl(messageData.mediaImage);
+        }
+
+        const senderData = {
+          username: req.user.username,
+          avatar: req.user.avatar
+        };
+
+        // Отправляем email уведомление асинхронно
+        sendNewMessageNotification(recipient.email, messageData, senderData, recipient)
+          .then(() => {
+            console.log(`📧 Email notification sent to ${recipient.email} for message from ${senderData.username}`);
+            console.log(`📧 Email content:`, {
+              hasText: !!messageData.text,
+              hasSharedPost: !!messageData.sharedPost,
+              hasMedia: !!messageData.media,
+              sharedPostImage: messageData.sharedPost?.image,
+              mediaType: messageData.media?.type
+            });
+          })
+          .catch((error) => {
+            console.error(`❌ Failed to send email notification to ${recipient.email}:`, error);
+          });
+      }
+    } catch (emailError) {
+      console.error('❌ Error preparing email notification:', emailError);
+      // Не прерываем отправку сообщения из-за ошибки email
     }
 
     res.status(201).json({

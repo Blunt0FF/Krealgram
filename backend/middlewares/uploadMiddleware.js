@@ -65,10 +65,22 @@ const uploadToGoogleDrive = async (req, res, next) => {
     const originalFilename = req.file.originalname;
     const fileMimetype = req.file.mimetype;
     
-    // Определяем контекст загрузки
+    // Определяем контекст загрузки по URL
     let context = 'post';
     let folderId = process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
     let username = null;
+
+    // Проверяем URL для определения контекста
+    const url = req.originalUrl || req.url;
+    if (url && url.includes('/conversations/') && url.includes('/messages')) {
+      context = 'message';
+      folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
+      console.log('[UPLOAD_CONTEXT] Определен контекст: сообщение');
+    } else {
+      console.log('[UPLOAD_CONTEXT] Определен контекст: пост');
+    }
+
+    console.log(`[UPLOAD_CONTEXT] URL: ${url}, Контекст: ${context}, Папка: ${folderId}`);
 
     // Сжимаем изображения перед загрузкой
     if (fileMimetype.startsWith('image/')) {

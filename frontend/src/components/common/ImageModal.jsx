@@ -5,18 +5,21 @@ const ImageModal = ({
   src, 
   alt, 
   isOpen, 
-  onClose
+  onClose,
+  mediaType = 'image'
 }) => {
-  const [imageSrc, setImageSrc] = useState(src);
+  const [mediaSrc, setMediaSrc] = useState(src);
 
   useEffect(() => {
-    setImageSrc(src);
+    setMediaSrc(src);
   }, [src]);
 
   const handleImageError = () => {
     console.error('Image load error:', src);
-    setImageSrc('/default-post-placeholder.png');
+    setMediaSrc('/default-post-placeholder.png');
   };
+
+  const isVideo = mediaType === 'video' || (src && src.includes('video'));
 
   if (!isOpen) return null;
 
@@ -33,12 +36,26 @@ const ImageModal = ({
         >
           ✕
         </button>
-        <img 
-          src={imageSrc} 
-          alt={alt} 
-          className="image-modal-img"
-          onError={handleImageError}
-        />
+        {isVideo ? (
+          <video 
+            src={mediaSrc} 
+            controls
+            className="image-modal-video"
+            autoPlay
+            style={{
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              objectFit: 'contain'
+            }}
+          />
+        ) : (
+          <img 
+            src={mediaSrc} 
+            alt={alt} 
+            className="image-modal-img"
+            onError={handleImageError}
+          />
+        )}
       </div>
     </div>
   );

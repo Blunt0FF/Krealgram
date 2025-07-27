@@ -17,6 +17,7 @@ import MobileNavigation from './components/Navigation/MobileNavigation';
 import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
 import { API_URL, LOCAL_URL, REMOTE_URL, checkAndSetApiUrl } from './config';
+import { initializeAvatarCache } from './utils/imageUtils';
 import './App.css';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
@@ -97,6 +98,9 @@ const App = () => {
             setUser(userData.user);
             localStorage.setItem('user', JSON.stringify(userData.user));
             fetchUnreadCount(token);
+            
+            // Инициализируем кэш аватаров после успешной авторизации (упрощенная версия)
+            // initializeAvatarCache();
           })
           .catch(error => {
             localStorage.removeItem('token');

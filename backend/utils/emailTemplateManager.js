@@ -134,6 +134,7 @@ class EmailTemplateManager {
       messageText: message.text || '',
       hasMedia: !!(message.media && message.media.url),
       sharedPost: null,
+      mediaImage: null,
       appUrl: process.env.FRONTEND_URL || 'https://krealgram.com',
       timestamp: new Date().toLocaleString('en-US', {
         year: 'numeric',
@@ -144,6 +145,20 @@ class EmailTemplateManager {
       })
     };
 
+    // Обрабатываем медиа вложения
+    if (message.media && message.media.url) {
+      if (message.media.type === 'image') {
+        data.mediaImage = this.getProxiedImageUrl(message.media.url);
+      }
+      data.hasMedia = true;
+    }
+
+    // Обрабатываем mediaImage если передан отдельно
+    if (message.mediaImage) {
+      data.mediaImage = this.getProxiedImageUrl(message.mediaImage);
+      data.hasMedia = true;
+    }
+
     // Обрабатываем пересланный пост
     if (message.sharedPost) {
       try {
@@ -151,20 +166,32 @@ class EmailTemplateManager {
           ? JSON.parse(message.sharedPost) 
           : message.sharedPost;
 
-        data.sharedPost = true; // Флаг для показа блока
-        data.sharedPostImage = this.getProxiedImageUrl(post.image || post.imageUrl || post.thumbnailUrl || post.gifUrl);
-        data.sharedPostCaption = post.caption || '';
-        data.sharedPostAuthor = post.author || 'Unknown';
+        data.sharedPost = {
+          image: this.getProxiedImageUrl(post.image || post.imageUrl || post.thumbnailUrl),
+          gif: this.getProxiedImageUrl(post.gif || post.gifUrl || post.gifPreview),
+          caption: post.caption || '',
+          author: post.author || 'Unknown'
+        };
         
         console.log('📧 Template shared post data:', {
-          image: data.sharedPostImage,
-          caption: data.sharedPostCaption,
-          author: data.sharedPostAuthor
+          image: data.sharedPost.image,
+          gif: data.sharedPost.gif,
+          caption: data.sharedPost.caption,
+          author: data.sharedPost.author
         });
       } catch (error) {
         console.error('Error parsing shared post:', error);
       }
     }
+
+    console.log('📧 Final template data:', {
+      hasText: !!data.messageText,
+      hasMedia: data.hasMedia,
+      mediaImage: data.mediaImage,
+      hasSharedPost: !!data.sharedPost,
+      sharedPostImage: data.sharedPost?.image,
+      sharedPostGif: data.sharedPost?.gif
+    });
 
     return data;
   }
