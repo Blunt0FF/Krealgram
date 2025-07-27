@@ -106,6 +106,21 @@ const VideoPreview = ({ post, onClick, onDoubleClick, className = '', style = {}
   // Обработка загрузки видео
   const handleVideoLoaded = () => {
     setVideoLoaded(true);
+    // Извлекаем имя файла для логирования
+    const videoSrc = getVideoUrl(post.imageUrl || post.image);
+    const getFileName = (url) => {
+      try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        const fileName = pathname.split('/').pop();
+        return fileName || 'unknown';
+      } catch {
+        const parts = url.split('/');
+        return parts[parts.length - 1] || 'unknown';
+      }
+    };
+    const fileName = getFileName(videoSrc);
+    console.log(`🎬 VideoPreview loaded: ${fileName}`);
   };
 
   // Очистка при размонтировании

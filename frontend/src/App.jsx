@@ -18,6 +18,7 @@ import PostPage from './components/Post/PostPage';
 import MobileNotificationsPage from './pages/MobileNotificationsPage';
 import { API_URL, LOCAL_URL, REMOTE_URL, checkAndSetApiUrl } from './config';
 import { initializeAvatarCache } from './utils/imageUtils';
+import { testSafariVideoPreload, checkPreloadSupport, monitorVideoPreload } from './utils/safariVideoTest';
 import './App.css';
 
 const PublicRoute = ({ children, isAuthenticated }) => {
@@ -76,6 +77,20 @@ const App = () => {
 
       if (isLocal) {
         await checkAndSetApiUrl();
+      }
+
+      // Инициализируем тестирование предзагрузки видео
+      console.log('🚀 Initializing video preload testing...');
+      testSafariVideoPreload();
+      checkPreloadSupport();
+      
+      // Запускаем мониторинг производительности предзагрузки
+      try {
+        const performanceObserver = monitorVideoPreload();
+        // Сохраняем observer для очистки при необходимости
+        window.videoPreloadObserver = performanceObserver;
+      } catch (error) {
+        console.log('PerformanceObserver not supported in this browser');
       }
 
       const token = localStorage.getItem('token');

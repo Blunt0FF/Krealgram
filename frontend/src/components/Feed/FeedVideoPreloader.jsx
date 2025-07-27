@@ -10,6 +10,20 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
     return navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
   };
 
+  // Функция для извлечения имени файла
+  const getFileName = (url) => {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const fileName = pathname.split('/').pop();
+      return fileName || 'unknown';
+    } catch {
+      // Если не удается распарсить URL, берем последнюю часть
+      const parts = url.split('/');
+      return parts[parts.length - 1] || 'unknown';
+    }
+  };
+
   useEffect(() => {
     if (!posts || posts.length === 0) return;
 
@@ -53,15 +67,24 @@ const FeedVideoPreloader = ({ posts, currentIndex = 0 }) => {
         // Создаем скрытый video элемент для предзагрузки
         const video = document.createElement('video');
         video.crossOrigin = 'anonymous';
-        // Менее агрессивная предзагрузка - только для ближайших постов
-        video.preload = index <= currentIndex + 1 ? 'metadata' : 'none';
+        
+        // Настройки предзагрузки в зависимости от браузера
+        if (isSafari()) {
+          // Для Safari более агрессивная предзагрузка
+          video.preload = index <= currentIndex + 2 ? 'auto' : 'metadata';
+        } else {
+          // Для других браузеров менее агрессивная
+          video.preload = index <= currentIndex + 1 ? 'metadata' : 'none';
+        }
+        
         video.muted = true;
         video.playsInline = true;
         
         const handleLoadedMetadata = () => {
           if (!preloadedVideos.current.has(id)) {
             preloadedVideos.current.add(id);
-            console.log(`🎬 Video preloaded: ${url.split('/').pop() || 'unknown'}`);
+            const fileName = getFileName(url);
+            console.log(`🎬 Feed video preloaded: ${fileName} (post ${index + 1})`);
           }
         };
 

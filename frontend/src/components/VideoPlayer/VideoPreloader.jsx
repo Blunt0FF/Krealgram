@@ -10,6 +10,20 @@ const VideoPreloader = ({ videoUrl, onLoad, onError, priority = 'low' }) => {
     if (!videoUrl) return;
 
     const resolvedUrl = processMediaUrl(videoUrl, 'video');
+    
+    // Извлекаем имя файла из URL
+    const getFileName = (url) => {
+      try {
+        const urlObj = new URL(url);
+        const pathname = urlObj.pathname;
+        const fileName = pathname.split('/').pop();
+        return fileName || 'unknown';
+      } catch {
+        // Если не удается распарсить URL, берем последнюю часть
+        const parts = url.split('/');
+        return parts[parts.length - 1] || 'unknown';
+      }
+    };
 
     // Создаем скрытый video элемент для предзагрузки
     const video = document.createElement('video');
@@ -27,7 +41,8 @@ const VideoPreloader = ({ videoUrl, onLoad, onError, priority = 'low' }) => {
     const handleLoadedMetadata = () => {
       setIsLoaded(true);
       onLoad?.(resolvedUrl);
-      console.log(`🎥 Video preloaded: ${resolvedUrl.split('/').pop() || 'unknown'}`);
+      const fileName = getFileName(resolvedUrl);
+      console.log(`🎥 Video preloaded: ${fileName}`);
     };
 
     const handleError = (e) => {

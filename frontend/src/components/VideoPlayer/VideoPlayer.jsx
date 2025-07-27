@@ -27,6 +27,20 @@ const VideoPlayer = ({
   const videoRef = useRef(null);
   const [videoUrl, setVideoUrl] = useState(null);
 
+  // Функция для извлечения имени файла
+  const getFileName = (url) => {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const fileName = pathname.split('/').pop();
+      return fileName || 'unknown';
+    } catch {
+      // Если не удается распарсить URL, берем последнюю часть
+      const parts = url.split('/');
+      return parts[parts.length - 1] || 'unknown';
+    }
+  };
+
   // Обрабатываем URL видео
   useEffect(() => {
     if (!src) return;
@@ -40,6 +54,8 @@ const VideoPlayer = ({
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
       setIsLoaded(true);
+      const fileName = getFileName(videoRef.current.src);
+      console.log(`🎬 VideoPlayer loaded: ${fileName}`);
       onLoad?.(videoRef.current);
     }
   }, [onLoad]);
@@ -117,7 +133,10 @@ const VideoPlayer = ({
         <VideoPreloader 
           videoUrl={videoUrl} 
           priority={priority}
-          onLoad={() => console.log('Video preloaded:', videoUrl)}
+          onLoad={() => {
+            const fileName = getFileName(videoUrl);
+            console.log('VideoPlayer preloader completed:', fileName);
+          }}
           onError={(e) => console.error('Video preload error:', e)}
         />
       )}

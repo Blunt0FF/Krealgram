@@ -5,6 +5,25 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
   const videoElements = useRef(new Map());
 
+  // Функция для определения Safari
+  const isSafari = () => {
+    return navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
+  };
+
+  // Функция для извлечения имени файла
+  const getFileName = (url) => {
+    try {
+      const urlObj = new URL(url);
+      const pathname = urlObj.pathname;
+      const fileName = pathname.split('/').pop();
+      return fileName || 'unknown';
+    } catch {
+      // Если не удается распарсить URL, берем последнюю часть
+      const parts = url.split('/');
+      return parts[parts.length - 1] || 'unknown';
+    }
+  };
+
   useEffect(() => {
     if (!videos || videos.length === 0) return;
 
@@ -49,7 +68,8 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           const handleLoad = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
+              const fileName = getFileName(url);
+              console.log(`📱 Stories YouTube preloaded: ${fileName} (story ${index + 1})`);
             }
           };
 
@@ -76,14 +96,24 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           // Для обычных видео
           const video = document.createElement('video');
           video.crossOrigin = 'anonymous';
-          video.preload = 'metadata';
+          
+          // Настройки предзагрузки в зависимости от браузера
+          if (isSafari()) {
+            // Для Safari более агрессивная предзагрузка
+            video.preload = 'auto';
+          } else {
+            // Для других браузеров
+            video.preload = 'metadata';
+          }
+          
           video.muted = true;
           video.playsInline = true;
           
           const handleLoadedMetadata = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
+              const fileName = getFileName(url);
+              console.log(`📱 Stories video preloaded: ${fileName} (story ${index + 1})`);
             }
           };
 

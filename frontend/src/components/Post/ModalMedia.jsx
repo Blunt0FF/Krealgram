@@ -128,7 +128,23 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
           display: 'block'
         }}
         onLoad={onLoad}
-        onLoadedData={onLoad}
+        onLoadedData={(e) => {
+          // Извлекаем имя файла для логирования
+          const getFileName = (url) => {
+            try {
+              const urlObj = new URL(url);
+              const pathname = urlObj.pathname;
+              const fileName = pathname.split('/').pop();
+              return fileName || 'unknown';
+            } catch {
+              const parts = url.split('/');
+              return parts[parts.length - 1] || 'unknown';
+            }
+          };
+          const fileName = getFileName(e.target.src);
+          console.log(`🎬 ModalMedia loaded: ${fileName}`);
+          onLoad();
+        }}
         onError={onError}
         onPlay={(e) => {
           videoManager.setCurrentVideo(e.target);
