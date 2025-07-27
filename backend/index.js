@@ -288,6 +288,44 @@ app.get('/api/test-video/:fileId', async (req, res) => {
   }
 });
 
+// Endpoint для получения метаданных файла
+app.get('/api/file-metadata/:fileId', async (req, res) => {
+  const fileId = req.params.fileId;
+  const drive = require('./config/googleDrive');
+  
+  try {
+    if (!drive.isInitialized) {
+      return res.status(500).json({ error: 'Google Drive not initialized' });
+    }
+
+    const meta = await drive.drive.files.get({
+      fileId,
+      fields: 'name, mimeType, size'
+    });
+    
+    // Исправляем кодировку имени файла
+    let fileName = meta.data.name || 'file';
+    try {
+      // Пытаемся исправить кодировку для кириллицы
+      if (fileName.includes('Ð')) {
+        fileName = decodeURIComponent(escape(fileName));
+      }
+    } catch (e) {
+      console.log(`[FILE-METADATA] Не удалось исправить кодировку для ${fileId}:`, e.message);
+    }
+    
+    res.json({
+      success: true,
+      fileName: fileName,
+      mimeType: meta.data.mimeType || 'application/octet-stream',
+      size: meta.data.size || 0
+    });
+  } catch (error) {
+    console.error(`[FILE-METADATA] Ошибка получения метаданных для ${fileId}:`, error.message);
+    res.status(404).json({ error: 'File not found' });
+  }
+});
+
 app.get('/api/proxy-drive/:id', async (req, res) => {
   const fileId = req.params.id;
   const { type } = req.query;

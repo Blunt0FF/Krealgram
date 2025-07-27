@@ -4,7 +4,7 @@ const fs = require('fs').promises;
 const ffmpeg = require('fluent-ffmpeg');
 
 // Убедимся, что временные директории существуют
-const TEMP_DIR = path.resolve(process.cwd(), 'backend/temp');
+const TEMP_DIR = path.resolve(process.cwd(), 'temp');
 const TEMP_INPUT_DIR = path.join(TEMP_DIR, 'input');
 const TEMP_OUTPUT_DIR = path.join(TEMP_DIR, 'output');
 

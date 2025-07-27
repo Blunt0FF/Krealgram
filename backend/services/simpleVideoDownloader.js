@@ -6,9 +6,9 @@ const googleDrive = require('../config/googleDrive');
 
 class SimpleVideoDownloader {
   constructor() {
-    this.tempInputDir = path.join(__dirname, '../backend/temp/input');
-    this.tempOutputDir = path.join(__dirname, '../backend/temp/output');
-    this.previewDir = path.join(__dirname, '../backend/temp/preview');
+    this.tempInputDir = path.join(__dirname, '../temp/input');
+    this.tempOutputDir = path.join(__dirname, '../temp/output');
+    this.previewDir = path.join(__dirname, '../temp/preview');
   }
 
   async generateGifPreview(videoPath, platform, videoId) {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { getVideoUrl } from '../../utils/mediaUrlResolver';
+import { getOriginalFileName } from '../../utils/fileMetadata';
 
 const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
   const preloadedVideos = useRef(new Set());
@@ -38,8 +39,18 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
       }
     }
 
-    // Предзагружаем видео
-    videosToPreload.forEach(({ id, url, index, isYouTube }) => {
+    // Предзагружаем видео с ограничением одновременных загрузок
+    const maxConcurrentLoads = 2; // Ограничиваем количество одновременных загрузок
+    let currentLoads = 0;
+    
+    const loadVideo = async ({ id, url, index, isYouTube }) => {
+      if (currentLoads >= maxConcurrentLoads) {
+        // Если достигли лимита, ждем немного
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      currentLoads++;
+      
       try {
         if (isYouTube) {
           // Для YouTube предзагружаем thumbnail
@@ -49,7 +60,7 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           const handleLoad = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
+              console.log(`📱 Stories video preloaded: ${videos[index]?.youtubeData?.title || 'YouTube video'}`);
             }
           };
 
@@ -80,10 +91,19 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           video.muted = true;
           video.playsInline = true;
           
+          // Получаем оригинальное название файла
+          const originalFileName = await getOriginalFileName(url);
+          
           const handleLoadedMetadata = () => {
             if (!preloadedVideos.current.has(id)) {
               preloadedVideos.current.add(id);
-              console.log(`📱 Stories video preloaded: ${url.split('/').pop() || 'unknown'}`);
+              console.log(`📱 Stories video preloaded: ${originalFileName}`);
+              
+              // Дополнительная проверка для Safari
+              const isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
+              if (isSafari) {
+                console.log(`🦁 Safari: Stories video metadata loaded for ${originalFileName}`);
+              }
             }
           };
 
@@ -94,9 +114,23 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
           video.addEventListener('loadedmetadata', handleLoadedMetadata, { once: true });
           video.addEventListener('error', handleError);
           video.addEventListener('canplay', handleLoadedMetadata, { once: true });
+                  video.addEventListener('loadstart', () => {
+          // Убираем логи начала загрузки, чтобы уменьшить спам
+          // console.log(`🚀 Starting to load stories video: ${originalFileName}`);
+        });
 
           video.src = url;
           videoElements.current.set(id, video);
+          
+          // Проверяем, что видео действительно загружается
+          setTimeout(() => {
+            if (video.readyState >= 1) {
+              console.log(`✅ Stories video actually loaded: ${originalFileName} (readyState: ${video.readyState})`);
+            } else {
+              // Убираем логи для readyState: 0, так как это нормально для предзагрузки
+              // console.log(`⚠️ Stories video loading status: ${originalFileName} (readyState: ${video.readyState})`);
+            }
+          }, 3000);
 
           // Очистка через 30 секунд
           setTimeout(() => {
@@ -113,8 +147,13 @@ const VideoStoriesPreloader = ({ videos, currentIndex = 0 }) => {
         }
       } catch (error) {
         // Убираем логирование ошибок
+      } finally {
+        currentLoads--;
       }
-    });
+    };
+    
+    // Запускаем загрузку видео
+    videosToPreload.forEach(loadVideo);
 
     // Очистка старых предзагруженных видео
     const currentRange = new Set();
