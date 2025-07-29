@@ -14,12 +14,11 @@ exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
     const { page = 1, limit = 33 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    console.log(`🔍 getUserProfile called with identifier: ${identifier}`);
+    const skip = (page - 1) * limit;
 
     let user;
 
+    // Проверяем, является ли идентификатор валидным ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
       user = await User.findById(identifier)
         .select('-password -email')
@@ -44,39 +43,47 @@ exports.getUserProfile = async (req, res) => {
     } else {
       // Если не ObjectId, предполагаем, что это username
       // Используем case-insensitive поиск
-      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      
+      // Сначала попробуем найти без populate
+      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
-        .populate({
-            path: 'posts',
-            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            options: { 
-              sort: { createdAt: -1 },
-              limit: parseInt(limit),
-              skip: parseInt(skip)
-            },
-            populate: [
-                { path: 'author', select: 'username avatar _id' },
-                { 
-                    path: 'comments', 
-                    select: 'text user createdAt _id',
-                    populate: { path: 'user', select: 'username avatar _id' }
-                }
-            ]
-        })
         .lean();
+      
+      if (basicUser) {
+        // Если пользователь найден, попробуем с populate
+        try {
+          user = await User.findById(basicUser._id)
+            .select('-password -email')
+            .populate({
+                path: 'posts',
+                select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+                options: { 
+                  sort: { createdAt: -1 },
+                  limit: parseInt(limit),
+                  skip: parseInt(skip)
+                },
+                populate: [
+                    { path: 'author', select: 'username avatar _id' },
+                    { 
+                        path: 'comments', 
+                        select: 'text user createdAt _id',
+                        populate: { path: 'user', select: 'username avatar _id' }
+                    }
+                ]
+            })
+            .lean();
+        } catch (populateError) {
+          console.error('Ошибка populate:', populateError);
+          // Если populate не удался, используем базового пользователя
+          user = basicUser;
+        }
+      } else {
+        user = null;
+      }
     }
 
     if (!user) {
-      // Дополнительная проверка существования пользователя с case-insensitive поиском
-      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
-      
-      return res.status(404).json({ 
-        message: 'Пользователь не найден.',
-        details: {
-          identifier,
-          userExists: !!userExists
-        }
-      });
+      return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
     // Добавляем безопасную обработку image
