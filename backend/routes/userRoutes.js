@@ -57,15 +57,7 @@ router.get('/:userId/following', userController.getFollowingList);
 // @access  Private
 router.delete('/:userId/followers/:followerId', authMiddleware, userController.removeFollower);
 
-// @route   GET /api/users/test-search/:identifier
-// @desc    Тестовый endpoint для проверки поиска пользователей
-// @access  Public
-router.get('/test-search/:identifier', userController.testUserSearch);
 
-// @route   GET /api/users/test-db/:identifier
-// @desc    Простой тест наличия пользователя в БД
-// @access  Public
-router.get('/test-db/:identifier', userController.testUserInDB);
 
 
 
