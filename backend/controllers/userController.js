@@ -25,11 +25,6 @@ exports.getUserProfile = async (req, res) => {
         .populate({
             path: 'posts',
             select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            options: { 
-              sort: { createdAt: -1 },
-              limit: parseInt(limit),
-              skip: parseInt(skip)
-            },
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -47,11 +42,6 @@ exports.getUserProfile = async (req, res) => {
         .populate({
             path: 'posts',
             select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            options: { 
-              sort: { createdAt: -1 },
-              limit: parseInt(limit),
-              skip: parseInt(skip)
-            },
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -121,6 +111,11 @@ exports.getUserProfile = async (req, res) => {
           commentCount: commentCount
         };
       }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      // Применяем пагинацию к уже обработанным постам
+      const startIndex = skip;
+      const endIndex = skip + parseInt(limit);
+      user.posts = user.posts.slice(startIndex, endIndex);
     }
     
     // Получаем общее количество постов для пагинации
