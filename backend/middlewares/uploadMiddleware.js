@@ -111,6 +111,14 @@ const uploadToGoogleDrive = async (req, res, next) => {
             if (context === 'avatar' && username) {
               thumbnailFolderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
               thumbnailFilename = `thumb_${username}${path.extname(originalFilename)}`;
+              
+              // Сначала удаляем старый thumbnail для аватарок
+              try {
+                await googleDrive.deleteAvatarThumbnail(username);
+                console.log(`[UPLOAD_MIDDLEWARE] Старый thumbnail удален для ${username}`);
+              } catch (deleteError) {
+                console.log(`[UPLOAD_MIDDLEWARE] Старый thumbnail не найден для ${username}:`, deleteError.message);
+              }
             }
             
             const thumbnailResult = await googleDrive.uploadFile(
