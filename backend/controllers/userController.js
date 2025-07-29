@@ -42,8 +42,9 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      // Используем case-insensitive поиск
-      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      // Используем case-insensitive поиск с экранированием специальных символов
+      const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      user = await User.findOne({ username: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } })
         .select('-password -email')
         .populate({
             path: 'posts',
