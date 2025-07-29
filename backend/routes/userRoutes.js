@@ -62,6 +62,11 @@ router.delete('/:userId/followers/:followerId', authMiddleware, userController.r
 // @access  Public
 router.get('/test-search/:identifier', userController.testUserSearch);
 
+// @route   GET /api/users/test-db/:identifier
+// @desc    Простой тест наличия пользователя в БД
+// @access  Public
+router.get('/test-db/:identifier', userController.testUserInDB);
+
 
 
 module.exports = router; 

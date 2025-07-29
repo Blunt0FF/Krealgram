@@ -641,3 +641,35 @@ exports.testUserSearch = async (req, res) => {
     res.status(500).json({ message: 'Ошибка тестового поиска', error: error.message });
   }
 }; 
+
+// @desc    Простой тест наличия пользователя в БД
+// @route   GET /api/users/test-db/:identifier
+// @access  Public
+exports.testUserInDB = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    
+    console.log('🔍 testUserInDB для:', identifier);
+    
+    // Простой поиск без populate
+    const user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      .select('username _id')
+      .lean();
+    
+    console.log('🔍 Результат:', user ? 'найден' : 'не найден');
+    
+    if (user) {
+      console.log('🔍 Найденный пользователь:', user);
+    }
+    
+    res.json({
+      identifier,
+      found: !!user,
+      user: user || null
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка testUserInDB:', error);
+    res.status(500).json({ message: 'Ошибка теста', error: error.message });
+  }
+}; 
