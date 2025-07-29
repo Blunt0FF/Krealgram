@@ -14,11 +14,12 @@ exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
     const { page = 1, limit = 33 } = req.query;
-    const skip = (page - 1) * limit;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    console.log(`🔍 getUserProfile called with identifier: ${identifier}`);
 
     let user;
 
-    // Проверяем, является ли идентификатор валидным ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
       user = await User.findById(identifier)
         .select('-password -email')
@@ -42,32 +43,77 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      // Используем case-insensitive поиск с экранированием специальных символов
-      const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      user = await User.findOne({ username: { $regex: new RegExp(`^${escapedIdentifier}$`, 'i') } })
+      // Используем case-insensitive поиск
+      console.log(`🔍 Searching for username: ${identifier}`);
+      
+      // Сначала попробуем найти без populate
+      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
-        .populate({
-            path: 'posts',
-            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            options: { 
-              sort: { createdAt: -1 },
-              limit: parseInt(limit),
-              skip: parseInt(skip)
-            },
-            populate: [
-                { path: 'author', select: 'username avatar _id' },
-                { 
-                    path: 'comments', 
-                    select: 'text user createdAt _id',
-                    populate: { path: 'user', select: 'username avatar _id' }
-                }
-            ]
-        })
         .lean();
+      
+      console.log(`🔍 Basic user search result:`, basicUser ? `Found: ${basicUser.username}` : 'Not found');
+      
+      if (basicUser) {
+        // Если пользователь найден, попробуем с populate
+        try {
+          user = await User.findById(basicUser._id)
+            .select('-password -email')
+            .populate({
+                path: 'posts',
+                select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+                options: { 
+                  sort: { createdAt: -1 },
+                  limit: parseInt(limit),
+                  skip: parseInt(skip)
+                },
+                populate: [
+                    { path: 'author', select: 'username avatar _id' },
+                    { 
+                        path: 'comments', 
+                        select: 'text user createdAt _id',
+                        populate: { path: 'user', select: 'username avatar _id' }
+                    }
+                ]
+            })
+            .lean();
+          console.log(`🔍 Populated user result:`, user ? `Found with ${user.posts?.length || 0} posts` : 'Not found after populate');
+        } catch (populateError) {
+          console.error(`🔍 Populate error:`, populateError);
+          // Если populate не работает, используем базового пользователя
+          user = basicUser;
+        }
+      }
     }
 
     if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден.' });
+      // Дополнительная проверка существования пользователя с case-insensitive поиском
+      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
+      
+      console.log(`🔍 User search failed. Identifier: ${identifier}`);
+      console.log(`🔍 User exists check: ${!!userExists}`);
+      if (userExists) {
+        console.log(`🔍 Found user ID: ${userExists._id}`);
+      }
+      
+      return res.status(404).json({ 
+        message: 'Пользователь не найден.',
+        details: {
+          identifier,
+          userExists: !!userExists,
+          userExistsId: userExists?._id
+        }
+      });
+    }
+    
+    // Проверяем, что пользователь активен (не удален)
+    if (!user.username || user.username.trim() === '') {
+      return res.status(404).json({ 
+        message: 'Пользователь не найден.',
+        details: {
+          identifier,
+          reason: 'empty_username'
+        }
+      });
     }
 
     // Добавляем безопасную обработку image
