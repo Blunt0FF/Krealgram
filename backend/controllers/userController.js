@@ -583,3 +583,47 @@ exports.removeFollower = async (req, res) => {
     res.status(500).json({ message: 'На сервере произошла ошибка при удалении подписчика.', error: error.message });
   }
 }; 
+
+// @desc    Тестовый endpoint для проверки поиска пользователей
+// @route   GET /api/users/test-search/:identifier
+// @access  Public
+exports.testUserSearch = async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    
+    console.log('🔍 Тестируем поиск для:', identifier);
+    
+    // Тест 1: Точное совпадение
+    const exactMatch = await User.findOne({ username: identifier }).lean();
+    console.log('🔍 Точное совпадение:', exactMatch ? 'найден' : 'не найден');
+    
+    // Тест 2: Case-insensitive поиск
+    const caseInsensitiveMatch = await User.findOne({ 
+      username: { $regex: new RegExp(`^${identifier}$`, 'i') } 
+    }).lean();
+    console.log('🔍 Case-insensitive поиск:', caseInsensitiveMatch ? 'найден' : 'не найден');
+    
+    // Тест 3: Поиск по ID
+    const idMatch = mongoose.Types.ObjectId.isValid(identifier) ? 
+      await User.findById(identifier).lean() : null;
+    console.log('🔍 Поиск по ID:', idMatch ? 'найден' : 'не найден');
+    
+    // Тест 4: Поиск всех пользователей с похожим username
+    const similarUsers = await User.find({ 
+      username: { $regex: new RegExp(identifier, 'i') } 
+    }).select('username _id').lean();
+    console.log('🔍 Похожие пользователи:', similarUsers.map(u => u.username));
+    
+    res.json({
+      identifier,
+      exactMatch: !!exactMatch,
+      caseInsensitiveMatch: !!caseInsensitiveMatch,
+      idMatch: !!idMatch,
+      similarUsers: similarUsers.map(u => ({ username: u.username, id: u._id }))
+    });
+    
+  } catch (error) {
+    console.error('❌ Ошибка тестового поиска:', error);
+    res.status(500).json({ message: 'Ошибка тестового поиска', error: error.message });
+  }
+}; 

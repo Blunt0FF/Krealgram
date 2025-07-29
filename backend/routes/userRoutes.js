@@ -57,6 +57,11 @@ router.get('/:userId/following', userController.getFollowingList);
 // @access  Private
 router.delete('/:userId/followers/:followerId', authMiddleware, userController.removeFollower);
 
+// @route   GET /api/users/test-search/:identifier
+// @desc    Тестовый endpoint для проверки поиска пользователей
+// @access  Public
+router.get('/test-search/:identifier', userController.testUserSearch);
+
 
 
 module.exports = router; 
