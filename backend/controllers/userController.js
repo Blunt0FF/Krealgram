@@ -14,8 +14,6 @@ exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
 
-    // Убираем лишние логи для ускорения загрузки
-
     let user;
 
     // Проверяем, является ли идентификатор валидным ObjectId
@@ -38,27 +36,98 @@ exports.getUserProfile = async (req, res) => {
     } else {
       // Если не ObjectId, предполагаем, что это username
       // Используем case-insensitive поиск
-      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      
+      // Сначала попробуем найти без populate
+      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
-        .populate({
-            path: 'posts',
-            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            populate: [
+        .lean();
+      
+      if (basicUser) {
+        // Если пользователь найден, попробуем с populate
+        try {
+          user = await User.findById(basicUser._id)
+            .select('-password -email')
+            .populate({
+                path: 'posts',
+                select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+                populate: [
+                    { path: 'author', select: 'username avatar _id' },
+                    { 
+                        path: 'comments', 
+                        select: 'text user createdAt _id',
+                        populate: { path: 'user', select: 'username avatar _id' }
+                    }
+                ]
+            })
+            .lean();
+        } catch (populateError) {
+          console.error(`🔍 Populate error:`, populateError);
+          // Если populate не работает, попробуем получить посты отдельно
+          try {
+            const posts = await Post.find({ author: basicUser._id })
+              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
+              .populate([
                 { path: 'author', select: 'username avatar _id' },
                 { 
-                    path: 'comments', 
-                    select: 'text user createdAt _id',
-                    populate: { path: 'user', select: 'username avatar _id' }
+                  path: 'comments', 
+                  select: 'text user createdAt _id',
+                  populate: { path: 'user', select: 'username avatar _id' }
                 }
-            ]
-        })
-        .lean();
+              ])
+              .lean();
+            
+            user = { ...basicUser, posts };
+          } catch (postsError) {
+            console.error(`🔍 Posts fetch error:`, postsError);
+            // Если и это не работает, используем базового пользователя
+            user = basicUser;
+          }
+        }
+      }
     }
 
     if (!user) {
-      return res.status(404).json({ 
-        message: 'Пользователь не найден.'
-      });
+      // Дополнительная проверка существования пользователя с case-insensitive поиском
+      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
+      
+      if (userExists) {
+        
+        // Если пользователь существует, но populate не сработал, попробуем получить посты отдельно
+        try {
+          const basicUser = await User.findById(userExists._id)
+            .select('-password -email')
+            .lean();
+          
+          if (basicUser) {
+            const posts = await Post.find({ author: basicUser._id })
+              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
+              .populate([
+                { path: 'author', select: 'username avatar _id' },
+                { 
+                  path: 'comments', 
+                  select: 'text user createdAt _id',
+                  populate: { path: 'user', select: 'username avatar _id' }
+                }
+              ])
+              .lean();
+            
+            user = { ...basicUser, posts };
+          }
+        } catch (error) {
+          console.error(`🔍 Error getting basic user or posts:`, error);
+        }
+      }
+      
+      if (!user) {
+        return res.status(404).json({ 
+          message: 'Пользователь не найден.',
+          details: {
+            identifier,
+            userExists: !!userExists,
+            userExistsId: userExists?._id
+          }
+        });
+      }
     }
     
     // Проверяем, что пользователь активен (не удален)
@@ -71,7 +140,7 @@ exports.getUserProfile = async (req, res) => {
         }
       });
     }
-    
+
     // Добавляем безопасную обработку image
     if (user.posts && Array.isArray(user.posts) && user.posts.length > 0) {
       user.posts = user.posts.map(post => {
