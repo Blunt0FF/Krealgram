@@ -16,10 +16,13 @@ exports.getUserProfile = async (req, res) => {
     const { page = 1, limit = 33 } = req.query;
     const skip = (page - 1) * limit;
 
+    console.log('🔍 getUserProfile вызван для:', identifier);
+
     let user;
 
     // Проверяем, является ли идентификатор валидным ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
+      console.log('🔍 Ищем по ObjectId:', identifier);
       user = await User.findById(identifier)
         .select('-password -email')
         .populate({
@@ -40,16 +43,21 @@ exports.getUserProfile = async (req, res) => {
             ]
         })
         .lean();
+      console.log('🔍 Результат поиска по ObjectId:', user ? 'найден' : 'не найден');
     } else {
       // Если не ObjectId, предполагаем, что это username
       // Используем case-insensitive поиск
+      console.log('🔍 Ищем по username:', identifier);
       
       // Сначала попробуем найти без populate
       const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
         .lean();
       
+      console.log('🔍 Базовый поиск:', basicUser ? 'найден' : 'не найден');
+      
       if (basicUser) {
+        console.log('🔍 ID найденного пользователя:', basicUser._id);
         // Если пользователь найден, попробуем с populate
         try {
           user = await User.findById(basicUser._id)
@@ -72,19 +80,25 @@ exports.getUserProfile = async (req, res) => {
                 ]
             })
             .lean();
+          console.log('🔍 Populate успешен:', user ? 'да' : 'нет');
         } catch (populateError) {
-          console.error('Ошибка populate:', populateError);
+          console.error('❌ Ошибка populate:', populateError);
           // Если populate не удался, используем базового пользователя
           user = basicUser;
+          console.log('🔍 Используем базового пользователя');
         }
       } else {
         user = null;
+        console.log('🔍 Пользователь не найден');
       }
     }
 
     if (!user) {
+      console.log('❌ Пользователь не найден, возвращаем 404');
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
+
+    console.log('✅ Пользователь найден:', user.username);
 
     // Добавляем безопасную обработку image
     if (user.posts && user.posts.length > 0) {
