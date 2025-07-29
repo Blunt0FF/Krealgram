@@ -15,10 +15,11 @@ exports.getUserProfile = async (req, res) => {
     const { identifier } = req.params;
     const { page = 1, limit = 33 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    console.log(`🔍 getUserProfile called with identifier: ${identifier}`);
 
     let user;
 
-    // Проверяем, является ли идентификатор валидным ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
       user = await User.findById(identifier)
         .select('-password -email')
@@ -42,7 +43,8 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      user = await User.findOne({ username: identifier })
+      // Используем case-insensitive поиск
+      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
         .populate({
             path: 'posts',
@@ -65,17 +67,51 @@ exports.getUserProfile = async (req, res) => {
     }
 
     if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден.' });
+      // Дополнительная проверка существования пользователя с case-insensitive поиском
+      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
+      
+      return res.status(404).json({ 
+        message: 'Пользователь не найден.',
+        details: {
+          identifier,
+          userExists: !!userExists
+        }
+      });
     }
 
-    // Добавляем полные URL для изображений постов пользователя
+    // Добавляем безопасную обработку image
     if (user.posts && user.posts.length > 0) {
-      user.posts = user.posts.map(post => ({
-        ...post,
-        imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`,
-        likeCount: post.likes ? post.likes.length : 0,
-        commentCount: post.comments ? post.comments.length : 0
-      }));
+      user.posts = user.posts.map(post => {
+        // Используем ту же логику, что и в уведомлениях - приоритет для thumbnailUrl
+        let imageUrl;
+        let thumbnailUrl;
+        
+        // Приоритет для thumbnailUrl (готовые превью)
+        if (post.thumbnailUrl) {
+          thumbnailUrl = post.thumbnailUrl;
+        }
+        
+        // Для основного изображения всегда используем оригинал
+        if (post.image) {
+          imageUrl = post.image.startsWith('http') 
+            ? post.image 
+            : `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
+        } else {
+          imageUrl = '/default-post-placeholder.png';
+        }
+
+        const commentCount = post.comments && Array.isArray(post.comments) 
+          ? post.comments.length 
+          : 0;
+
+        return {
+          ...post,
+          imageUrl: imageUrl,
+          thumbnailUrl: thumbnailUrl,
+          likeCount: post.likes ? post.likes.length : 0,
+          commentCount: commentCount
+        };
+      });
     }
     
     // Получаем общее количество постов для пагинации
@@ -86,11 +122,11 @@ exports.getUserProfile = async (req, res) => {
     user.followersCount = user.followers ? user.followers.length : 0;
     user.followingCount = user.following ? user.following.length : 0;
 
-    // Можно добавить информацию о том, подписан ли текущий пользователь на этого пользователя (если req.user существует)
+    // Можно добавить информацию о том, подписан ли текущий пользователь на этого пользователя
     if (req.user) {
         user.isFollowedByCurrentUser = user.followers.some(followerId => followerId.equals(req.user.id));
     } else {
-        user.isFollowedByCurrentUser = false; // Для анонимных пользователей
+        user.isFollowedByCurrentUser = false;
     }
 
     res.status(200).json({ 
