@@ -46,7 +46,7 @@ exports.getUserProfile = async (req, res) => {
       console.log('🔍 Результат поиска по ObjectId:', user ? 'найден' : 'не найден');
     } else {
       // Если не ObjectId, предполагаем, что это username
-      // Используем case-insensitive поиск
+      // ИСПРАВЛЕНИЕ ДЛЯ RENDER: Используем case-insensitive поиск
       console.log('🔍 Ищем по username:', identifier);
       
       // Сначала попробуем найти без populate
