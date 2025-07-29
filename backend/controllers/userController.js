@@ -15,11 +15,10 @@ exports.getUserProfile = async (req, res) => {
     const { identifier } = req.params;
     const { page = 1, limit = 33 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    console.log(`🔍 getUserProfile called with identifier: ${identifier}`);
 
     let user;
 
+    // Проверяем, является ли идентификатор валидным ObjectId
     if (mongoose.Types.ObjectId.isValid(identifier)) {
       user = await User.findById(identifier)
         .select('-password -email')
@@ -43,112 +42,40 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      // Используем case-insensitive поиск
-      console.log(`🔍 Searching for username: ${identifier}`);
-      
-      // Сначала попробуем найти без populate
-      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      user = await User.findOne({ username: identifier })
         .select('-password -email')
+        .populate({
+            path: 'posts',
+            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+            options: { 
+              sort: { createdAt: -1 },
+              limit: parseInt(limit),
+              skip: parseInt(skip)
+            },
+            populate: [
+                { path: 'author', select: 'username avatar _id' },
+                { 
+                    path: 'comments', 
+                    select: 'text user createdAt _id',
+                    populate: { path: 'user', select: 'username avatar _id' }
+                }
+            ]
+        })
         .lean();
-      
-      console.log(`🔍 Basic user search result:`, basicUser ? `Found: ${basicUser.username}` : 'Not found');
-      
-      if (basicUser) {
-        // Если пользователь найден, попробуем с populate
-        try {
-          user = await User.findById(basicUser._id)
-            .select('-password -email')
-            .populate({
-                path: 'posts',
-                select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-                options: { 
-                  sort: { createdAt: -1 },
-                  limit: parseInt(limit),
-                  skip: parseInt(skip)
-                },
-                populate: [
-                    { path: 'author', select: 'username avatar _id' },
-                    { 
-                        path: 'comments', 
-                        select: 'text user createdAt _id',
-                        populate: { path: 'user', select: 'username avatar _id' }
-                    }
-                ]
-            })
-            .lean();
-          console.log(`🔍 Populated user result:`, user ? `Found with ${user.posts?.length || 0} posts` : 'Not found after populate');
-        } catch (populateError) {
-          console.error(`🔍 Populate error:`, populateError);
-          // Если populate не работает, используем базового пользователя
-          user = basicUser;
-        }
-      }
     }
 
     if (!user) {
-      // Дополнительная проверка существования пользователя с case-insensitive поиском
-      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
-      
-      console.log(`🔍 User search failed. Identifier: ${identifier}`);
-      console.log(`🔍 User exists check: ${!!userExists}`);
-      if (userExists) {
-        console.log(`🔍 Found user ID: ${userExists._id}`);
-      }
-      
-      return res.status(404).json({ 
-        message: 'Пользователь не найден.',
-        details: {
-          identifier,
-          userExists: !!userExists,
-          userExistsId: userExists?._id
-        }
-      });
-    }
-    
-    // Проверяем, что пользователь активен (не удален)
-    if (!user.username || user.username.trim() === '') {
-      return res.status(404).json({ 
-        message: 'Пользователь не найден.',
-        details: {
-          identifier,
-          reason: 'empty_username'
-        }
-      });
+      return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
-    // Добавляем безопасную обработку image
+    // Добавляем полные URL для изображений постов пользователя
     if (user.posts && user.posts.length > 0) {
-      user.posts = user.posts.map(post => {
-        // Используем ту же логику, что и в уведомлениях - приоритет для thumbnailUrl
-        let imageUrl;
-        let thumbnailUrl;
-        
-        // Приоритет для thumbnailUrl (готовые превью)
-        if (post.thumbnailUrl) {
-          thumbnailUrl = post.thumbnailUrl;
-        }
-        
-        // Для основного изображения всегда используем оригинал
-        if (post.image) {
-          imageUrl = post.image.startsWith('http') 
-            ? post.image 
-            : `${req.protocol}://${req.get('host')}/uploads/${post.image}`;
-        } else {
-          imageUrl = '/default-post-placeholder.png';
-        }
-
-        const commentCount = post.comments && Array.isArray(post.comments) 
-          ? post.comments.length 
-          : 0;
-
-        return {
-          ...post,
-          imageUrl: imageUrl,
-          thumbnailUrl: thumbnailUrl,
-          likeCount: post.likes ? post.likes.length : 0,
-          commentCount: commentCount
-        };
-      });
+      user.posts = user.posts.map(post => ({
+        ...post,
+        imageUrl: post.image.startsWith('http') ? post.image : `${req.protocol}://${req.get('host')}/uploads/${post.image}`,
+        likeCount: post.likes ? post.likes.length : 0,
+        commentCount: post.comments ? post.comments.length : 0
+      }));
     }
     
     // Получаем общее количество постов для пагинации
@@ -159,11 +86,11 @@ exports.getUserProfile = async (req, res) => {
     user.followersCount = user.followers ? user.followers.length : 0;
     user.followingCount = user.following ? user.following.length : 0;
 
-    // Можно добавить информацию о том, подписан ли текущий пользователь на этого пользователя
+    // Можно добавить информацию о том, подписан ли текущий пользователь на этого пользователя (если req.user существует)
     if (req.user) {
         user.isFollowedByCurrentUser = user.followers.some(followerId => followerId.equals(req.user.id));
     } else {
-        user.isFollowedByCurrentUser = false;
+        user.isFollowedByCurrentUser = false; // Для анонимных пользователей
     }
 
     res.status(200).json({ 
