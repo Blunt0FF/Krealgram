@@ -2,19 +2,17 @@ const User = require('../models/userModel');
 const Post = require('../models/postModel');
 const { addNotification, removeNotification } = require('./notificationController');
 const mongoose = require('mongoose');
-const sharp = require('sharp');
+const sharp = require('sharp'); // Импортируем sharp
 const googleDrive = require('../config/googleDrive');
-const path = require('path');
-const fs = require('fs').promises;
+const path = require('path'); // Импортируем path для получения расширения файла
+const fs = require('fs').promises; // Импортируем fs.promises
 
 // @desc    Получение профиля пользователя по ID или username
 // @route   GET /api/users/:identifier
-// @access  Public
+// @access  Public (или Private, если профили закрыты)
 exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
-    const { page = 1, limit = 33 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
 
     let user;
 
@@ -25,11 +23,6 @@ exports.getUserProfile = async (req, res) => {
         .populate({
             path: 'posts',
             select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            options: { 
-              sort: { createdAt: -1 },
-              limit: parseInt(limit),
-              skip: parseInt(skip)
-            },
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -43,34 +36,113 @@ exports.getUserProfile = async (req, res) => {
     } else {
       // Если не ObjectId, предполагаем, что это username
       // Используем case-insensitive поиск
-      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      
+      // Сначала попробуем найти без populate
+      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
-        .populate({
-            path: 'posts',
-            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-            options: { 
-              sort: { createdAt: -1 },
-              limit: parseInt(limit),
-              skip: parseInt(skip)
-            },
-            populate: [
+        .lean();
+      
+      if (basicUser) {
+        // Если пользователь найден, попробуем с populate
+        try {
+          user = await User.findById(basicUser._id)
+            .select('-password -email')
+            .populate({
+                path: 'posts',
+                select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+                populate: [
+                    { path: 'author', select: 'username avatar _id' },
+                    { 
+                        path: 'comments', 
+                        select: 'text user createdAt _id',
+                        populate: { path: 'user', select: 'username avatar _id' }
+                    }
+                ]
+            })
+            .lean();
+        } catch (populateError) {
+          console.error(`🔍 Populate error:`, populateError);
+          // Если populate не работает, попробуем получить посты отдельно
+          try {
+            const posts = await Post.find({ author: basicUser._id })
+              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
+              .populate([
                 { path: 'author', select: 'username avatar _id' },
                 { 
-                    path: 'comments', 
-                    select: 'text user createdAt _id',
-                    populate: { path: 'user', select: 'username avatar _id' }
+                  path: 'comments', 
+                  select: 'text user createdAt _id',
+                  populate: { path: 'user', select: 'username avatar _id' }
                 }
-            ]
-        })
-        .lean();
+              ])
+              .lean();
+            
+            user = { ...basicUser, posts };
+          } catch (postsError) {
+            console.error(`🔍 Posts fetch error:`, postsError);
+            // Если и это не работает, используем базового пользователя
+            user = basicUser;
+          }
+        }
+      }
     }
 
     if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден.' });
+      // Дополнительная проверка существования пользователя с case-insensitive поиском
+      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
+      
+      if (userExists) {
+        
+        // Если пользователь существует, но populate не сработал, попробуем получить посты отдельно
+        try {
+          const basicUser = await User.findById(userExists._id)
+            .select('-password -email')
+            .lean();
+          
+          if (basicUser) {
+            const posts = await Post.find({ author: basicUser._id })
+              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
+              .populate([
+                { path: 'author', select: 'username avatar _id' },
+                { 
+                  path: 'comments', 
+                  select: 'text user createdAt _id',
+                  populate: { path: 'user', select: 'username avatar _id' }
+                }
+              ])
+              .lean();
+            
+            user = { ...basicUser, posts };
+          }
+        } catch (error) {
+          console.error(`🔍 Error getting basic user or posts:`, error);
+        }
+      }
+      
+      if (!user) {
+        return res.status(404).json({ 
+          message: 'Пользователь не найден.',
+          details: {
+            identifier,
+            userExists: !!userExists,
+            userExistsId: userExists?._id
+          }
+        });
+      }
+    }
+    
+    // Проверяем, что пользователь активен (не удален)
+    if (!user.username || user.username.trim() === '') {
+      return res.status(404).json({ 
+        message: 'Пользователь не найден.',
+        details: {
+          identifier,
+          reason: 'empty_username'
+        }
+      });
     }
 
     // Добавляем безопасную обработку image
-    if (user.posts && user.posts.length > 0) {
+    if (user.posts && Array.isArray(user.posts) && user.posts.length > 0) {
       user.posts = user.posts.map(post => {
         // Используем ту же логику, что и в уведомлениях - приоритет для thumbnailUrl
         let imageUrl;
@@ -101,51 +173,41 @@ exports.getUserProfile = async (req, res) => {
           likeCount: post.likes ? post.likes.length : 0,
           commentCount: commentCount
         };
-      });
+      }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
     
-    // Получаем общее количество постов для пагинации
-    const totalPosts = await Post.countDocuments({ author: user._id });
-    
     // Явно добавляем postsCount
-    user.postsCount = totalPosts;
+    user.postsCount = user.posts ? user.posts.length : 0;
     user.followersCount = user.followers ? user.followers.length : 0;
     user.followingCount = user.following ? user.following.length : 0;
 
-    // Можно добавить информацию о том, подписан ли текущий пользователь на этого пользователя
+    // Можно добавить информацию о том, подписан ли текущий пользователь на этого пользователя (если req.user существует)
     if (req.user) {
         user.isFollowedByCurrentUser = user.followers.some(followerId => followerId.equals(req.user.id));
     } else {
-        user.isFollowedByCurrentUser = false;
+        user.isFollowedByCurrentUser = false; // Для анонимных пользователей
     }
 
     res.status(200).json({ 
       message: 'Профиль пользователя успешно получен',
-      user,
-      pagination: {
-        currentPage: parseInt(page),
-        limit: parseInt(limit),
-        totalPosts,
-        hasMore: totalPosts > (parseInt(page) * parseInt(limit)),
-        remainingPosts: Math.max(0, totalPosts - (parseInt(page) * parseInt(limit)))
-      }
+      user 
     });
 
   } catch (error) {
     console.error('Ошибка получения профиля пользователя:', error);
-    if (error.kind === 'ObjectId') {
+    if (error.kind === 'ObjectId' && !user) { // Если ошибка из-за ObjectId и юзер не найден по username потом
         return res.status(400).json({ message: 'Некорректный идентификатор пользователя.' });
     }
     res.status(500).json({ message: 'На сервере произошла ошибка при получении профиля.', error: error.message });
   }
 };
 
-// @desc    Обновление профиля текущего пользователя
+// @desc    Обновление профиля текущего пользователя (например, bio)
 // @route   PUT /api/users/profile
 // @access  Private
 exports.updateUserProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id; // ID текущего пользователя из authMiddleware
     const { bio, removeAvatar } = req.body;
 
     const fieldsToUpdate = {};
@@ -176,9 +238,10 @@ exports.updateUserProfile = async (req, res) => {
               if (fileId) {
                 await googleDrive.deleteFile(fileId);
                 console.log(`[AVATAR] Старый аватар ${fileId} удален.`);
+                
+                // Превью аватарки будет удалено в uploadMiddleware.js
+                console.log(`[AVATAR] Превью аватарки будет удалено в uploadMiddleware.js`);
               }
-              
-              // Thumbnail удаляется в middleware uploadToGoogleDrive
           } catch(e) {
               console.error(`[AVATAR] Не удалось удалить старый аватар: ${e.message}`);
           }
@@ -196,8 +259,7 @@ exports.updateUserProfile = async (req, res) => {
       } catch (thumbError) {
         console.error(`[AVATAR] Не удалось обработать thumbnail: ${thumbError.message}`);
       }
-    }
-
+    } 
     // Если нужно удалить аватар
     else if (removeAvatar === 'true') {
       if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
@@ -210,35 +272,25 @@ exports.updateUserProfile = async (req, res) => {
               console.error(`[AVATAR] Не удалось удалить аватар по запросу: ${e.message}`);
           }
       }
-      
-      // Также удаляем thumbnail аватара
-      if (currentUser.username) {
-        try {
-          await googleDrive.deleteAvatarThumbnail(currentUser.username);
-          console.log(`[AVATAR] Thumbnail удален для ${currentUser.username} при удалении аватара в updateUserProfile`);
-        } catch (error) {
-          console.error(`[AVATAR] Ошибка удаления thumbnail при удалении аватара для ${currentUser.username}:`, error.message);
-        }
-      }
-      
       fieldsToUpdate.avatar = null;
     }
 
     if (Object.keys(fieldsToUpdate).length === 0) {
-      return res.status(400).json({ message: 'Нет данных для обновления.' });
+      // Если не было ни bio, ни файла, но был запрос, возвращаем текущие данные
+      return res.status(200).json(currentUser);
     }
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { $set: fieldsToUpdate },
-      { new: true, runValidators: true }
-    ).select('-password');
+      { new: true, runValidators: true } // new: true возвращает обновленный документ, runValidators: true для проверки по схеме
+    ).select('-password'); // Не возвращаем пароль
 
     if (!updatedUser) {
       return res.status(404).json({ message: 'Пользователь не найден.' });
     }
 
-    res.status(200).json(updatedUser);
+    res.status(200).json(updatedUser); // Возвращаем пользователя в том же формате, что ожидает фронтенд
 
   } catch (error) {
     console.error('Ошибка обновления профиля:', error);
@@ -257,23 +309,10 @@ exports.updateUserAvatar = async (req, res) => {
     const userId = req.user.id;
     let avatarUrl = '';
 
-    // Сначала получаем текущего пользователя и удаляем старый аватар
-    const currentUser = await User.findById(userId);
-    if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
-      const fileId = currentUser.avatar.split('id=')[1];
-      if (fileId) {
-        await googleDrive.deleteFile(fileId);
-        console.log(`[AVATAR] Старый аватар удален: ${fileId}`);
-      }
-      
-      // Thumbnail удаляется в middleware uploadToGoogleDrive
-    }
-
-    // Теперь загружаем новый аватар
+    // Приоритет: сначала файл из multipart, потом base64
     if (req.file) {
       // Используем результат из uploadToGoogleDrive middleware
       avatarUrl = req.uploadResult.secure_url;
-      console.log(`[AVATAR] Новый аватар загружен через multipart: ${avatarUrl}`);
     } else if (req.body.avatar) {
       let base64Data = req.body.avatar;
       
@@ -281,7 +320,7 @@ exports.updateUserAvatar = async (req, res) => {
       if (base64Data.startsWith('data:image')) {
         const parts = base64Data.split(',');
         if (parts.length > 1) {
-            base64Data = parts[1];
+          base64Data = parts[1];
         } else {
           return res.status(400).json({ message: 'Invalid Data URI format for avatar.' });
         }
@@ -301,7 +340,7 @@ exports.updateUserAvatar = async (req, res) => {
         .resize(300, 300, { fit: 'cover', position: 'center' })
         .jpeg({ quality: 90 })
         .toBuffer();
-      
+
       // Загружаем thumbnail в Google Drive
       const thumbnailFilename = `thumb_${req.user.username}.jpeg`;
       const thumbnailResult = await googleDrive.uploadFile(
@@ -310,7 +349,6 @@ exports.updateUserAvatar = async (req, res) => {
         'image/jpeg',
         process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
       );
-      console.log(`[AVATAR] Новый thumbnail загружен: ${thumbnailResult.secure_url}`);
 
       // Загружаем сжатое изображение в Google Drive
       const uploadResult = await googleDrive.uploadFile(
@@ -319,13 +357,29 @@ exports.updateUserAvatar = async (req, res) => {
         'image/jpeg',
         process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID
       );
-      console.log(`[AVATAR] Новый аватар загружен: ${uploadResult.secure_url}`);
 
       avatarUrl = uploadResult.secure_url;
     } else {
       // Если нет ни файла, ни base64 - удаляем аватар
       avatarUrl = null;
-      console.log(`[AVATAR] Аватар удален для ${currentUser.username}`);
+    }
+
+    // Получаем текущего пользователя чтобы удалить старый аватар
+    const currentUser = await User.findById(userId);
+    if (currentUser.avatar && currentUser.avatar.includes('drive.google.com')) {
+      const fileId = currentUser.avatar.split('id=')[1];
+      if (fileId) {
+        await googleDrive.deleteFile(fileId);
+      }
+      
+      // Также удаляем thumbnail аватара
+      if (currentUser.username) {
+        try {
+          await googleDrive.deleteAvatarThumbnail(currentUser.username);
+        } catch (error) {
+          console.error(`[AVATAR] Ошибка удаления thumbnail для ${currentUser.username}:`, error.message);
+        }
+      }
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -353,13 +407,13 @@ exports.updateUserAvatar = async (req, res) => {
 };
 
 // @desc    Подписаться/отписаться от пользователя
-// @route   POST /api/users/:userIdToFollow/follow
-// @route   DELETE /api/users/:userIdToFollow/follow
+// @route   POST /api/users/:userIdToFollow/follow (подписаться)
+// @route   DELETE /api/users/:userIdToFollow/follow (отписаться)
 // @access  Private
 exports.toggleFollowUser = async (req, res) => {
-  const currentUserId = req.user.id;
-  const { userIdToFollow } = req.params;
-  const isFollowAction = req.method === 'POST';
+  const currentUserId = req.user.id; // ID текущего пользователя
+  const { userIdToFollow } = req.params; // ID пользователя, на которого подписываемся/отписываемся
+  const isFollowAction = req.method === 'POST'; // POST = подписаться, DELETE = отписаться
 
   if (currentUserId.toString() === userIdToFollow.toString()) {
     return res.status(400).json({ message: 'Вы не можете подписаться на самого себя.' });
@@ -381,6 +435,7 @@ exports.toggleFollowUser = async (req, res) => {
     const isAlreadyFollowing = currentUser.following.some(id => id.equals(userIdToFollow));
 
     if (isFollowAction) {
+      // Подписаться
       if (isAlreadyFollowing) {
         await session.abortTransaction();
         session.endSession();
@@ -390,11 +445,13 @@ exports.toggleFollowUser = async (req, res) => {
       currentUser.following.push(userIdToFollow);
       userToFollow.followers.push(currentUserId);
 
+      // Создаем уведомление для пользователя, на которого подписались
       await addNotification(userIdToFollow, {
         sender: currentUserId,
         type: 'follow'
       });
     } else {
+      // Отписаться
       if (!isAlreadyFollowing) {
         await session.abortTransaction();
         session.endSession();
@@ -404,6 +461,7 @@ exports.toggleFollowUser = async (req, res) => {
       currentUser.following.pull(userIdToFollow);
       userToFollow.followers.pull(currentUserId);
 
+      // Удаляем уведомление о подписке, если оно существует
       await removeNotification(userIdToFollow, {
         sender: currentUserId,
         type: 'follow'
@@ -416,6 +474,7 @@ exports.toggleFollowUser = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
+    // Получаем обновленные счетчики для userToFollow (целевого пользователя)
     const updatedUserToFollowData = await User.findById(userIdToFollow).select('followers following').lean();
 
     res.status(200).json({
@@ -435,16 +494,16 @@ exports.toggleFollowUser = async (req, res) => {
 
 // @desc    Получить список подписчиков пользователя
 // @route   GET /api/users/:userId/followers
-// @access  Public
+// @access  Public (или Private, если требуется аутентификация)
 exports.getFollowersList = async (req, res) => {
   try {
     const { userId } = req.params;
     const user = await User.findById(userId)
       .populate({
         path: 'followers',
-        select: 'username avatar _id bio'
+        select: 'username avatar _id bio' // Выбираем нужные поля для отображения в списке
       })
-      .select('followers');
+      .select('followers'); // Выбираем только поле followers из основного документа user
 
     if (!user) {
       return res.status(404).json({ message: 'Пользователь не найден.' });
@@ -465,14 +524,14 @@ exports.getFollowersList = async (req, res) => {
 
 // @desc    Получить список подписок пользователя
 // @route   GET /api/users/:userId/following
-// @access  Public
+// @access  Public (или Private)
 exports.getFollowingList = async (req, res) => {
   try {
     const { userId } = req.params;
     const user = await User.findById(userId)
       .populate({
         path: 'following',
-        select: 'username avatar _id bio'
+        select: 'username avatar _id bio' // Выбираем нужные поля
       })
       .select('following');
 

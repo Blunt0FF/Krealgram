@@ -59,6 +59,4 @@ router.delete('/:userId/followers/:followerId', authMiddleware, userController.r
 
 
 
-
-
 module.exports = router; 
