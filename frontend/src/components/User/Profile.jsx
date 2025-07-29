@@ -270,8 +270,18 @@ const Profile = ({ user: currentUserProp }) => {
   const [modalUsers, setModalUsers] = useState([]);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    limit: 33,
+    totalPosts: 0,
+    hasMore: false,
+    remainingPosts: 0
+  });
+  const [allPosts, setAllPosts] = useState([]);
+  const [loadingAllPosts, setLoadingAllPosts] = useState(false);
 
-  const handlePostClick = (post) => {
+  const handlePostClick = async (post) => {
     // Останавливаем все остальные видео на странице
     videoManager.pauseAllExcept(null);
 
@@ -356,6 +366,11 @@ const Profile = ({ user: currentUserProp }) => {
       postToOpen.isYouTubeVideo = true;
     }
     
+    // Загружаем все посты для модалки, если еще не загружены
+    if (allPosts.length === 0) {
+      await loadAllPosts();
+    }
+    
     setSelectedPost(postToOpen);
     setIsModalOpen(true);
     
@@ -375,22 +390,22 @@ const Profile = ({ user: currentUserProp }) => {
   const goToPreviousPost = () => {
     const currentIndex = getCurrentPostIndex();
     if (currentIndex > 0) {
-      const previousPost = posts[currentIndex - 1];
+      const previousPost = allPosts[currentIndex - 1];
       setSelectedPost(previousPost);
     }
   };
 
   const goToNextPost = () => {
     const currentIndex = getCurrentPostIndex();
-    if (currentIndex < posts.length - 1) {
-      const nextPost = posts[currentIndex + 1];
+    if (currentIndex < allPosts.length - 1) {
+      const nextPost = allPosts[currentIndex + 1];
       setSelectedPost(nextPost);
     }
   };
 
   const getCurrentPostIndex = () => {
     if (!selectedPost) return -1;
-    return posts.findIndex(post => post._id === selectedPost._id);
+    return allPosts.findIndex(post => post._id === selectedPost._id);
   };
 
   const closeModal = () => {
@@ -404,6 +419,13 @@ const Profile = ({ user: currentUserProp }) => {
   const handlePostUpdate = (postId, updates) => {
     setPosts(prevPosts => 
       prevPosts.map(post => 
+        post._id === postId ? { ...post, ...updates } : post
+      )
+    );
+    
+    // Обновляем также allPosts
+    setAllPosts(prevAllPosts => 
+      prevAllPosts.map(post => 
         post._id === postId ? { ...post, ...updates } : post
       )
     );
@@ -427,6 +449,9 @@ const Profile = ({ user: currentUserProp }) => {
       if (response.ok) {
         // Remove post from state
         setPosts(prevPosts => prevPosts.filter(post => post._id !== postIdToDelete));
+        
+        // Удаляем также из allPosts
+        setAllPosts(prevAllPosts => prevAllPosts.filter(post => post._id !== postIdToDelete));
         
         // Close modal if this post was open
         if (selectedPost && selectedPost._id === postIdToDelete) {
@@ -602,6 +627,96 @@ const Profile = ({ user: currentUserProp }) => {
     }
   };
 
+  const loadMorePosts = async () => {
+    if (loadingMore || !pagination.hasMore) return;
+    
+    setLoadingMore(true);
+    
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const nextPage = pagination.currentPage + 1;
+      const response = await fetch(`${API_URL}/api/users/profile/${username}?page=${nextPage}&limit=33`, {
+        headers
+      });
+      const data = await response.json();
+      
+      if (data.user && data.user.posts) {
+        // Обрабатываем новые посты
+        const newPosts = data.user.posts.map(post => {
+          if (currentUserProp && post.likes) {
+            post.isLikedByCurrentUser = post.likes.includes(currentUserProp._id);
+          }
+          
+          post.likesCount = post.likes ? post.likes.length : 0;
+          post.commentsCount = post.comments ? post.comments.length : 0;
+          return post;
+        });
+        
+        // Добавляем новые посты к существующим
+        setPosts(prevPosts => [...prevPosts, ...newPosts]);
+        
+        // Обновляем пагинацию
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading more posts:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const loadAllPosts = async () => {
+    if (loadingAllPosts || allPosts.length > 0) return;
+    
+    setLoadingAllPosts(true);
+    
+    const token = localStorage.getItem('token');
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      // Загружаем все посты одним запросом
+      const response = await fetch(`${API_URL}/api/users/profile/${username}?page=1&limit=1000`, {
+        headers
+      });
+      const data = await response.json();
+      
+      if (data.user && data.user.posts) {
+        // Обрабатываем все посты
+        const processedPosts = data.user.posts.map(post => {
+          if (currentUserProp && post.likes) {
+            post.isLikedByCurrentUser = post.likes.includes(currentUserProp._id);
+          }
+          
+          post.likesCount = post.likes ? post.likes.length : 0;
+          post.commentsCount = post.comments ? post.comments.length : 0;
+          return post;
+        });
+        
+        setAllPosts(processedPosts);
+      }
+    } catch (err) {
+      console.error('Error loading all posts:', err);
+    } finally {
+      setLoadingAllPosts(false);
+    }
+  };
+
   const openAvatarModal = () => {
     // Проверяем, что аватар существует и не является дефолтным
     if (profile.user.avatar && !profile.user.avatar.includes('/default-avatar.png')) {
@@ -619,6 +734,13 @@ const Profile = ({ user: currentUserProp }) => {
       setProfile(null);
       setPosts([]);
       setFollowInfo({ isFollowing: false, followersCount: 0, followingCount: 0 });
+      setPagination({
+        currentPage: 1,
+        limit: 33,
+        totalPosts: 0,
+        hasMore: false,
+        remainingPosts: 0
+      });
       return;
     }
 
@@ -633,7 +755,7 @@ const Profile = ({ user: currentUserProp }) => {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    fetch(`${API_URL}/api/users/profile/${username}`, {
+    fetch(`${API_URL}/api/users/profile/${username}?page=1&limit=33`, {
       headers
     })
       .then(response => response.json())
@@ -657,6 +779,11 @@ const Profile = ({ user: currentUserProp }) => {
             followersCount: data.user.followersCount || 0,
             followingCount: data.user.followingCount || 0
           });
+
+          // Обновляем пагинацию
+          if (data.pagination) {
+            setPagination(data.pagination);
+          }
 
           const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
           const userId = currentUserProp?._id || storedUser?._id;
@@ -796,13 +923,26 @@ const Profile = ({ user: currentUserProp }) => {
                 <h3>No posts yet</h3>
               </div>
             ) : (
-              posts.map((post) => (
-                <PostThumbnail
-                  key={post._id}
-                  post={post}
-                  onClick={() => handlePostClick(post)}
-                />
-              ))
+              <>
+                {posts.map((post) => (
+                  <PostThumbnail
+                    key={post._id}
+                    post={post}
+                    onClick={() => handlePostClick(post)}
+                  />
+                ))}
+                {pagination.hasMore && (
+                  <div className="load-more-container">
+                    <button 
+                      className="load-more-btn"
+                      onClick={loadMorePosts}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? 'Loading...' : `Load more (${pagination.remainingPosts})`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -818,7 +958,7 @@ const Profile = ({ user: currentUserProp }) => {
             onPrevious={goToPreviousPost}
             onNext={goToNextPost}
             canGoPrevious={getCurrentPostIndex() > 0}
-            canGoNext={getCurrentPostIndex() < posts.length - 1}
+            canGoNext={getCurrentPostIndex() < allPosts.length - 1}
           />
         )}
         

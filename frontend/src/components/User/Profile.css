@@ -778,7 +778,6 @@
   display: flex;
   justify-content: center;
   margin-top: 20px;
-  margin-bottom: 40px;
 }
 
 .load-more-button {
@@ -794,6 +793,27 @@
 
 .load-more-button:hover {
   background-color: #0084ff;
+}
+
+.load-more-btn {
+  padding: 12px 24px;
+  background: #0095f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.load-more-btn:hover:not(:disabled) {
+  background: #0081d6;
+}
+
+.load-more-btn:disabled {
+  background: #dbdbdb;
+  cursor: not-allowed;
 }
 
 .post-thumbnail .video-play-overlay {

@@ -13,6 +13,8 @@ const fs = require('fs').promises; // Импортируем fs.promises
 exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
+    const { page = 1, limit = 33 } = req.query;
+    const skip = (page - 1) * limit;
 
     let user;
 
@@ -23,6 +25,11 @@ exports.getUserProfile = async (req, res) => {
         .populate({
             path: 'posts',
             select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+            options: { 
+              sort: { createdAt: -1 },
+              limit: parseInt(limit),
+              skip: parseInt(skip)
+            },
             populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
@@ -35,99 +42,39 @@ exports.getUserProfile = async (req, res) => {
         .lean();
     } else {
       // Если не ObjectId, предполагаем, что это username
-      // Используем case-insensitive поиск
-      
-      // Сначала попробуем найти без populate
-      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      user = await User.findOne({ username: identifier })
         .select('-password -email')
-        .lean();
-      
-      if (basicUser) {
-        // Если пользователь найден, попробуем с populate
-        try {
-          user = await User.findById(basicUser._id)
-            .select('-password -email')
-            .populate({
-                path: 'posts',
-                select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-                populate: [
-                    { path: 'author', select: 'username avatar _id' },
-                    { 
-                        path: 'comments', 
-                        select: 'text user createdAt _id',
-                        populate: { path: 'user', select: 'username avatar _id' }
-                    }
-                ]
-            })
-            .lean();
-        } catch (populateError) {
-          console.error(`🔍 Populate error:`, populateError);
-          // Если populate не работает, попробуем получить посты отдельно
-          try {
-            const posts = await Post.find({ author: basicUser._id })
-              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
-              .populate([
+        .populate({
+            path: 'posts',
+            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+            options: { 
+              sort: { createdAt: -1 },
+              limit: parseInt(limit),
+              skip: parseInt(skip)
+            },
+            populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
-                  path: 'comments', 
-                  select: 'text user createdAt _id',
-                  populate: { path: 'user', select: 'username avatar _id' }
+                    path: 'comments', 
+                    select: 'text user createdAt _id',
+                    populate: { path: 'user', select: 'username avatar _id' }
                 }
-              ])
-              .lean();
-            
-            user = { ...basicUser, posts };
-          } catch (postsError) {
-            console.error(`🔍 Posts fetch error:`, postsError);
-            // Если и это не работает, используем базового пользователя
-            user = basicUser;
-          }
-        }
-      }
+            ]
+        })
+        .lean();
     }
 
     if (!user) {
-      // Дополнительная проверка существования пользователя с case-insensitive поиском
-      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
+      // Дополнительная проверка существования пользователя
+      const userExists = await User.findOne({ username: identifier }).select('_id');
       
-      if (userExists) {
-        
-        // Если пользователь существует, но populate не сработал, попробуем получить посты отдельно
-        try {
-          const basicUser = await User.findById(userExists._id)
-            .select('-password -email')
-            .lean();
-          
-          if (basicUser) {
-            const posts = await Post.find({ author: basicUser._id })
-              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
-              .populate([
-                { path: 'author', select: 'username avatar _id' },
-                { 
-                  path: 'comments', 
-                  select: 'text user createdAt _id',
-                  populate: { path: 'user', select: 'username avatar _id' }
-                }
-              ])
-              .lean();
-            
-            user = { ...basicUser, posts };
-          }
-        } catch (error) {
-          console.error(`🔍 Error getting basic user or posts:`, error);
+      return res.status(404).json({ 
+        message: 'Пользователь не найден.',
+        details: {
+          identifier,
+          userExists: !!userExists
         }
-      }
-      
-      if (!user) {
-        return res.status(404).json({ 
-          message: 'Пользователь не найден.',
-          details: {
-            identifier,
-            userExists: !!userExists,
-            userExistsId: userExists?._id
-          }
-        });
-      }
+      });
     }
     
     // Проверяем, что пользователь активен (не удален)
@@ -176,8 +123,11 @@ exports.getUserProfile = async (req, res) => {
       }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
     
+    // Получаем общее количество постов для пагинации
+    const totalPosts = await Post.countDocuments({ author: user._id });
+    
     // Явно добавляем postsCount
-    user.postsCount = user.posts ? user.posts.length : 0;
+    user.postsCount = totalPosts;
     user.followersCount = user.followers ? user.followers.length : 0;
     user.followingCount = user.following ? user.following.length : 0;
 
@@ -190,7 +140,14 @@ exports.getUserProfile = async (req, res) => {
 
     res.status(200).json({ 
       message: 'Профиль пользователя успешно получен',
-      user 
+      user,
+      pagination: {
+        currentPage: parseInt(page),
+        limit: parseInt(limit),
+        totalPosts,
+        hasMore: totalPosts > (parseInt(page) * parseInt(limit)),
+        remainingPosts: Math.max(0, totalPosts - (parseInt(page) * parseInt(limit)))
+      }
     });
 
   } catch (error) {
