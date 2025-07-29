@@ -35,7 +35,7 @@ export const clearRecentUsers = () => {
   } catch (error) {
     console.error('Error clearing recent users:', error);
   }
-};
+}; 
 
 // Функция для обновления данных конкретного пользователя в недавних
 export const updateRecentUser = (userId, newData) => {

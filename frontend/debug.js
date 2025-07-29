@@ -1,0 +1,1 @@
+console.log('proxyBroken:', localStorage.getItem('proxyBroken')); console.log('getAvatarThumbnailUrl test:', getAvatarThumbnailUrl('https://drive.google.com/uc?id=1bM4Sixjv5E-nzzNHFkH-xRGnX7JPvMPp'));

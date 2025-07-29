@@ -90,7 +90,15 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
         }
       } catch (error) {
         console.error('Error downloading YouTube Shorts:', error);
-        setError(error.message || 'Failed to download YouTube Shorts');
+        
+        // Проверяем специфические ошибки Instagram
+        if (error.message.includes('VIDEO_RESTRICTED_18_PLUS')) {
+          setError('This video is only available for users 18+ or requires Instagram authentication. Please try a different video.');
+        } else if (error.message.includes('VIDEO_REQUIRES_LOGIN')) {
+          setError('This video requires Instagram login. Please try a different video.');
+        } else {
+          setError(error.message || 'Failed to download YouTube Shorts');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -162,7 +170,15 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
       }
     } catch (error) {
       console.error('Error downloading video:', error);
-      setError(error.message || 'Failed to download video');
+      
+      // Проверяем специфические ошибки Instagram
+      if (error.message.includes('VIDEO_RESTRICTED_18_PLUS')) {
+        setError('This video is only available for users 18+ or requires Instagram authentication. Please try a different video.');
+      } else if (error.message.includes('VIDEO_REQUIRES_LOGIN')) {
+        setError('This video requires Instagram login. Please try a different video.');
+      } else {
+        setError(error.message || 'Failed to download video');
+      }
     } finally {
       setIsLoading(false);
     }

@@ -263,6 +263,12 @@ class VideoDownloader {
 
     } catch (error) {
       console.error('❌ Instagram download error:', error);
+      
+      // Проверяем специфические ошибки Instagram
+      if (error.message.includes('VIDEO_RESTRICTED_18_PLUS') || error.message.includes('VIDEO_REQUIRES_LOGIN')) {
+        throw error; // Передаем ошибку как есть
+      }
+      
       throw error;
     }
   }
@@ -477,5 +483,9 @@ class VideoDownloader {
 
 
 
-module.exports = VideoDownloader; 
+// Экспортируем класс для обратной совместимости
+module.exports = VideoDownloader;
+
+// Экспортируем функцию отдельно
+module.exports.generateGifThumbnail = generateGifThumbnail; 
 

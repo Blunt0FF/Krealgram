@@ -13,8 +13,8 @@ const fs = require('fs').promises; // Импортируем fs.promises
 exports.getUserProfile = async (req, res) => {
   try {
     const { identifier } = req.params;
-    
-    console.log(`🔍 getUserProfile called with identifier: ${identifier}`);
+
+    // Убираем лишние логи для ускорения загрузки
 
     let user;
 
@@ -38,108 +38,27 @@ exports.getUserProfile = async (req, res) => {
     } else {
       // Если не ObjectId, предполагаем, что это username
       // Используем case-insensitive поиск
-      console.log(`🔍 Searching for username: ${identifier}`);
-      
-      // Сначала попробуем найти без populate
-      const basicUser = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
+      user = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } })
         .select('-password -email')
-        .lean();
-      
-      console.log(`🔍 Basic user search result:`, basicUser ? `Found: ${basicUser.username}` : 'Not found');
-      
-      if (basicUser) {
-        // Если пользователь найден, попробуем с populate
-        try {
-          user = await User.findById(basicUser._id)
-            .select('-password -email')
-            .populate({
-                path: 'posts',
-                select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
-                populate: [
-                    { path: 'author', select: 'username avatar _id' },
-                    { 
-                        path: 'comments', 
-                        select: 'text user createdAt _id',
-                        populate: { path: 'user', select: 'username avatar _id' }
-                    }
-                ]
-            })
-            .lean();
-          console.log(`🔍 Populated user result:`, user ? `Found with ${user.posts?.length || 0} posts` : 'Not found after populate');
-        } catch (populateError) {
-          console.error(`🔍 Populate error:`, populateError);
-          // Если populate не работает, попробуем получить посты отдельно
-          try {
-            const posts = await Post.find({ author: basicUser._id })
-              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
-              .populate([
+        .populate({
+            path: 'posts',
+            select: 'image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl',
+            populate: [
                 { path: 'author', select: 'username avatar _id' },
                 { 
-                  path: 'comments', 
-                  select: 'text user createdAt _id',
-                  populate: { path: 'user', select: 'username avatar _id' }
+                    path: 'comments', 
+                    select: 'text user createdAt _id',
+                    populate: { path: 'user', select: 'username avatar _id' }
                 }
-              ])
-              .lean();
-            
-            console.log(`🔍 Found ${posts.length} posts separately for ${basicUser.username}`);
-            user = { ...basicUser, posts };
-          } catch (postsError) {
-            console.error(`🔍 Posts fetch error:`, postsError);
-            // Если и это не работает, используем базового пользователя
-            user = basicUser;
-          }
-        }
-      }
+            ]
+        })
+        .lean();
     }
 
     if (!user) {
-      // Дополнительная проверка существования пользователя с case-insensitive поиском
-      const userExists = await User.findOne({ username: { $regex: new RegExp(`^${identifier}$`, 'i') } }).select('_id');
-      
-      console.log(`🔍 User search failed. Identifier: ${identifier}`);
-      console.log(`🔍 User exists check: ${!!userExists}`);
-      if (userExists) {
-        console.log(`🔍 Found user ID: ${userExists._id}`);
-        
-        // Если пользователь существует, но populate не сработал, попробуем получить посты отдельно
-        try {
-          const basicUser = await User.findById(userExists._id)
-            .select('-password -email')
-            .lean();
-          
-          if (basicUser) {
-            console.log(`🔍 Getting posts separately for: ${basicUser.username}`);
-            const posts = await Post.find({ author: basicUser._id })
-              .select('image caption likes comments createdAt author videoData thumbnailUrl youtubeData mediaType videoUrl')
-              .populate([
-                { path: 'author', select: 'username avatar _id' },
-                { 
-                  path: 'comments', 
-                  select: 'text user createdAt _id',
-                  populate: { path: 'user', select: 'username avatar _id' }
-                }
-              ])
-              .lean();
-            
-            console.log(`🔍 Found ${posts.length} posts separately for ${basicUser.username}`);
-            user = { ...basicUser, posts };
-          }
-        } catch (error) {
-          console.error(`🔍 Error getting basic user or posts:`, error);
-        }
-      }
-      
-      if (!user) {
-        return res.status(404).json({ 
-          message: 'Пользователь не найден.',
-          details: {
-            identifier,
-            userExists: !!userExists,
-            userExistsId: userExists?._id
-          }
-        });
-      }
+      return res.status(404).json({ 
+        message: 'Пользователь не найден.'
+      });
     }
     
     // Проверяем, что пользователь активен (не удален)

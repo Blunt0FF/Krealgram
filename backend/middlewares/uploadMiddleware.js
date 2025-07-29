@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = require('fs').promises;
 const { imageCompressor } = require('../utils/imageCompressor');
 const googleDrive = require('../config/googleDrive');
 
@@ -10,7 +11,7 @@ const TEMP_OUTPUT_DIR = path.resolve(process.cwd(), 'temp/output');
 // Создаем директории при загрузке модуля
 const ensureTempDir = async (dirPath) => {
   try {
-    await fs.mkdir(dirPath, { recursive: true });
+    await fsPromises.mkdir(dirPath, { recursive: true });
     console.log(`[UPLOAD_MIDDLEWARE] Created directory: ${dirPath}`);
   } catch (error) {
     console.error(`[UPLOAD_MIDDLEWARE] Error creating directory ${dirPath}:`, error);
@@ -72,7 +73,12 @@ const uploadToGoogleDrive = async (req, res, next) => {
 
     // Проверяем URL для определения контекста
     const url = req.originalUrl || req.url;
-    if (url && url.includes('/conversations/') && url.includes('/messages')) {
+    if (url && (url.includes('/profile/avatar') || url.includes('/users/profile/avatar') || (url.includes('/profile') && req.file && req.file.fieldname === 'avatar'))) {
+      context = 'avatar';
+      folderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
+      username = req.user?.username;
+      console.log('[UPLOAD_CONTEXT] Определен контекст: аватар');
+    } else if (url && url.includes('/conversations/') && url.includes('/messages')) {
       context = 'message';
       folderId = process.env.GOOGLE_DRIVE_MESSAGES_FOLDER_ID;
       console.log('[UPLOAD_CONTEXT] Определен контекст: сообщение');
@@ -92,25 +98,42 @@ const uploadToGoogleDrive = async (req, res, next) => {
         
         console.log(`[IMAGE_COMPRESSION] ✅ Сжатие применено: ${compressedResult.buffer.length} байт`);
         
-        // Создаем превью для изображений
+        // Создаем превью для изображений (только для постов и аватарок, НЕ для сообщений)
         let thumbnailUrl = null;
-        try {
-          const thumbnailBuffer = await imageCompressor.createThumbnail(tempFilePath);
-          const thumbnailResult = await googleDrive.uploadFile(
-            thumbnailBuffer, 
-            `thumb_${originalFilename}`, 
-            'image/webp', 
-            process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
-          );
-          thumbnailUrl = thumbnailResult.secure_url;
-        } catch (thumbnailError) {
-          console.error('[THUMBNAIL_ERROR] Не удалось создать превью:', thumbnailError);
+        if (context !== 'message') {
+          try {
+            const thumbnailBuffer = await imageCompressor.createThumbnail(tempFilePath);
+            
+            // Для аватарок превью идет в ту же папку с username
+            let thumbnailFolderId = process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID;
+            let thumbnailFilename = `thumb_${originalFilename}`;
+            
+            if (context === 'avatar' && username) {
+              thumbnailFolderId = process.env.GOOGLE_DRIVE_AVATARS_FOLDER_ID;
+              thumbnailFilename = `thumb_${username}${path.extname(originalFilename)}`;
+            }
+            
+            const thumbnailResult = await googleDrive.uploadFile(
+              thumbnailBuffer, 
+              thumbnailFilename, 
+              'image/webp', 
+              thumbnailFolderId
+            );
+            thumbnailUrl = thumbnailResult.secure_url;
+          } catch (thumbnailError) {
+            console.error('[THUMBNAIL_ERROR] Не удалось создать превью:', thumbnailError);
+          }
         }
 
         // Загрузка сжатого файла на Google Drive
+        let uploadFilename = originalFilename;
+        if (context === 'avatar' && username) {
+          uploadFilename = `avatar_${username}${path.extname(originalFilename)}`;
+        }
+        
         const result = await googleDrive.uploadFile(
           compressedResult.buffer, 
-          originalFilename, 
+          uploadFilename, 
           fileMimetype, 
           folderId
         );
@@ -135,18 +158,55 @@ const uploadToGoogleDrive = async (req, res, next) => {
       }
     }
 
-    // Для видео и изображений без сжатия
+        // Для видео и изображений без сжатия
     if (fileMimetype.startsWith('video/')) {
       // Читаем файл
-      const fileBuffer = await fs.readFile(tempFilePath);
+      const fileBuffer = await fsPromises.readFile(tempFilePath);
+
+      // Для видео определяем правильную папку
+      let videoFolderId = folderId;
+      if (context === 'post') {
+        videoFolderId = process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID || process.env.GOOGLE_DRIVE_POSTS_FOLDER_ID;
+      }
 
       // Загрузка файла на Google Drive
+      let uploadFilename = originalFilename;
+      if (context === 'avatar' && username) {
+        uploadFilename = `avatar_${username}${path.extname(originalFilename)}`;
+      }
+      
       const result = await googleDrive.uploadFile(
         fileBuffer, 
-        originalFilename, 
+        uploadFilename, 
         fileMimetype, 
-        folderId
+        videoFolderId
       );
+
+              // Создаем GIF превью для видео (только для постов)
+        let thumbnailUrl = null;
+        if (context === 'post') {
+          try {
+            const { generateGifThumbnail } = require('../services/videoDownloader');
+            const gifResult = await generateGifThumbnail(tempFilePath);
+            
+            if (gifResult && gifResult.buffer) {
+              const thumbnailResult = await googleDrive.uploadFile(
+                gifResult.buffer, 
+                `gif-preview-${originalFilename.replace(/\.[^/.]+$/, '.gif')}`, 
+                'image/gif', 
+                process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID
+              );
+              thumbnailUrl = thumbnailResult.secure_url;
+              
+              // Удаляем временный GIF файл
+              if (gifResult.path && fs.existsSync(gifResult.path)) {
+                await fsPromises.unlink(gifResult.path);
+              }
+            }
+          } catch (thumbnailError) {
+            console.error('[VIDEO_THUMBNAIL_ERROR] Не удалось создать GIF превью:', thumbnailError);
+          }
+        }
 
       req.uploadResult = {
         secure_url: result.secure_url,
@@ -155,7 +215,7 @@ const uploadToGoogleDrive = async (req, res, next) => {
         format: path.extname(originalFilename).substring(1),
         bytes: fileBuffer.length,
         url: result.secure_url,
-        thumbnailUrl: null
+        thumbnailUrl: thumbnailUrl
       };
       
       console.log(`[UPLOAD_RESULT] Размер загруженного файла: ${fileBuffer.length} байт (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);

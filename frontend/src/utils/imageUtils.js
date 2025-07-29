@@ -1,7 +1,6 @@
 import { processMediaUrl } from './urlUtils';
 import axios from 'axios';
 import { API_URL } from '../config';
-import { getAvatarUrl as resolveAvatarUrl } from './mediaUrlResolver';
 import heic2any from 'heic2any';
 
 const isImageFile = (file) => {
@@ -147,7 +146,7 @@ export const uploadAvatar = async (file) => {
 
     const token = localStorage.getItem('token');
     const response = await axios.put(
-      `${API_URL}/api/users/profile`,
+      `${API_URL}/api/users/profile/avatar`,
       formData,
       {
         headers: {
@@ -174,7 +173,7 @@ export const getAvatarThumbnailUrl = (avatarPath) => {
     return '/default-avatar.png';
   }
 
-  // Если это Google Drive URL, пытаемся получить thumbnail
+  // Если это Google Drive URL, всегда используем прокси для thumbnail
   if (avatarPath.includes('drive.google.com')) {
     try {
       const fileId = avatarPath.match(/\/uc\?id=([^&]+)/)?.[1] || 
@@ -182,30 +181,26 @@ export const getAvatarThumbnailUrl = (avatarPath) => {
                      avatarPath.split('id=')[1];
       
       if (fileId) {
-        // Проверяем, есть ли в localStorage флаг о том, что прокси не работает
-        const proxyBroken = localStorage.getItem('proxyBroken') === 'true';
-        
-        if (proxyBroken) {
-          // Если прокси сломан, используем прямые URL Google Drive
-          return `https://drive.google.com/thumbnail?id=${fileId}&sz=w150-h150-c`;
-        } else {
-          // Пробуем прокси
-          return `${API_URL}/api/proxy-drive/${fileId}?type=thumbnail`;
-        }
+        // Всегда используем прокси для thumbnail
+        return `${API_URL}/api/proxy-drive/${fileId}?type=thumbnail`;
       }
     } catch (error) {
       // В случае ошибки возвращаем оригинал
-      return resolveAvatarUrl(avatarPath);
+      return resolveMediaUrl(avatarPath);
     }
   }
 
   // Для локальных файлов или других URL возвращаем оригинал
-  return resolveAvatarUrl(avatarPath);
+  // Используем resolveMediaUrl с типом 'avatar' для правильной обработки
+  return resolveMediaUrl(avatarPath, 'avatar');
 };
 
 // Синхронная версия для использования в компонентах
 export const getAvatarUrl = (avatarPath) => {
-  return resolveAvatarUrl(avatarPath);
+  if (!avatarPath) {
+    return '/default-avatar.png';
+  }
+  return resolveMediaUrl(avatarPath, 'avatar');
 };
 
 // Улучшенная функция для получения URL видео с оптимизацией для мобильных устройств
@@ -246,30 +241,7 @@ export const refreshAvatarOnError = (imgElement, avatarPath) => {
     return;
   }
   
-  // Проверяем, является ли это Google Drive URL и прокси не работает
-  if (avatarPath.includes('drive.google.com') && imgElement.src.includes('proxy-drive')) {
-    try {
-      const fileId = avatarPath.match(/\/uc\?id=([^&]+)/)?.[1] || 
-                     avatarPath.match(/\/d\/([^/]+)/)?.[1] || 
-                     avatarPath.split('id=')[1];
-      
-      if (fileId) {
-        // Помечаем, что прокси не работает
-        localStorage.setItem('proxyBroken', 'true');
-        
-        // Переключаемся на прямые URL Google Drive
-        const directUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w150-h150-c`;
-        imgElement.src = directUrl;
-        
-        console.log('🔄 Switched to direct Google Drive URL for avatar');
-        return;
-      }
-    } catch (error) {
-      console.warn('⚠️ Error switching to direct Google Drive URL:', error);
-    }
-  }
-  
-  // Обычный fallback - добавляем кэш-бастер
+  // Просто добавляем кэш-бастер для обновления изображения
   const separator = imgElement.src.includes('?') ? '&' : '?';
   imgElement.src = `${imgElement.src}${separator}t=${Date.now()}`;
 };
@@ -284,29 +256,11 @@ export const getAvatarUrlWithCacheBuster = (avatarPath, forceRefresh = false) =>
   return baseUrl;
 };
 
-// Функция для проверки состояния прокси
+// Функция для проверки состояния прокси (всегда возвращает true, так как прокси должен работать всегда)
 export const checkProxyStatus = async () => {
-  try {
-    const testFileId = 'test123';
-    const response = await fetch(`${API_URL}/api/proxy-drive/${testFileId}?type=thumbnail`);
-    
-    if (response.ok) {
-      // Прокси работает, сбрасываем флаг
-      localStorage.removeItem('proxyBroken');
-      console.log('✅ Proxy is working, resetting flag');
-      return true;
-    } else {
-      // Прокси не работает
-      localStorage.setItem('proxyBroken', 'true');
-      console.log('❌ Proxy is broken, setting flag');
-      return false;
-    }
-  } catch (error) {
-    // Прокси не работает
-    localStorage.setItem('proxyBroken', 'true');
-    console.log('❌ Proxy check failed, setting flag');
-    return false;
-  }
+  // Всегда считаем, что прокси работает
+  localStorage.removeItem('proxyBroken');
+  return true;
 };
 
 // Глобальная функция для обновления кэша аватаров по всему сайту

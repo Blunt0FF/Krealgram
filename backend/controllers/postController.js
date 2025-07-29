@@ -567,9 +567,22 @@ exports.getPostLikes = async (req, res) => {
 // @desc    Получить пользователей, которые загружали видео
 // @route   GET /api/posts/video-users
 // @access  Private
+// Кэш для video users
+let videoUsersCache = null;
+let videoUsersCacheTimestamp = 0;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 минут
+
 exports.getVideoUsers = async (req, res) => {
   try {
-    console.log('Getting video users...');
+    const now = Date.now();
+    
+    // Проверяем кэш
+    if (videoUsersCache && (now - videoUsersCacheTimestamp) < CACHE_DURATION) {
+      console.log('Getting video users from cache...');
+      return res.json({ success: true, users: videoUsersCache });
+    }
+    
+    console.log('Getting video users from database...');
     
     const videoUsers = await Post.aggregate([
       {
@@ -622,6 +635,11 @@ exports.getVideoUsers = async (req, res) => {
     ]);
 
     console.log(`Found ${videoUsers.length} video users`);
+    
+    // Обновляем кэш
+    videoUsersCache = videoUsers;
+    videoUsersCacheTimestamp = now;
+    
     res.json({ success: true, users: videoUsers });
   } catch (error) {
     console.error('Error fetching video users:', error);
@@ -1041,6 +1059,16 @@ exports.downloadExternalVideo = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error in downloadExternalVideo:', error);
+    
+    // Проверяем специфические ошибки Instagram
+    if (error.message.includes('VIDEO_RESTRICTED_18_PLUS') || error.message.includes('VIDEO_REQUIRES_LOGIN')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        errorType: error.message.includes('VIDEO_RESTRICTED_18_PLUS') ? 'VIDEO_RESTRICTED_18_PLUS' : 'VIDEO_REQUIRES_LOGIN'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to download external video',

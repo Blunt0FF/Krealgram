@@ -363,7 +363,6 @@ async function extractViaYtDlp(url) {
         '--print', '%(url)s|%(title)s|%(uploader)s|%(duration)s|%(thumbnail)s',
         '--no-playlist',
         '--user-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        '--cookies-from-browser', 'chrome',
         url
       ]);
 
@@ -397,7 +396,14 @@ async function extractViaYtDlp(url) {
             reject(new Error('yt-dlp returned no video URL'));
           }
         } else {
-          reject(new Error(`yt-dlp failed: ${errorOutput}`));
+          // Check for specific Instagram errors
+          if (errorOutput.includes('Restricted Video') || errorOutput.includes('18 years old')) {
+            reject(new Error('VIDEO_RESTRICTED_18_PLUS: This video is only available for users 18+ or requires Instagram authentication'));
+          } else if (errorOutput.includes('login') || errorOutput.includes('authentication')) {
+            reject(new Error('VIDEO_REQUIRES_LOGIN: This video requires Instagram login'));
+          } else {
+            reject(new Error(`yt-dlp failed: ${errorOutput}`));
+          }
         }
       });
     });
@@ -448,8 +454,7 @@ async function extractInstagramVideo(url) {
   let extractionMethods = [
     extractViaInstagramAPI,
     extractViaHTMLParsing,
-    extractViaYtDlp,
-    extractViaDemoFallback
+    extractViaYtDlp
   ];
   
   // Если это Reel, добавляем специальный метод в начало
@@ -458,8 +463,7 @@ async function extractInstagramVideo(url) {
       extractViaReelsAPI,
       extractViaInstagramAPI,
       extractViaHTMLParsing,
-      extractViaYtDlp,
-      extractViaDemoFallback
+      extractViaYtDlp
     ];
   }
   
@@ -485,11 +489,16 @@ async function extractInstagramVideo(url) {
     }
   }
   
-  // Если все методы не сработали (кроме демо-фоллбека)
+  // Если все методы не сработали
   console.log('❌ All Instagram extraction methods failed');
   console.log('📝 Note: Instagram may have blocked extraction methods');
-  console.log('📝 Consider using demo video or trying again later');
-  throw new Error(`Instagram extraction failed: ${lastError?.message || 'Unknown error'}`);
+  
+  // Возвращаем последнюю ошибку с правильным форматом
+  if (lastError && (lastError.message.includes('VIDEO_RESTRICTED_18_PLUS') || lastError.message.includes('VIDEO_REQUIRES_LOGIN'))) {
+    throw lastError;
+  } else {
+    throw new Error(`Instagram extraction failed: ${lastError?.message || 'Unknown error'}`);
+  }
 }
 
 // Функция для проверки, является ли URL Instagram видео

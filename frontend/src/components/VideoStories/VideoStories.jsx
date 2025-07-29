@@ -7,7 +7,7 @@ import { API_URL } from '../../config';
 import './VideoStories.css';
 import axios from 'axios';
 
-const VideoStories = () => {
+const VideoStories = React.memo(() => {
   const [videoUsers, setVideoUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -16,6 +16,24 @@ const VideoStories = () => {
   const [videos, setVideos] = useState([]);
 
   useEffect(() => {
+    // Проверяем кэш перед запросом
+    const cachedData = localStorage.getItem('videoUsersCache');
+    const cacheTimestamp = localStorage.getItem('videoUsersCacheTimestamp');
+    const now = Date.now();
+    const cacheAge = now - (cacheTimestamp ? parseInt(cacheTimestamp) : 0);
+    const cacheValid = cacheAge < 5 * 60 * 1000; // 5 минут
+
+    if (cachedData && cacheValid) {
+      try {
+        const parsedData = JSON.parse(cachedData);
+        setVideoUsers(parsedData);
+        setLoading(false);
+        return;
+      } catch (error) {
+        console.error('Error parsing cached video users:', error);
+      }
+    }
+
     fetchVideoUsers();
     // Загружаем просмотренные видео из localStorage
     const saved = localStorage.getItem('viewedVideoStories');
@@ -42,7 +60,12 @@ const VideoStories = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setVideoUsers(data.users || []);
+        const users = data.users || [];
+        setVideoUsers(users);
+        
+        // Кэшируем данные
+        localStorage.setItem('videoUsersCache', JSON.stringify(users));
+        localStorage.setItem('videoUsersCacheTimestamp', Date.now().toString());
       } else {
         const errorText = await response.text().catch(() => 'No error text');
       }
@@ -136,6 +159,6 @@ const VideoStories = () => {
       )}
     </>
   );
-};
+});
 
 export default VideoStories; 
