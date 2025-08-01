@@ -19,7 +19,30 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
 const logLevel = process.env.NODE_ENV === 'production' ? 'error' : 'info';
 
-connectDB();
+// Подключение к базе данных с обработкой переподключений
+const initializeDatabase = async () => {
+  try {
+    await connectDB();
+    
+    // Обработчик переподключения при разрывах соединения
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected, attempting to reconnect...');
+      setTimeout(async () => {
+        try {
+          await connectDB();
+        } catch (error) {
+          console.error('Failed to reconnect to MongoDB:', error.message);
+        }
+      }, 5000); // Ждем 5 секунд перед попыткой переподключения
+    });
+    
+  } catch (error) {
+    console.error('Failed to initialize database:', error.message);
+    process.exit(1);
+  }
+};
+
+initializeDatabase();
 
 const googleDrive = require('./config/googleDrive');
 
@@ -660,12 +683,25 @@ io.on('connection', async (socket) => {
     socket.join(userId);
     try {
       const User = require('./models/userModel');
-      await User.findByIdAndUpdate(userId, {
-        isOnline: true,
-        lastActive: new Date()
-      });
+      
+      // Проверяем состояние подключения к базе данных
+      if (User.db.readyState === 1) {
+        await User.findByIdAndUpdate(userId, {
+          isOnline: true,
+          lastActive: new Date()
+        });
+      } else {
+        console.log('Database not ready, skipping user online status update');
+      }
     } catch (error) {
-      console.error('Error updating user online status:', error);
+      // Проверяем тип ошибки
+      if (error.name === 'PoolClearedOnNetworkError' || 
+          error.name === 'MongoNetworkError' || 
+          error.name === 'MongoServerSelectionError') {
+        console.log('Network error during user online status update');
+      } else {
+        console.error('Error updating user online status:', error);
+      }
     }
   }
 
@@ -673,12 +709,25 @@ io.on('connection', async (socket) => {
     if (userId) {
       try {
         const User = require('./models/userModel');
-        await User.findByIdAndUpdate(userId, {
-          isOnline: false,
-          lastActive: new Date()
-        });
+        
+        // Проверяем состояние подключения к базе данных
+        if (User.db.readyState === 1) {
+          await User.findByIdAndUpdate(userId, {
+            isOnline: false,
+            lastActive: new Date()
+          });
+        } else {
+          console.log('Database not ready, skipping user offline status update');
+        }
       } catch (error) {
-        console.error('Error updating user offline status:', error);
+        // Проверяем тип ошибки
+        if (error.name === 'PoolClearedOnNetworkError' || 
+            error.name === 'MongoNetworkError' || 
+            error.name === 'MongoServerSelectionError') {
+          console.log('Network error during user offline status update');
+        } else {
+          console.error('Error updating user offline status:', error);
+        }
       }
     }
   });
