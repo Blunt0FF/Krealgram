@@ -88,7 +88,7 @@ class VideoDownloader {
   }
 
   detectPlatform(url) {
-    if (url.includes('youtube.com/shorts') || url.includes('youtu.be') && url.includes('shorts')) return 'youtube-shorts';
+    if (url.includes('youtube.com/shorts')) return 'youtube-shorts';
     if (url.includes('youtube.com') || url.includes('youtu.be')) return 'youtube';
     if (url.includes('tiktok.com')) return 'tiktok';
     if (url.includes('instagram.com')) return 'instagram';
