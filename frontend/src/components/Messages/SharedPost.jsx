@@ -29,7 +29,7 @@ const SharedPost = ({ post, onPostClick }) => {
         post.thumbnailUrl,
         post.imageUrl,
         post.image,
-        '/video-placeholder.png'
+        '/video-placeholder.svg'
       ].filter(Boolean);
       
       finalImageUrl = getImageUrl(videoImageSources[0]);

@@ -105,9 +105,10 @@
 }
 
 .post-modal-image video,
-.post-modal-video {
+.post-modal-video,
+.post-modal-image .video-placeholder {
   width: 100%;
-  height: auto; /* ДИНАМИЧЕСКАЯ ВЫСОТА ДЛЯ ВИДЕО */
+  height: auto; /* ДИНАМИЧЕСКАЯ ВЫСОТА ДЛЯ ВИДЕО И ПЛЕЙСХОЛДЕРА */
   max-height: 100%;
   min-height: 400px; /* МИНИМАЛЬНАЯ ВЫСОТА */
   object-fit: contain; /* СОХРАНЯЕМ ПРОПОРЦИИ! */
@@ -162,6 +163,15 @@
   justify-content: center;
   height: 400px;
   color: #8e8e8e;
+}
+
+/* Фиксированный 400x400 placeholder для битых изображений */
+.image-placeholder-fixed {
+  width: 400px !important;
+  height: 400px !important;
+  max-width: 400px !important;
+  max-height: 400px !important;
+  object-fit: contain !important;
 }
 
 .post-modal-sidebar {
@@ -622,7 +632,8 @@
     height: 32px;
   }
 
-  .post-modal-image video {
+  .post-modal-image video,
+  .post-modal-image .video-placeholder {
     width: 100% !important;
     height: auto !important;
     max-height: 100% !important;
@@ -734,7 +745,8 @@
     height: 32px;
   }
 
-  .post-modal-image video {
+  .post-modal-image video,
+  .post-modal-image .video-placeholder {
     width: 100% !important;
     height: auto !important;
     max-height: 100% !important;
@@ -786,6 +798,15 @@
     object-fit: contain;
     background: white;
   }
+}
+
+/* Фиксированный размер плейсхолдера изображения в модалке */
+.post-modal-image img[src*="default-post-placeholder.png"] {
+  width: 400px !important;
+  height: 400px !important;
+  max-width: 400px !important;
+  max-height: 400px !important;
+  object-fit: contain !important;
 }
 
 /* Десктопные стили для ≥901px */

@@ -63,6 +63,38 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
       return;
     }
 
+    const callDownload = async () => {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/posts/external-video/download`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ url: url.trim() })
+      });
+      return response;
+    };
+
+    const fetchWithRetry = async (retries = 2) => {
+      try {
+        const response = await callDownload();
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.message || `HTTP ${response.status}`);
+        }
+        return await response.json();
+      } catch (err) {
+        // Специальная обработка ERR_NETWORK_CHANGED: делаем короткую паузу и повтор
+        const isNetworkChanged = (err?.message || '').includes('ERR_NETWORK_CHANGED') || (err?.name === 'TypeError' && err?.message === 'Failed to fetch');
+        if (retries > 0 && isNetworkChanged) {
+          await new Promise(r => setTimeout(r, 700));
+          return fetchWithRetry(retries - 1);
+        }
+        throw err;
+      }
+    };
+
     // Для YouTube Shorts скачиваем видео как TikTok/Instagram
     if (detectedPlatform === 'youtube-shorts') {
       setIsLoading(true);
@@ -149,18 +181,7 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/posts/external-video/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ url: url.trim() })
-      });
-
-      const data = await response.json();
-
+      const data = await fetchWithRetry(2);
       if (data.success) {
         console.log('✅ Video downloaded successfully:', data);
         onVideoDownloaded(data);
@@ -170,12 +191,8 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
       }
     } catch (error) {
       console.error('Error downloading video:', error);
-      
-      // Проверяем специфические ошибки Instagram
-      if (error.message.includes('VIDEO_RESTRICTED_18_PLUS')) {
-        setError('This video is only available for users 18+ or requires Instagram authentication. Please try a different video.');
-      } else if (error.message.includes('VIDEO_REQUIRES_LOGIN')) {
-        setError('This video requires Instagram login. Please try a different video.');
+      if ((error?.message || '').includes('ERR_NETWORK_CHANGED')) {
+        setError('Network changed during request. Please try again.');
       } else {
         setError(error.message || 'Failed to download video');
       }

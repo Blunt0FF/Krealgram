@@ -15,26 +15,26 @@ const MAX_CAPTION_LENGTH_EDIT = 500;
 const ModalMedia = memo(({ postData, onLoad, onError }) => {
   if (!postData) return null;
 
+  // Добавлено: состояния ошибок и сброс при смене поста
+  const [videoError, setVideoError] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  useEffect(() => {
+    setVideoError(false);
+    setImageError(false);
+  }, [postData]);
+
   // Расширенная функция извлечения YouTube ID
   const extractYouTubeId = (url) => {
     if (!url) return null;
-    
-    // Стандартный YouTube URL
     const standardMatch = url.match(/[?&]v=([^&]+)/);
     if (standardMatch) return standardMatch[1];
-    
-    // Короткий YouTube URL
     const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
     if (shortMatch) return shortMatch[1];
-    
-    // Из миниатюры
     const thumbnailMatch = url.match(/\/vi\/([^/]+)/);
     if (thumbnailMatch) return thumbnailMatch[1];
-    
     return null;
   };
 
-  // Список источников для поиска YouTube-ссылки
   const urlsToCheck = [
     postData.videoUrl,
     postData.youtubeUrl,
@@ -44,14 +44,12 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
     postData.imageUrl
   ];
 
-  // Пытаемся найти YouTube ID
   const videoId = urlsToCheck.reduce((foundId, url) => {
     return foundId || extractYouTubeId(url);
   }, null) || 
   (postData.image?.includes('img.youtube.com/vi/') && 
     postData.image.match(/\/vi\/([^/]+)/)?.[1]);
 
-  // Если ID найден, восстанавливаем полную ссылку
   let youtubeEmbedUrl = null;
   let originalYouTubeUrl = null;
 
@@ -60,7 +58,6 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
     youtubeEmbedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&enablejsapi=1`;
   }
 
-  // Fallback к youtubeData, если основной метод не сработал
   if (!youtubeEmbedUrl && postData.youtubeData) {
     originalYouTubeUrl = postData.youtubeData.originalUrl;
     youtubeEmbedUrl = postData.youtubeData.embedUrl;
@@ -94,7 +91,6 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
     );
   }
 
-  // Остальная логика без изменений
   if (
     postData.mediaType === 'video' ||
     postData.imageUrl?.includes('.mp4') ||
@@ -103,6 +99,17 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
     const posterUrl = getMediaThumbnail(postData);
     const isDesktop = window.innerWidth >= 901;
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    if (videoError) {
+      return (
+        <img
+          src="/video-placeholder.svg"
+          alt="Video placeholder"
+          className="video-placeholder"
+          onLoad={onLoad}
+        />
+      );
+    }
 
     return (
       <video
@@ -116,8 +123,8 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
         x5-video-player-type="h5"
         x5-video-player-fullscreen="true"
         x5-video-orientation="portrait"
-        muted={isMobile ? true : false} // На мобильных сначала без звука для быстрой загрузки
-        preload={isMobile ? "metadata" : "auto"} // На мобильных загружаем только метаданные
+        muted={isMobile ? true : false}
+        preload={isMobile ? "metadata" : "auto"}
         poster={isMobile ? posterUrl : (!isDesktop ? posterUrl : undefined)}
         style={{
           width: '100%',
@@ -129,10 +136,12 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
         }}
         onLoad={onLoad}
         onLoadedData={onLoad}
-        onError={onError}
+        onError={(e) => {
+          setVideoError(true);
+          onError && onError(e);
+        }}
         onPlay={(e) => {
           videoManager.setCurrentVideo(e.target);
-          // На мобильных включаем звук после начала воспроизведения
           if (isMobile && e.target.muted) {
             e.target.muted = false;
           }
@@ -143,7 +152,6 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
           }
         }}
         onCanPlay={() => {
-          // На мобильных начинаем воспроизведение как только видео готово
           if (isMobile) {
             const video = document.querySelector('.post-modal-video');
             if (video && video.paused) {
@@ -151,7 +159,18 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
             }
           }
         }}
+      />
+    );
+  }
 
+  // Изображение
+  if (imageError) {
+    return (
+      <img
+        src="/default-post-placeholder.png"
+        alt="Post placeholder"
+        className="image-placeholder-fixed"
+        onLoad={onLoad}
       />
     );
   }
@@ -162,8 +181,8 @@ const ModalMedia = memo(({ postData, onLoad, onError }) => {
       alt="Post"
       className="post-modal-image"
       onLoad={onLoad}
-      onError={(e) => {
-        e.target.style.display = 'none';
+      onError={() => {
+        setImageError(true);
         onError && onError();
       }}
     />

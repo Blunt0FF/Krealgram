@@ -925,9 +925,9 @@ const Messages = ({ currentUser }) => {
               }}
               onClick={() => openImageModal(message.media.url, 'video')}
               onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/video-placeholder.png';
-              }}
+                  e.target.onerror = null;
+                  e.target.src = '/video-placeholder.svg';
+                }}
             />
             <div 
               className="video-play-overlay"
