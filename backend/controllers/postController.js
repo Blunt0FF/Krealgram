@@ -1033,6 +1033,7 @@ exports.downloadExternalVideo = async (req, res) => {
         thumbnailUrl: result.thumbnailUrl, // <--- Убедимся, что это поле передается
         gifPreview: result.gifPreviewUrl, // Добавляем GIF-превью
         googleDriveFileId: result.fileId, // ID файла в Google Drive
+        thumbnailFileId: result.thumbnailFileId || null,
         youtubeData: {
           platform: result.platform,
           originalUrl: result.originalUrl,
@@ -1050,6 +1051,9 @@ exports.downloadExternalVideo = async (req, res) => {
         isExternalLink: false, // Это загруженное видео
         videoUrl: result.videoUrl,
         thumbnailUrl: result.thumbnailUrl, // <--- И в корне ответа
+        gifPreviewUrl: result.gifPreviewUrl || null,
+        fileId: result.fileId,
+        thumbnailFileId: result.thumbnailFileId || null,
         originalUrl: result.originalUrl,
         platform: result.platform,
         title: result.videoInfo.title || '',

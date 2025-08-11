@@ -331,30 +331,23 @@ const CreatePost = () => {
         
         const fileIds = [];
         
-        // Добавляем ID основного видео файла
+        // ID основного видео
         if (parsedVideoData.videoData.googleDriveFileId) {
           fileIds.push(parsedVideoData.videoData.googleDriveFileId);
           console.log('📹 Main video file ID:', parsedVideoData.videoData.googleDriveFileId);
-        } else {
-          console.log('⚠️ No googleDriveFileId found in videoData');
         }
         
-        // Добавляем ID thumbnail файла если есть
-        if (parsedVideoData.videoData.gifPreview) {
+        // ID превью gif (thumbnailFileId если есть)
+        if (parsedVideoData.videoData.thumbnailFileId) {
+          fileIds.push(parsedVideoData.videoData.thumbnailFileId);
+          console.log('🖼️ Thumbnail file ID:', parsedVideoData.videoData.thumbnailFileId);
+        } else if (parsedVideoData.videoData.gifPreview) {
           const thumbnailFileId = parsedVideoData.videoData.gifPreview.match(/id=([^&]+)/)?.[1];
           if (thumbnailFileId) {
             fileIds.push(thumbnailFileId);
-            console.log('🖼️ Thumbnail file ID:', thumbnailFileId);
-          } else {
-            console.log('⚠️ Could not extract thumbnail file ID from:', parsedVideoData.videoData.gifPreview);
+            console.log('🖼️ Thumbnail file ID (extracted):', thumbnailFileId);
           }
-        } else {
-          console.log('ℹ️ No gifPreview found in videoData');
         }
-        
-        // Проверяем все доступные поля в videoData
-        console.log('🔍 All videoData fields:', Object.keys(parsedVideoData.videoData));
-        console.log('🔍 videoData values:', parsedVideoData.videoData);
         
         // Если есть файлы для удаления, вызываем API
         if (fileIds.length > 0) {
@@ -373,9 +366,7 @@ const CreatePost = () => {
           const responseData = await response.json();
           console.log('📡 API Response:', responseData);
           
-          if (response.ok) {
-            console.log('✅ Files deleted from Google Drive successfully');
-          } else {
+          if (!response.ok) {
             console.warn('⚠️ Failed to delete some files from Google Drive:', responseData);
           }
         } else {

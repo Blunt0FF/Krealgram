@@ -187,8 +187,9 @@ class VideoDownloader {
         throw new Error('Downloaded video exceeds 100MB limit');
       }
       
-      // Создаем имя файла с оригинальной ссылкой
-      const filename = `tiktok-${url}.mp4`;
+      // Полный оригинальный URL без протокола и www
+      const normalizedUrl = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      const filename = `${normalizedUrl}.mp4`;
       
       const driveResult = await googleDrive.uploadFile(videoBuffer, filename, 'video/mp4', process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID);
 
@@ -196,11 +197,12 @@ class VideoDownloader {
       await fs.promises.writeFile(tempVideoPath, videoBuffer);
 
       let generatedThumbnailUrl = null;
+      let generatedThumbnailFileId = null;
       try {
         const gifResult = await generateGifThumbnail(tempVideoPath);
 
         if (gifResult && gifResult.buffer) {
-          const thumbnailFilename = `tiktok-thumb-${url}.gif`;
+          const thumbnailFilename = `gif-preview-${normalizedUrl}.gif`;
           const thumbnailDriveResult = await googleDrive.uploadFile(
             gifResult.buffer, 
             thumbnailFilename, 
@@ -208,6 +210,7 @@ class VideoDownloader {
             process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
           );
           generatedThumbnailUrl = thumbnailDriveResult.secure_url;
+          generatedThumbnailFileId = thumbnailDriveResult.fileId;
           
           // Удаляем временный GIF файл
           await fs.promises.unlink(gifResult.path);
@@ -238,6 +241,8 @@ class VideoDownloader {
         },
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || originalThumbnailUrl || driveResult.thumbnailUrl, 
+        gifPreviewUrl: generatedThumbnailUrl || null,
+        thumbnailFileId: generatedThumbnailFileId || null,
         fileId: driveResult.fileId,
         originalUrl: url
       };
@@ -286,8 +291,9 @@ class VideoDownloader {
         throw new Error('Downloaded video exceeds 100MB limit');
       }
       
-      // Создаем имя файла с оригинальной ссылкой
-      const filename = `instagram-${url}.mp4`;
+      // Полный оригинальный URL без протокола и www
+      const normalizedUrl = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      const filename = `${normalizedUrl}.mp4`;
       
       const driveResult = await googleDrive.uploadFile(
         videoBuffer, 
@@ -300,12 +306,13 @@ class VideoDownloader {
       await fs.promises.writeFile(tempVideoPath, videoBuffer);
 
       let generatedThumbnailUrl = null;
+      let generatedThumbnailFileId = null;
       try {
         const gifResult = await generateGifThumbnail(tempVideoPath);
         console.log('🖼️ GIF Preview создан:', gifResult);
 
         if (gifResult && gifResult.buffer) {
-          const thumbnailFilename = `instagram-thumb-${url}.gif`;
+          const thumbnailFilename = `gif-preview-${normalizedUrl}.gif`;
           const thumbnailDriveResult = await googleDrive.uploadFile(
             gifResult.buffer, 
             thumbnailFilename, 
@@ -313,6 +320,7 @@ class VideoDownloader {
             process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
           );
           generatedThumbnailUrl = thumbnailDriveResult.secure_url;
+          generatedThumbnailFileId = thumbnailDriveResult.fileId;
           
           // Удаляем временный GIF файл
           await fs.promises.unlink(gifResult.path);
@@ -344,6 +352,8 @@ class VideoDownloader {
         },
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || result.thumbnailUrl || driveResult.thumbnailUrl,
+        gifPreviewUrl: generatedThumbnailUrl || null,
+        thumbnailFileId: generatedThumbnailFileId || null,
         fileId: driveResult.fileId,
         originalUrl: url
       };
@@ -381,8 +391,9 @@ class VideoDownloader {
         throw new Error('Downloaded video file is empty (0 bytes).');
       }
       
-      // Создаем имя файла с оригинальной ссылкой
-      const filename = `youtube-shorts-${url}.mp4`;
+      // Полный оригинальный URL без протокола и www
+      const normalizedUrl = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      const filename = `${normalizedUrl}.mp4`;
       
       const driveResult = await googleDrive.uploadFile(
         videoBuffer, 
@@ -393,11 +404,12 @@ class VideoDownloader {
 
       // Создаем GIF превью
       let generatedThumbnailUrl = null;
+      let generatedThumbnailFileId = null;
       try {
         const gifResult = await generateGifThumbnail(downloadedPath);
 
         if (gifResult && gifResult.buffer) {
-          const thumbnailFilename = `youtube-shorts-thumb-${url}.gif`;
+          const thumbnailFilename = `gif-preview-${normalizedUrl}.gif`;
           const thumbnailDriveResult = await googleDrive.uploadFile(
             gifResult.buffer, 
             thumbnailFilename, 
@@ -405,6 +417,7 @@ class VideoDownloader {
             process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
           );
           generatedThumbnailUrl = thumbnailDriveResult.secure_url;
+          generatedThumbnailFileId = thumbnailDriveResult.fileId;
           
           // Удаляем временный GIF файл
           await fs.promises.unlink(gifResult.path);
@@ -432,6 +445,8 @@ class VideoDownloader {
         videoInfo: videoInfo,
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || driveResult.thumbnailUrl,
+        gifPreviewUrl: generatedThumbnailUrl || null,
+        thumbnailFileId: generatedThumbnailFileId || null,
         fileId: driveResult.fileId,
         originalUrl: url
       };
