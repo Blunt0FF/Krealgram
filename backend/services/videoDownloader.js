@@ -188,7 +188,7 @@ class VideoDownloader {
       }
       
       // Создаем имя файла с URL вместо таймстампа
-      const safeUrl = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').substring(0, 100);
+      const safeUrl = url.replace(/[^a-zA-Z0-9\/]/g, '-').replace(/-+/g, '-').substring(0, 100);
       const filename = `tiktok-${safeUrl}.mp4`;
       
       const driveResult = await googleDrive.uploadFile(videoBuffer, filename, 'video/mp4', process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID);
@@ -288,7 +288,7 @@ class VideoDownloader {
       }
       
       // Создаем имя файла с URL вместо таймстампа
-      const safeUrl = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').substring(0, 100);
+      const safeUrl = url.replace(/[^a-zA-Z0-9\/]/g, '-').replace(/-+/g, '-').substring(0, 100);
       const filename = `instagram-${safeUrl}.mp4`;
       
       const driveResult = await googleDrive.uploadFile(
@@ -384,7 +384,7 @@ class VideoDownloader {
       }
       
       // Создаем имя файла с URL вместо таймстампа
-      const safeUrl = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').substring(0, 100);
+      const safeUrl = url.replace(/[^a-zA-Z0-9\/]/g, '-').replace(/-+/g, '-').substring(0, 100);
       const filename = `youtube-shorts-${safeUrl}.mp4`;
       
       const driveResult = await googleDrive.uploadFile(
