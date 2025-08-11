@@ -15,7 +15,7 @@ const connectDB = async () => {
       retryWrites: true, // Повторные попытки записи
       retryReads: true,  // Повторные попытки чтения
       w: 'majority', // Ожидание подтверждения от большинства реплик
-      wtimeout: 10000, // Таймаут записи (10 секунд)
+      wtimeoutMS: 10000, // Таймаут записи (10 секунд) - современная опция
     });
     console.log('MongoDB connected successfully');
   } catch (error) {
