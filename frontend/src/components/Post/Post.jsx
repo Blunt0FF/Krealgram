@@ -483,7 +483,8 @@ const Post = ({ post, currentUser, onPostUpdate, onImageClick }) => {
                   }
                 }}
                 onError={(e) => {
-                  e.target.src = '/video-placeholder.png'; // Fallback
+                  e.target.onerror = null;
+                  e.target.src = '/default-post-placeholder.png';
                 }}
               />
             );

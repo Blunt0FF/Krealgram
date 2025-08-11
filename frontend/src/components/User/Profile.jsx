@@ -96,8 +96,8 @@ const PostThumbnail = React.memo(({ post, onClick }) => {
   }, [post]);
 
   const handleImageError = (e) => {
-    e.target.onerror = null; // Предотвращаем бесконечный цикл ошибок
-    e.target.src = '/default-avatar.png';
+    e.target.onerror = null;
+    e.target.src = isVideo ? '/video-placeholder.svg' : '/default-post-placeholder.png';
   };
 
   return (

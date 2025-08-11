@@ -377,6 +377,11 @@ async function extractViaYtDlp(url) {
         errorOutput += data.toString();
       });
 
+      ytDlp.on('error', (err) => {
+        console.log('❌ yt-dlp spawn error:', err.message);
+        reject(new Error(`yt-dlp not available: ${err.message}`));
+      });
+
       ytDlp.on('close', (code) => {
         if (code === 0 && output.trim()) {
           const [videoUrl, title, uploader, duration, thumbnail] = output.trim().split('|');

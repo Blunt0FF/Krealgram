@@ -415,6 +415,10 @@ class VideoDownloader {
         errorOutput += data.toString();
       });
 
+      ytDlp.on('error', (err) => {
+        reject(new Error(`yt-dlp not available: ${err.message}`));
+      });
+
       ytDlp.on('close', (code) => {
         if (code === 0) {
           const [title, uploader, duration, viewCount] = output.trim().split('|');
@@ -443,6 +447,10 @@ class VideoDownloader {
 
       ytDlp.stderr.on('data', (data) => {
         errorOutput += data.toString();
+      });
+
+      ytDlp.on('error', (err) => {
+        reject(new Error(`yt-dlp not available: ${err.message}`));
       });
 
       ytDlp.on('close', async (code) => {
