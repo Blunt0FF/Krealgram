@@ -187,8 +187,11 @@ class VideoDownloader {
         throw new Error('Downloaded video exceeds 100MB limit');
       }
       
-      const timestamp = Date.now();
-      const driveResult = await googleDrive.uploadFile(videoBuffer, `tiktok-video-${timestamp}.mp4`, 'video/mp4', process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID);
+      // Создаем имя файла с URL вместо таймстампа
+      const safeUrl = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').substring(0, 100);
+      const filename = `tiktok-${safeUrl}.mp4`;
+      
+      const driveResult = await googleDrive.uploadFile(videoBuffer, filename, 'video/mp4', process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID);
 
       const tempVideoPath = path.join(this.tempDir, `tiktok-${Date.now()}.mp4`);
       await fs.promises.writeFile(tempVideoPath, videoBuffer);
@@ -198,9 +201,10 @@ class VideoDownloader {
         const gifResult = await generateGifThumbnail(tempVideoPath);
 
         if (gifResult && gifResult.buffer) {
+          const thumbnailFilename = `tiktok-thumb-${safeUrl}.gif`;
           const thumbnailDriveResult = await googleDrive.uploadFile(
             gifResult.buffer, 
-            gifResult.filename, 
+            thumbnailFilename, 
             'image/gif', 
             process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
           );
@@ -218,6 +222,13 @@ class VideoDownloader {
       // Очищаем temp после завершения операции
       forceCleanupAfterOperation();
 
+      console.log('🎬 TikTok video uploaded:', {
+        filename,
+        fileId: driveResult.fileId,
+        url: url,
+        size: videoBuffer.length
+      });
+
       return {
         success: true,
         platform: 'tiktok',
@@ -228,7 +239,7 @@ class VideoDownloader {
         },
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || originalThumbnailUrl || driveResult.thumbnailUrl, 
-        fileId: driveResult.public_id,
+        fileId: driveResult.fileId,
         originalUrl: url
       };
 
@@ -276,10 +287,13 @@ class VideoDownloader {
         throw new Error('Downloaded video exceeds 100MB limit');
       }
       
-      const timestamp = Date.now();
+      // Создаем имя файла с URL вместо таймстампа
+      const safeUrl = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').substring(0, 100);
+      const filename = `instagram-${safeUrl}.mp4`;
+      
       const driveResult = await googleDrive.uploadFile(
         videoBuffer, 
-        `instagram-video-${timestamp}.mp4`, 
+        filename, 
         'video/mp4', 
         process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID
       );
@@ -293,9 +307,10 @@ class VideoDownloader {
         console.log('🖼️ GIF Preview создан:', gifResult);
 
         if (gifResult && gifResult.buffer) {
+          const thumbnailFilename = `instagram-thumb-${safeUrl}.gif`;
           const thumbnailDriveResult = await googleDrive.uploadFile(
             gifResult.buffer, 
-            gifResult.filename, 
+            thumbnailFilename, 
             'image/gif', 
             process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
           );
@@ -314,6 +329,13 @@ class VideoDownloader {
       // Очищаем temp после завершения операции
       forceCleanupAfterOperation();
 
+      console.log('🎬 Instagram video uploaded:', {
+        filename,
+        fileId: driveResult.fileId,
+        url: url,
+        size: videoBuffer.length
+      });
+
       return {
         success: true,
         platform: 'instagram',
@@ -324,7 +346,7 @@ class VideoDownloader {
         },
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || result.thumbnailUrl || driveResult.thumbnailUrl,
-        fileId: driveResult.public_id,
+        fileId: driveResult.fileId,
         originalUrl: url
       };
 
@@ -361,10 +383,13 @@ class VideoDownloader {
         throw new Error('Downloaded video file is empty (0 bytes).');
       }
       
-      const timestamp = Date.now();
+      // Создаем имя файла с URL вместо таймстампа
+      const safeUrl = url.replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-').substring(0, 100);
+      const filename = `youtube-shorts-${safeUrl}.mp4`;
+      
       const driveResult = await googleDrive.uploadFile(
         videoBuffer, 
-        `youtube-shorts-${timestamp}.mp4`, 
+        filename, 
         'video/mp4', 
         process.env.GOOGLE_DRIVE_VIDEOS_FOLDER_ID
       );
@@ -375,9 +400,10 @@ class VideoDownloader {
         const gifResult = await generateGifThumbnail(downloadedPath);
 
         if (gifResult && gifResult.buffer) {
+          const thumbnailFilename = `youtube-shorts-thumb-${safeUrl}.gif`;
           const thumbnailDriveResult = await googleDrive.uploadFile(
             gifResult.buffer, 
-            gifResult.filename, 
+            thumbnailFilename, 
             'image/gif', 
             process.env.GOOGLE_DRIVE_GIFS_FOLDER_ID || process.env.GOOGLE_DRIVE_PREVIEWS_FOLDER_ID
           );
@@ -396,13 +422,20 @@ class VideoDownloader {
       // Очищаем temp после завершения операции
       forceCleanupAfterOperation();
 
+      console.log('🎬 YouTube Shorts video uploaded:', {
+        filename,
+        fileId: driveResult.fileId,
+        url: url,
+        size: videoBuffer.length
+      });
+
       return {
         success: true,
         platform: 'youtube-shorts',
         videoInfo: videoInfo,
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || driveResult.thumbnailUrl,
-        fileId: driveResult.public_id,
+        fileId: driveResult.fileId,
         originalUrl: url
       };
 

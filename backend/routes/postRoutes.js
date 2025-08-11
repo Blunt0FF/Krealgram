@@ -181,6 +181,11 @@ router.get('/video-users', authMiddleware, postController.getVideoUsers);
 // @access  Private
 router.post('/external-video/download', authMiddleware, postController.downloadExternalVideo);
 
+// @route   DELETE api/posts/external-video/cancel
+// @desc    Отменить загрузку внешнего видео и удалить файлы из Google Drive
+// @access  Private
+router.delete('/external-video/cancel', authMiddleware, postController.cancelExternalVideoUpload);
+
 // @route   POST api/posts/external-video
 // @desc    Создать пост с внешним видео (YouTube iframe, TikTok ссылки)
 // @access  Private

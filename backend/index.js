@@ -55,8 +55,8 @@ googleDrive.initialize().then(() => {
       
       // Загружаем токен из файла если есть
       tokenAutoRefresher.loadTokenFromFile().then(() => {
-        // Запускаем автообновление каждые 30 минут
-        tokenAutoRefresher.startAutoRefresh(30);
+        // Инициализируем автообновление токенов Google Drive
+        tokenAutoRefresher.startAutoRefresh(1440); // Раз в день вместо каждые 30 минут
       });
     }
   }, 10000);
@@ -220,7 +220,7 @@ app.get('/health', (req, res) => {
 });
 
 // System status route for monitoring
-app.get('/api/system/status', (req, res) => {
+app.get('', (req, res) => {
   try {
     const memoryUsage = process.memoryUsage();
     const os = require('os');

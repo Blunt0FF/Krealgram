@@ -321,6 +321,83 @@ const CreatePost = () => {
     setShowExternalVideoModal(false);
   }, []);
 
+  const handleRemoveContent = useCallback(async () => {
+    try {
+      console.log('🗑️ Remove clicked, parsedVideoData:', parsedVideoData);
+      
+      // Если это внешнее видео с загруженными файлами, удаляем их из Google Drive
+      if (parsedVideoData && parsedVideoData.videoData) {
+        console.log('🎬 Video data found:', parsedVideoData.videoData);
+        
+        const fileIds = [];
+        
+        // Добавляем ID основного видео файла
+        if (parsedVideoData.videoData.googleDriveFileId) {
+          fileIds.push(parsedVideoData.videoData.googleDriveFileId);
+          console.log('📹 Main video file ID:', parsedVideoData.videoData.googleDriveFileId);
+        } else {
+          console.log('⚠️ No googleDriveFileId found in videoData');
+        }
+        
+        // Добавляем ID thumbnail файла если есть
+        if (parsedVideoData.videoData.gifPreview) {
+          const thumbnailFileId = parsedVideoData.videoData.gifPreview.match(/id=([^&]+)/)?.[1];
+          if (thumbnailFileId) {
+            fileIds.push(thumbnailFileId);
+            console.log('🖼️ Thumbnail file ID:', thumbnailFileId);
+          } else {
+            console.log('⚠️ Could not extract thumbnail file ID from:', parsedVideoData.videoData.gifPreview);
+          }
+        } else {
+          console.log('ℹ️ No gifPreview found in videoData');
+        }
+        
+        // Проверяем все доступные поля в videoData
+        console.log('🔍 All videoData fields:', Object.keys(parsedVideoData.videoData));
+        console.log('🔍 videoData values:', parsedVideoData.videoData);
+        
+        // Если есть файлы для удаления, вызываем API
+        if (fileIds.length > 0) {
+          console.log('🚀 Deleting files from Google Drive:', fileIds);
+          
+          const token = localStorage.getItem('token');
+          const response = await fetch(`${API_URL}/api/posts/external-video/cancel`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ fileIds })
+          });
+          
+          const responseData = await response.json();
+          console.log('📡 API Response:', responseData);
+          
+          if (response.ok) {
+            console.log('✅ Files deleted from Google Drive successfully');
+          } else {
+            console.warn('⚠️ Failed to delete some files from Google Drive:', responseData);
+          }
+        } else {
+          console.log('ℹ️ No files to delete from Google Drive');
+        }
+      } else {
+        console.log('ℹ️ No video data found, just clearing state');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting files from Google Drive:', error);
+    } finally {
+      // Очищаем состояние независимо от результата удаления
+      setPreviewUrl(null);
+      setCompressedFile(null);
+      setOriginalFileName('');
+      setParsedVideoData(null);
+      setVideoUrl('');
+      setMediaType('image');
+      setError('');
+    }
+  }, [parsedVideoData]);
+
   return (
       <div className="create-post-box">
         <h2>
@@ -412,15 +489,7 @@ const CreatePost = () => {
               <button 
                 type="button"
                 className="remove-button"
-                onClick={() => {
-                  setPreviewUrl(null);
-                  setCompressedFile(null);
-                  setOriginalFileName('');
-                  setParsedVideoData(null);
-                  setVideoUrl('');
-                  setMediaType('image');
-                  setError('');
-                }}
+                onClick={handleRemoveContent}
               >
                 Remove {parsedVideoData ? 'Video' : mediaType === 'video' ? 'Video' : 'Image'}
               </button>
@@ -458,6 +527,7 @@ const CreatePost = () => {
         isOpen={showExternalVideoModal}
         onVideoDownloaded={(data) => {
           console.log('✅ Video processed:', data);
+          console.log('🔍 Full data structure:', JSON.stringify(data, null, 2));
           
           if (data.success) {
             if (data.isExternalLink) {
@@ -473,10 +543,12 @@ const CreatePost = () => {
                 isExternalLink: true,
                 videoData: data.videoData
               };
+              console.log('📺 YouTube videoData created:', videoData);
               handleExternalVideoSelect(videoData);
             } else if (data.videoData || data.videoUrl) {
               // TikTok/Instagram/VK - видео скачано, позволяем добавить описание
               console.log('📹 Video downloaded, allowing user to add caption...');
+              console.log('🔍 data.videoData structure:', data.videoData);
               const videoData = {
                 platform: data.platform,
                 videoId: null,
@@ -488,6 +560,7 @@ const CreatePost = () => {
                 videoUrl: data.videoUrl,
                 videoData: data.videoData
               };
+              console.log('📹 Downloaded videoData created:', videoData);
               handleExternalVideoSelect(videoData);
             }
           } else {

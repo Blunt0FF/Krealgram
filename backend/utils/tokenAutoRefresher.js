@@ -123,7 +123,7 @@ class TokenAutoRefresher {
   /**
    * Запускает автоматическую проверку токена
    */
-  startAutoRefresh(intervalMinutes = 60) {
+  startAutoRefresh(intervalMinutes = 1440) { // По умолчанию раз в день
     if (this.isRunning) {
       console.log('[TOKEN_REFRESHER] ⚠️ Автообновление уже запущено');
       return;
@@ -132,12 +132,12 @@ class TokenAutoRefresher {
     this.isRunning = true;
     const intervalMs = intervalMinutes * 60 * 1000;
 
-    console.log(`[TOKEN_REFRESHER] 🚀 Запуск автообновления каждые ${intervalMinutes} минут`);
+    console.log(`[TOKEN_REFRESHER] 🚀 Запуск автообновления раз в день`);
 
-    // Первая проверка через 10 минут после запуска
+    // Первая проверка через неделю после запуска (7 дней = 10080 минут)
     setTimeout(async () => {
       await this.performTokenCheck();
-    }, 10 * 60 * 1000);
+    }, 7 * 24 * 60 * 60 * 1000);
 
     // Периодическая проверка
     this.checkInterval = setInterval(async () => {

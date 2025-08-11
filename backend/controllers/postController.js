@@ -1112,6 +1112,52 @@ exports.createExternalVideoPost = async (req, res) => {
   }
 };
 
+// @desc    Удалить файлы из Google Drive при отмене загрузки внешнего видео
+// @route   DELETE /api/posts/external-video/cancel
+// @access  Private
+exports.cancelExternalVideoUpload = async (req, res) => {
+  try {
+    const { fileIds } = req.body;
+    
+    if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'File IDs array is required' 
+      });
+    }
+
+    console.log(`🗑️ Cancelling external video upload, deleting files:`, fileIds);
+    
+    // Удаляем файлы из Google Drive
+    const deleteResults = await GoogleDriveFileManager.deleteFiles(fileIds.filter(Boolean));
+    
+    console.log('[CANCEL_UPLOAD] Результаты удаления файлов:', deleteResults);
+    
+    // Очищаем temp после удаления
+    forceCleanupAfterOperation();
+
+    res.status(200).json({
+      success: true,
+      message: 'Files deleted successfully',
+      deletedFiles: {
+        success: deleteResults.success,
+        failed: deleteResults.failed
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error in cancelExternalVideoUpload:', error);
+    
+    // Очищаем temp даже при ошибке
+    forceCleanupAfterOperation();
+    
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to cancel external video upload',
+    });
+  }
+};
+
 // Функция для извлечения видео через API сервисы (только для TikTok, Instagram, Twitter)
 const extractVideoFromPlatform = async (url, platform) => {
   console.log(`🔗 Extracting ${platform} video via API...`);
