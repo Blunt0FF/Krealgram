@@ -54,9 +54,9 @@ const generateGifThumbnail = async (videoPath) => {
     return new Promise((resolve, reject) => {
       ffmpeg(videoPath)
         .outputOptions([
-          '-vf', 'fps=15,scale=320:-1',
-          '-t', '3',  // Максимальная длительность 3 секунды
-          '-compression_level', '6'
+          '-vf', 'fps=10,scale=240:-1',  // Уменьшаем fps и размер
+          '-t', '3',  // Максимальная длительность 2 секунды
+          '-compression_level', '9'  // Максимальное сжатие
         ])
         .toFormat('gif')
         .on('end', async () => {
@@ -72,7 +72,7 @@ const generateGifThumbnail = async (videoPath) => {
             const gifBuffer = await fs.promises.readFile(tempGifPath);
             
             // Проверяем размер GIF
-            const maxSizeMB = 5;
+            const maxSizeMB = 2;  // Уменьшаем максимальный размер
             const sizeMB = gifBuffer.length / (1024 * 1024);
             
             if (sizeMB > maxSizeMB) {
@@ -166,12 +166,24 @@ class VideoDownloader {
     try {
       const { videoUrl, title, uploader, duration, thumbnailUrl: originalThumbnailUrl } = await this.extractTikTokVideoAPI(url);
 
+      // Проверяем размер видео перед скачиванием
+      const headResponse = await axios.head(videoUrl);
+      const contentLength = headResponse.headers['content-length'];
+      if (contentLength && parseInt(contentLength) > 100 * 1024 * 1024) { // 100MB лимит
+        throw new Error('Video file too large (>100MB)');
+      }
+
       const response = await axios.get(videoUrl, { responseType: 'arraybuffer' });
       
       const videoBuffer = Buffer.from(response.data, 'binary');
 
       if (videoBuffer.length === 0) {
         throw new Error('Downloaded video file is empty (0 bytes).');
+      }
+      
+      // Проверяем размер скачанного файла
+      if (videoBuffer.length > 100 * 1024 * 1024) {
+        throw new Error('Downloaded video exceeds 100MB limit');
       }
       
       const timestamp = Date.now();
@@ -233,6 +245,13 @@ class VideoDownloader {
         throw new Error('Failed to extract Instagram video URL');
       }
 
+      // Проверяем размер видео перед скачиванием
+      const headResponse = await axios.head(result.videoUrl);
+      const contentLength = headResponse.headers['content-length'];
+      if (contentLength && parseInt(contentLength) > 100 * 1024 * 1024) { // 100MB лимит
+        throw new Error('Video file too large (>100MB)');
+      }
+
       const response = await axios.get(result.videoUrl, { 
         responseType: 'arraybuffer',
         headers: {
@@ -244,6 +263,11 @@ class VideoDownloader {
 
       if (videoBuffer.length === 0) {
         throw new Error('Downloaded video file is empty (0 bytes).');
+      }
+      
+      // Проверяем размер скачанного файла
+      if (videoBuffer.length > 100 * 1024 * 1024) {
+        throw new Error('Downloaded video exceeds 100MB limit');
       }
       
       const timestamp = Date.now();

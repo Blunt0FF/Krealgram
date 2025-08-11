@@ -219,6 +219,85 @@ app.get('/health', (req, res) => {
   });
 });
 
+// System status route for monitoring
+app.get('/api/system/status', (req, res) => {
+  try {
+    const memoryUsage = process.memoryUsage();
+    const os = require('os');
+    const fs = require('fs');
+    const path = require('path');
+    
+    const formatMemory = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+    const formatBytes = (bytes) => (bytes / 1024 / 1024).toFixed(2) + ' MB';
+    
+    // Получаем размер temp папки
+    const tempPath = path.join(__dirname, 'temp');
+    let tempSize = 0;
+    let tempFileCount = 0;
+    
+    if (fs.existsSync(tempPath)) {
+      const getDirSize = (dir) => {
+        let size = 0;
+        let count = 0;
+        try {
+          const files = fs.readdirSync(dir);
+          for (const file of files) {
+            const filePath = path.join(dir, file);
+            const stats = fs.statSync(filePath);
+            if (stats.isDirectory()) {
+              const subResult = getDirSize(filePath);
+              size += subResult.size;
+              count += subResult.count;
+            } else {
+              size += stats.size;
+              count++;
+            }
+          }
+        } catch (error) {
+          console.error('Error calculating directory size:', error.message);
+        }
+        return { size, count };
+      };
+      
+      const tempResult = getDirSize(tempPath);
+      tempSize = tempResult.size;
+      tempFileCount = tempResult.count;
+    }
+    
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: {
+        rss: formatMemory(memoryUsage.rss),
+        heapTotal: formatMemory(memoryUsage.heapTotal),
+        heapUsed: formatMemory(memoryUsage.heapUsed),
+        external: formatMemory(memoryUsage.external),
+        arrayBuffers: formatMemory(memoryUsage.arrayBuffers)
+      },
+      system: {
+        totalMemory: formatMemory(os.totalmem()),
+        freeMemory: formatMemory(os.freemem()),
+        cpuUsage: os.loadavg(),
+        platform: os.platform(),
+        arch: os.arch(),
+        nodeVersion: process.version
+      },
+      storage: {
+        tempDirectorySize: formatBytes(tempSize),
+        tempFileCount: tempFileCount,
+        tempDirectoryPath: tempPath
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 app.use('/api/admin', adminRoutes);
 
 // Обработка OPTIONS запросов для прокси
