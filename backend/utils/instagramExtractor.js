@@ -1,5 +1,8 @@
 const axios = require('axios');
 const { exec } = require('child_process');
+const fs = require('fs').promises;
+const fsSync = require('fs');
+const path = require('path');
 
 /**
  * Простой Instagram видео экстрактор
@@ -8,14 +11,31 @@ const { exec } = require('child_process');
 
 async function resolveYtDlpCommand() {
   return new Promise((resolve) => {
-    exec('command -v yt-dlp', (err, stdout) => {
+    exec('command -v yt-dlp', async (err, stdout) => {
       if (!err && stdout && stdout.trim()) {
         return resolve({ command: 'yt-dlp', argsPrefix: [] });
       }
-      // Пробуем python3 -m yt_dlp
-      exec('python3 -m yt_dlp --version', (pyErr) => {
+      // Пробуем python3 -м yt_dlp
+      exec('python3 -m yt_dlp --version', async (pyErr) => {
         if (!pyErr) {
           return resolve({ command: 'python3', argsPrefix: ['-m', 'yt_dlp'] });
+        }
+        // Пытаемся скачать статичный бинарь yt-dlp
+        try {
+          const binDir = path.join(__dirname, '..', 'temp');
+          const binPath = path.join(binDir, 'yt-dlp');
+          if (!fsSync.existsSync(binPath)) {
+            await fs.mkdir(binDir, { recursive: true });
+            const url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+            const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 20000 });
+            await fs.writeFile(binPath, Buffer.from(response.data));
+            await fs.chmod(binPath, 0o755);
+          }
+          if (fsSync.existsSync(binPath)) {
+            return resolve({ command: binPath, argsPrefix: [] });
+          }
+        } catch (downloadErr) {
+          console.log('⚠️ Не удалось скачать yt-dlp:', downloadErr.message);
         }
         // Нет доступного yt-dlp
         return resolve(null);
@@ -482,17 +502,12 @@ async function extractInstagramVideo(url) {
   
   // Список методов для попытки извлечения
   let extractionMethods = [
-    extractViaInstagramAPI,
-    extractViaHTMLParsing,
     extractViaYtDlp
   ];
   
   // Если это Reel, добавляем специальный метод в начало
   if (isReel) {
     extractionMethods = [
-      extractViaReelsAPI,
-      extractViaInstagramAPI,
-      extractViaHTMLParsing,
       extractViaYtDlp
     ];
   }

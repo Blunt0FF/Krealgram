@@ -2,20 +2,37 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { exec } = require('child_process');
-const ffmpeg = require('fluent-ffmpeg');
 const axios = require('axios');
+const ffmpeg = require('fluent-ffmpeg');
+const axiosLib = require('axios');
 const googleDrive = require('../config/googleDrive');
 const { generateVideoThumbnail } = require('../utils/imageCompressor');
 
 async function resolveYtDlpCommand() {
   return new Promise((resolve) => {
-    exec('command -v yt-dlp', (err, stdout) => {
+    exec('command -v yt-dlp', async (err, stdout) => {
       if (!err && stdout && stdout.trim()) {
         return resolve({ command: 'yt-dlp', argsPrefix: [] });
       }
-      exec('python3 -m yt_dlp --version', (pyErr) => {
+      exec('python3 -m yt_dlp --version', async (pyErr) => {
         if (!pyErr) {
           return resolve({ command: 'python3', argsPrefix: ['-m', 'yt_dlp'] });
+        }
+        try {
+          const binDir = path.join(__dirname, '../temp');
+          const binPath = path.join(binDir, 'yt-dlp');
+          if (!fs.existsSync(binPath)) {
+            await fs.promises.mkdir(binDir, { recursive: true });
+            const url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
+            const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 20000 });
+            await fs.promises.writeFile(binPath, Buffer.from(response.data));
+            await fs.promises.chmod(binPath, 0o755);
+          }
+          if (fs.existsSync(binPath)) {
+            return resolve({ command: binPath, argsPrefix: [] });
+          }
+        } catch (e) {
+          console.log('⚠️ Не удалось скачать yt-dlp:', e.message);
         }
         return resolve(null);
       });
