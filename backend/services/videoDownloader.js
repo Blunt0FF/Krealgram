@@ -7,6 +7,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const axiosLib = require('axios');
 const googleDrive = require('../config/googleDrive');
 const { generateVideoThumbnail } = require('../utils/imageCompressor');
+const { forceCleanupAfterOperation } = require('../utils/tempCleanup');
 
 async function resolveYtDlpCommand() {
   return new Promise((resolve) => {
@@ -214,6 +215,9 @@ class VideoDownloader {
 
       await fs.promises.unlink(tempVideoPath);
 
+      // Очищаем temp после завершения операции
+      forceCleanupAfterOperation();
+
       return {
         success: true,
         platform: 'tiktok',
@@ -230,6 +234,8 @@ class VideoDownloader {
 
     } catch (error) {
       console.error('❌ TikTok download error:', error);
+      // Очищаем temp даже при ошибке
+      forceCleanupAfterOperation();
       throw error;
     }
   }
@@ -305,6 +311,9 @@ class VideoDownloader {
       // Очищаем временные файлы
       await fs.promises.unlink(tempVideoPath);
 
+      // Очищаем temp после завершения операции
+      forceCleanupAfterOperation();
+
       return {
         success: true,
         platform: 'instagram',
@@ -321,6 +330,9 @@ class VideoDownloader {
 
     } catch (error) {
       console.error('❌ Instagram download error:', error);
+      
+      // Очищаем temp даже при ошибке
+      forceCleanupAfterOperation();
       
       // Проверяем специфические ошибки Instagram
       if (error.message.includes('VIDEO_RESTRICTED_18_PLUS') || error.message.includes('VIDEO_REQUIRES_LOGIN')) {
@@ -381,15 +393,13 @@ class VideoDownloader {
       // Очищаем временные файлы
       await fs.promises.unlink(downloadedPath);
 
+      // Очищаем temp после завершения операции
+      forceCleanupAfterOperation();
+
       return {
         success: true,
         platform: 'youtube-shorts',
-        videoInfo: {
-          title: videoInfo.title || 'YouTube Shorts',
-          duration: videoInfo.duration || null,
-          uploader: videoInfo.uploader || 'YouTube User',
-          viewCount: videoInfo.viewCount || null
-        },
+        videoInfo: videoInfo,
         videoUrl: driveResult.secure_url,
         thumbnailUrl: generatedThumbnailUrl || driveResult.thumbnailUrl,
         fileId: driveResult.public_id,
@@ -398,6 +408,8 @@ class VideoDownloader {
 
     } catch (error) {
       console.error('❌ YouTube Shorts download error:', error);
+      // Очищаем temp даже при ошибке
+      forceCleanupAfterOperation();
       throw error;
     }
   }

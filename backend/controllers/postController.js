@@ -10,6 +10,7 @@ const VideoDownloader = require('../services/videoDownloader');
 const googleDrive = require('../config/googleDrive');
 const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerator');
 const GoogleDriveFileManager = require('../utils/googleDriveFileManager');
+const { forceCleanupAfterOperation } = require('../utils/tempCleanup');
 
 console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
 
@@ -1021,6 +1022,9 @@ exports.downloadExternalVideo = async (req, res) => {
     if (result.success) {
       console.log(`✅ Video downloaded and uploaded to Google Drive successfully`);
       
+      // Очищаем temp после успешной загрузки
+      forceCleanupAfterOperation();
+      
       // Формируем данные для создания поста на фронтенде
       const videoData = {
         mediaType: "video",
@@ -1059,6 +1063,9 @@ exports.downloadExternalVideo = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error in downloadExternalVideo:', error);
+    
+    // Очищаем temp даже при ошибке
+    forceCleanupAfterOperation();
     
     // Проверяем специфические ошибки Instagram
     if (error.message.includes('VIDEO_RESTRICTED_18_PLUS') || error.message.includes('VIDEO_REQUIRES_LOGIN')) {

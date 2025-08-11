@@ -1,103 +1,149 @@
 const fs = require('fs');
 const path = require('path');
 
-const TEMP_INPUT_PATH = path.join(__dirname, '../temp/input');
-const TEMP_OUTPUT_PATH = path.join(__dirname, '../temp/output');
 const TEMP_ROOT_PATH = path.join(__dirname, '../temp');
 
+// Функция для получения размера директории
 function getDirectorySize(dirPath) {
-  if (!fs.existsSync(dirPath)) return 0;
   let totalSize = 0;
+  let fileCount = 0;
+  
   try {
-    const files = fs.readdirSync(dirPath);
-    for (const file of files) {
-      const filePath = path.join(dirPath, file);
-      const stats = fs.statSync(filePath);
+    const items = fs.readdirSync(dirPath);
+    
+    for (const item of items) {
+      const itemPath = path.join(dirPath, item);
+      const stats = fs.statSync(itemPath);
+      
       if (stats.isDirectory()) {
-        totalSize += getDirectorySize(filePath);
+        const subDirSize = getDirectorySize(itemPath);
+        totalSize += subDirSize.size;
+        fileCount += subDirSize.count;
       } else {
         totalSize += stats.size;
+        fileCount++;
       }
     }
   } catch (error) {
-    console.error(`Error calculating directory size for ${dirPath}:`, error.message);
+    console.log(`[TEMP_CLEANUP] Ошибка при подсчете размера ${dirPath}:`, error.message);
   }
-  return totalSize;
+  
+  return { size: totalSize, count: fileCount };
 }
 
+// Функция для очистки temp папок
 function cleanupTempFolders() {
-    try {
-        console.log('🧹 Starting temp cleanup...');
+  try {
+    const tempDirs = ['input', 'output', 'preview'];
+    
+    for (const dirName of tempDirs) {
+      const dirPath = path.join(TEMP_ROOT_PATH, dirName);
+      
+      if (!fs.existsSync(dirPath)) {
+        continue;
+      }
+      
+      const files = fs.readdirSync(dirPath);
+      let deletedCount = 0;
+      
+      for (const file of files) {
+        const filePath = path.join(dirPath, file);
         
-        // Очистка всех temp папок
-        const tempDirs = [TEMP_INPUT_PATH, TEMP_OUTPUT_PATH, TEMP_ROOT_PATH];
-        
-        for (const tempDir of tempDirs) {
-            if (fs.existsSync(tempDir)) {
-                const files = fs.readdirSync(tempDir);
-                let deletedCount = 0;
-                let totalDeletedSize = 0;
-                
-                for (const file of files) {
-                    const filePath = path.join(tempDir, file);
-                    try {
-                        const stats = fs.statSync(filePath);
-                        const fileAge = Date.now() - stats.mtime.getTime();
-                        
-                        // Удаляем файлы старше 30 секунд (было 1 минута)
-                        if (fileAge > 30 * 1000) {
-                            fs.unlinkSync(filePath);
-                            deletedCount++;
-                            totalDeletedSize += stats.size;
-                        }
-                    } catch (fileError) {
-                        console.warn(`Failed to process file ${file}:`, fileError.message);
-                    }
-                }
-                
-                if (deletedCount > 0) {
-                    console.log(`🗑️ Cleaned ${tempDir}: ${deletedCount} files, ${(totalDeletedSize / 1024 / 1024).toFixed(2)}MB freed`);
-                }
+        try {
+          const stats = fs.statSync(filePath);
+          const fileAge = Date.now() - stats.mtime.getTime();
+          
+          // Удаляем файлы старше 5 минут (было 30 секунд)
+          if (fileAge > 5 * 60 * 1000) {
+            if (stats.isDirectory()) {
+              fs.rmSync(filePath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(filePath);
             }
+            deletedCount++;
+          }
+        } catch (error) {
+          console.log(`[TEMP_CLEANUP] Ошибка при удалении ${filePath}:`, error.message);
         }
-        
-        // Логируем текущий размер temp папки
-        const totalSize = getDirectorySize(TEMP_ROOT_PATH);
-        console.log(`📊 Current temp directory size: ${(totalSize / 1024 / 1024).toFixed(2)}MB`);
-        
-        // Если temp папка больше 500MB, принудительно очищаем все файлы старше 10 секунд
-        if (totalSize > 500 * 1024 * 1024) {
-            console.warn('⚠️ Temp directory too large, aggressive cleanup...');
-            for (const tempDir of tempDirs) {
-                if (fs.existsSync(tempDir)) {
-                    const files = fs.readdirSync(tempDir);
-                    for (const file of files) {
-                        const filePath = path.join(tempDir, file);
-                        try {
-                            const stats = fs.statSync(filePath);
-                            const fileAge = Date.now() - stats.mtime.getTime();
-                            if (fileAge > 10 * 1000) {
-                                fs.unlinkSync(filePath);
-                            }
-                        } catch (fileError) {
-                            // Игнорируем ошибки при удалении
-                        }
-                    }
-                }
-            }
-            const newSize = getDirectorySize(TEMP_ROOT_PATH);
-            console.log(`✅ Aggressive cleanup completed. New size: ${(newSize / 1024 / 1024).toFixed(2)}MB`);
-        }
-        
-    } catch (error) {
-        console.error('Ошибка при очистке temp папок:', error);
+      }
+      
+      if (deletedCount > 0) {
+        console.log(`[TEMP_CLEANUP] Удалено ${deletedCount} файлов из ${dirName}`);
+      }
     }
+    
+    // Проверяем общий размер temp папки
+    const totalSize = getDirectorySize(TEMP_ROOT_PATH);
+    const totalSizeMB = Math.round(totalSize.size / (1024 * 1024));
+    
+    if (totalSizeMB > 100) {
+      console.log(`[TEMP_CLEANUP] ⚠️ Temp папка большая: ${totalSizeMB}MB (${totalSize.count} файлов)`);
+    }
+    
+  } catch (error) {
+    console.log('[TEMP_CLEANUP] Ошибка при очистке:', error.message);
+  }
 }
 
-// Запускаем очистку каждые 30 секунд (было 2 минуты)
-setInterval(cleanupTempFolders, 30 * 1000);
+// Функция для принудительной очистки (вызывается после завершения операций)
+function forceCleanupAfterOperation() {
+  console.log('[TEMP_CLEANUP] 🧹 Принудительная очистка после операции...');
+  
+  try {
+    const tempDirs = ['input', 'output', 'preview'];
+    
+    for (const dirName of tempDirs) {
+      const dirPath = path.join(TEMP_ROOT_PATH, dirName);
+      
+      if (!fs.existsSync(dirPath)) {
+        continue;
+      }
+      
+      const files = fs.readdirSync(dirPath);
+      let deletedCount = 0;
+      
+      for (const file of files) {
+        const filePath = path.join(dirPath, file);
+        
+        try {
+          const stats = fs.statSync(filePath);
+          const fileAge = Date.now() - stats.mtime.getTime();
+          
+          // Удаляем файлы старше 1 минуты после завершения операции
+          if (fileAge > 1 * 60 * 1000) {
+            if (stats.isDirectory()) {
+              fs.rmSync(filePath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(filePath);
+            }
+            deletedCount++;
+          }
+        } catch (error) {
+          console.log(`[TEMP_CLEANUP] Ошибка при принудительной очистке ${filePath}:`, error.message);
+        }
+      }
+      
+      if (deletedCount > 0) {
+        console.log(`[TEMP_CLEANUP] Принудительно удалено ${deletedCount} файлов из ${dirName}`);
+      }
+    }
+    
+    const totalSize = getDirectorySize(TEMP_ROOT_PATH);
+    const totalSizeMB = Math.round(totalSize.size / (1024 * 1024));
+    console.log(`[TEMP_CLEANUP] ✅ Temp папка после очистки: ${totalSizeMB}MB (${totalSize.count} файлов)`);
+    
+  } catch (error) {
+    console.log('[TEMP_CLEANUP] Ошибка при принудительной очистке:', error.message);
+  }
+}
 
-// Первая очистка сразу при запуске
-cleanupTempFolders();
+// Экспортируем функции для использования в других модулях
+module.exports = {
+  cleanupTempFolders,
+  forceCleanupAfterOperation,
+  getDirectorySize
+};
 
-module.exports = { cleanupTempFolders }; 
+// Запускаем очистку только при запуске сервера (не по интервалу)
+console.log('[TEMP_CLEANUP] 🚀 Инициализирован - очистка по факту завершения операций');
+cleanupTempFolders(); // Первая очистка при запуске 

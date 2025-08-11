@@ -3,6 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const { v4: uuidv4 } = require('uuid');
 const googleDrive = require('../config/googleDrive');
+const { forceCleanupAfterOperation } = require('../utils/tempCleanup');
 
 class SimpleVideoDownloader {
   constructor() {
@@ -105,6 +106,9 @@ class SimpleVideoDownloader {
       fs.unlinkSync(inputPath);
       fs.unlinkSync(thumbnailPath);
 
+      // Очищаем temp после завершения операции
+      forceCleanupAfterOperation();
+
       return {
         inputPath,
         thumbnailPath,
@@ -112,6 +116,8 @@ class SimpleVideoDownloader {
       };
     } catch (error) {
       console.error('❌ Ошибка обработки видео:', error);
+      // Очищаем temp даже при ошибке
+      forceCleanupAfterOperation();
       throw error;
     }
   }
