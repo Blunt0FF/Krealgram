@@ -1,9 +1,28 @@
 const axios = require('axios');
+const { exec } = require('child_process');
 
 /**
  * Простой Instagram видео экстрактор
  * Использует несколько методов для извлечения видео с Instagram
  */
+
+async function resolveYtDlpCommand() {
+  return new Promise((resolve) => {
+    exec('command -v yt-dlp', (err, stdout) => {
+      if (!err && stdout && stdout.trim()) {
+        return resolve({ command: 'yt-dlp', argsPrefix: [] });
+      }
+      // Пробуем python3 -m yt_dlp
+      exec('python3 -m yt_dlp --version', (pyErr) => {
+        if (!pyErr) {
+          return resolve({ command: 'python3', argsPrefix: ['-m', 'yt_dlp'] });
+        }
+        // Нет доступного yt-dlp
+        return resolve(null);
+      });
+    });
+  });
+}
 
 // Метод 1: Попытка извлечения через публичные данные Instagram
 async function extractViaInstagramAPI(url) {
@@ -357,9 +376,15 @@ async function extractViaYtDlp(url) {
     
     const { spawn } = require('child_process');
     const path = require('path');
+    const resolved = await resolveYtDlpCommand();
+    if (!resolved) {
+      throw new Error('yt-dlp not available in environment');
+    }
+    const { command, argsPrefix } = resolved;
     
     return new Promise((resolve, reject) => {
-      const ytDlp = spawn('yt-dlp', [
+      const ytDlp = spawn(command, [
+        ...argsPrefix,
         '--print', '%(url)s|%(title)s|%(uploader)s|%(duration)s|%(thumbnail)s',
         '--no-playlist',
         '--user-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

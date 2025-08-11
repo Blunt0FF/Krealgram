@@ -1,10 +1,27 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { exec } = require('child_process');
 const ffmpeg = require('fluent-ffmpeg');
 const axios = require('axios');
 const googleDrive = require('../config/googleDrive');
 const { generateVideoThumbnail } = require('../utils/imageCompressor');
+
+async function resolveYtDlpCommand() {
+  return new Promise((resolve) => {
+    exec('command -v yt-dlp', (err, stdout) => {
+      if (!err && stdout && stdout.trim()) {
+        return resolve({ command: 'yt-dlp', argsPrefix: [] });
+      }
+      exec('python3 -m yt_dlp --version', (pyErr) => {
+        if (!pyErr) {
+          return resolve({ command: 'python3', argsPrefix: ['-m', 'yt_dlp'] });
+        }
+        return resolve(null);
+      });
+    });
+  });
+}
 
 // Функция для создания GIF-превью из видео
 const generateGifThumbnail = async (videoPath) => {
@@ -399,79 +416,95 @@ class VideoDownloader {
 
   async getVideoInfo(url) {
     return new Promise((resolve, reject) => {
-      const ytDlp = spawn('yt-dlp', [
-        '--print', '%(title)s|%(uploader)s|%(duration)s|%(view_count)s',
-        url
-      ]);
-
-      let output = '';
-      let errorOutput = '';
-
-      ytDlp.stdout.on('data', (data) => {
-        output += data.toString();
-      });
-
-      ytDlp.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-      });
-
-      ytDlp.on('error', (err) => {
-        reject(new Error(`yt-dlp not available: ${err.message}`));
-      });
-
-      ytDlp.on('close', (code) => {
-        if (code === 0) {
-          const [title, uploader, duration, viewCount] = output.trim().split('|');
-          resolve({
-            title: title || 'Unknown Title',
-            uploader: uploader || 'Unknown Uploader',
-            duration: parseInt(duration) || 0,
-            viewCount: parseInt(viewCount) || 0
-          });
-        } else {
-          reject(new Error(`yt-dlp failed: ${errorOutput}`));
+      const start = async () => {
+        const resolved = await resolveYtDlpCommand();
+        if (!resolved) {
+          return reject(new Error('yt-dlp not available in environment'));
         }
-      });
+        const { command, argsPrefix } = resolved;
+        const ytDlp = spawn(command, [
+          ...argsPrefix,
+          '--print', '%(title)s|%(uploader)s|%(duration)s|%(view_count)s',
+          url
+        ]);
+
+        let output = '';
+        let errorOutput = '';
+
+        ytDlp.stdout.on('data', (data) => {
+          output += data.toString();
+        });
+
+        ytDlp.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+
+        ytDlp.on('error', (err) => {
+          reject(new Error(`yt-dlp not available: ${err.message}`));
+        });
+
+        ytDlp.on('close', (code) => {
+          if (code === 0) {
+            const [title, uploader, duration, viewCount] = output.trim().split('|');
+            resolve({
+              title: title || 'Unknown Title',
+              uploader: uploader || 'Unknown Uploader',
+              duration: parseInt(duration) || 0,
+              viewCount: parseInt(viewCount) || 0
+            });
+          } else {
+            reject(new Error(`yt-dlp failed: ${errorOutput}`));
+          }
+        });
+      };
+      start();
     });
   }
 
   async downloadVideoFile(url, outputPath) {
     return new Promise((resolve, reject) => {
-      const ytDlp = spawn('yt-dlp', [
-        '-f', 'best[height<=720]', // Ограничиваем качество для экономии места
-        '-o', outputPath,
-        url
-      ]);
-
-      let errorOutput = '';
-
-      ytDlp.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-      });
-
-      ytDlp.on('error', (err) => {
-        reject(new Error(`yt-dlp not available: ${err.message}`));
-      });
-
-      ytDlp.on('close', async (code) => {
-        if (code === 0) {
-          try {
-            // Находим скачанный файл
-            const files = await fs.promises.readdir(this.tempDir);
-            const videoFile = files.find(file => file.startsWith(path.basename(outputPath, '.%(ext)s')));
-            
-            if (videoFile) {
-              resolve(path.join(this.tempDir, videoFile));
-            } else {
-              reject(new Error('Downloaded file not found'));
-            }
-          } catch (error) {
-            reject(error);
-          }
-        } else {
-          reject(new Error(`yt-dlp download failed: ${errorOutput}`));
+      const start = async () => {
+        const resolved = await resolveYtDlpCommand();
+        if (!resolved) {
+          return reject(new Error('yt-dlp not available in environment'));
         }
-      });
+        const { command, argsPrefix } = resolved;
+        const ytDlp = spawn(command, [
+          ...argsPrefix,
+          '-f', 'best[height<=720]',
+          '-o', outputPath,
+          url
+        ]);
+
+        let errorOutput = '';
+
+        ytDlp.stderr.on('data', (data) => {
+          errorOutput += data.toString();
+        });
+
+        ytDlp.on('error', (err) => {
+          reject(new Error(`yt-dlp not available: ${err.message}`));
+        });
+
+        ytDlp.on('close', async (code) => {
+          if (code === 0) {
+            try {
+              const files = await fs.promises.readdir(this.tempDir);
+              const videoFile = files.find(file => file.startsWith(path.basename(outputPath, '.%(ext)s')));
+              if (videoFile) {
+                resolve(path.join(this.tempDir, videoFile));
+              } else {
+                reject(new Error('Downloaded file not found'));
+              }
+            } catch (error) {
+              reject(error);
+            }
+          } else {
+            reject(new Error(`yt-dlp download failed: ${errorOutput}`));
+          }
+        });
+      };
+      start();
     });
   }
 
