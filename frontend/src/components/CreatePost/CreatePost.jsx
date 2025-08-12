@@ -135,6 +135,17 @@ const CreatePost = () => {
     window.scrollTo(0, 0);
   }, []);
 
+  useEffect(() => {
+    const handler = (e) => {
+      const desc = e?.detail?.description;
+      if (desc && !caption) {
+        setCaption(desc);
+      }
+    };
+    window.addEventListener('external-video-description', handler);
+    return () => window.removeEventListener('external-video-description', handler);
+  }, [caption]);
+
   const handleImageChange = useCallback(async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -386,6 +397,7 @@ const CreatePost = () => {
       setVideoUrl('');
       setMediaType('image');
       setError('');
+      setCaption(''); // также очищаем автоподставленное описание
     }
   }, [parsedVideoData]);
 

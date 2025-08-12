@@ -163,6 +163,14 @@ const ExternalVideoUpload = ({ isOpen, onClose, onVideoDownloaded }) => {
 
       if (data.success) {
         console.log('✅ Video downloaded successfully:', data);
+        
+        // Пробросим описание наверх (для автозаполнения подписи)
+        if (data.description) {
+          try {
+            window.dispatchEvent(new CustomEvent('external-video-description', { detail: { description: data.description } }));
+          } catch {}
+        }
+        
         onVideoDownloaded(data);
         onClose();
       } else {

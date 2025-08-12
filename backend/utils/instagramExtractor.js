@@ -1,48 +1,9 @@
 const axios = require('axios');
-const { exec } = require('child_process');
-const fs = require('fs').promises;
-const fsSync = require('fs');
-const path = require('path');
 
 /**
  * Простой Instagram видео экстрактор
  * Использует несколько методов для извлечения видео с Instagram
  */
-
-async function resolveYtDlpCommand() {
-  return new Promise((resolve) => {
-    exec('command -v yt-dlp', async (err, stdout) => {
-      if (!err && stdout && stdout.trim()) {
-        return resolve({ command: 'yt-dlp', argsPrefix: [] });
-      }
-      // Пробуем python3 -м yt_dlp
-      exec('python3 -m yt_dlp --version', async (pyErr) => {
-        if (!pyErr) {
-          return resolve({ command: 'python3', argsPrefix: ['-m', 'yt_dlp'] });
-        }
-        // Пытаемся скачать статичный бинарь yt-dlp
-        try {
-          const binDir = path.join(__dirname, '..', 'temp');
-          const binPath = path.join(binDir, 'yt-dlp');
-          if (!fsSync.existsSync(binPath)) {
-            await fs.mkdir(binDir, { recursive: true });
-            const url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp';
-            const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 20000 });
-            await fs.writeFile(binPath, Buffer.from(response.data));
-            await fs.chmod(binPath, 0o755);
-          }
-          if (fsSync.existsSync(binPath)) {
-            return resolve({ command: binPath, argsPrefix: [] });
-          }
-        } catch (downloadErr) {
-          console.log('⚠️ Не удалось скачать yt-dlp:', downloadErr.message);
-        }
-        // Нет доступного yt-dlp
-        return resolve(null);
-      });
-    });
-  });
-}
 
 // Метод 1: Попытка извлечения через публичные данные Instagram
 async function extractViaInstagramAPI(url) {
@@ -115,6 +76,7 @@ async function extractViaInstagramAPI(url) {
           videoUrl: videoUrl,
           thumbnailUrl: media.image_versions2?.candidates?.[0]?.url || null,
           title: media.caption?.text || (isReel ? 'Instagram Reel' : 'Instagram Video'),
+          description: media.caption?.text || null,
           author: media.user?.username || 'Unknown',
           duration: media.video_duration || null,
           originalUrl: url
@@ -212,12 +174,15 @@ async function extractViaReelsAPI(url) {
         
         // Проверяем, что это действительно видео URL
         if (videoUrl.includes('cdninstagram.com') || videoUrl.includes('.mp4') || videoUrl.includes('video')) {
+          const metaTitleMatch = html.match(/<meta property="og:title" content="([^"]+)"/);
+          const metaDescMatch = html.match(/<meta property="og:description" content="([^"]+)"/);
           return {
             success: true,
             platform: 'instagram',
             videoUrl: videoUrl,
             thumbnailUrl: null,
-            title: 'Instagram Reel',
+            title: metaTitleMatch ? metaTitleMatch[1] : 'Instagram Reel',
+            description: metaDescMatch ? metaDescMatch[1] : null,
             author: 'Unknown',
             originalUrl: url
           };
@@ -274,6 +239,7 @@ async function extractViaHTMLParsing(url) {
             videoUrl: jsonData.video.contentUrl,
             thumbnailUrl: jsonData.image || null,
             title: jsonData.name || (isReel ? 'Instagram Reel' : 'Instagram Video'),
+            description: jsonData.description || null,
             author: jsonData.author?.name || 'Unknown',
             originalUrl: url
           };
@@ -297,6 +263,7 @@ async function extractViaHTMLParsing(url) {
             videoUrl: media.video_url,
             thumbnailUrl: media.display_url,
             title: media.edge_media_to_caption?.edges?.[0]?.node?.text || (isReel ? 'Instagram Reel' : 'Instagram Video'),
+            description: media.edge_media_to_caption?.edges?.[0]?.node?.text || null,
             author: media.owner?.username || 'Unknown',
             duration: media.video_duration || null,
             originalUrl: url
@@ -321,6 +288,7 @@ async function extractViaHTMLParsing(url) {
             videoUrl: media.video_url,
             thumbnailUrl: media.display_url,
             title: media.edge_media_to_caption?.edges?.[0]?.node?.text || (isReel ? 'Instagram Reel' : 'Instagram Video'),
+            description: media.edge_media_to_caption?.edges?.[0]?.node?.text || null,
             author: media.owner?.username || 'Unknown',
             duration: media.video_duration || null,
             originalUrl: url
@@ -335,6 +303,7 @@ async function extractViaHTMLParsing(url) {
     const metaVideoMatch = html.match(/<meta property="og:video" content="([^"]+)"/);
     const metaTitleMatch = html.match(/<meta property="og:title" content="([^"]+)"/);
     const metaImageMatch = html.match(/<meta property="og:image" content="([^"]+)"/);
+    const metaDescMatch = html.match(/<meta property="og:description" content="([^"]+)"/);
     
     if (metaVideoMatch) {
       return {
@@ -343,6 +312,7 @@ async function extractViaHTMLParsing(url) {
         videoUrl: metaVideoMatch[1],
         thumbnailUrl: metaImageMatch ? metaImageMatch[1] : null,
         title: metaTitleMatch ? metaTitleMatch[1] : (isReel ? 'Instagram Reel' : 'Instagram Video'),
+        description: metaDescMatch ? metaDescMatch[1] : null,
         author: 'Unknown',
         originalUrl: url
       };
@@ -361,6 +331,7 @@ async function extractViaHTMLParsing(url) {
           videoUrl: videoUrl,
           thumbnailUrl: metaImageMatch ? metaImageMatch[1] : null,
           title: metaTitleMatch ? metaTitleMatch[1] : 'Instagram Reel',
+          description: metaDescMatch ? metaDescMatch[1] : null,
           author: 'Unknown',
           originalUrl: url
         };
@@ -376,6 +347,7 @@ async function extractViaHTMLParsing(url) {
         videoUrl: additionalVideoMatch[1],
         thumbnailUrl: null,
         title: isReel ? 'Instagram Reel' : 'Instagram Video',
+        description: metaDescMatch ? metaDescMatch[1] : null,
         author: 'Unknown',
         originalUrl: url
       };
@@ -396,15 +368,9 @@ async function extractViaYtDlp(url) {
     
     const { spawn } = require('child_process');
     const path = require('path');
-    const resolved = await resolveYtDlpCommand();
-    if (!resolved) {
-      throw new Error('yt-dlp not available in environment');
-    }
-    const { command, argsPrefix } = resolved;
     
     return new Promise((resolve, reject) => {
-      const ytDlp = spawn(command, [
-        ...argsPrefix,
+      const ytDlp = spawn('yt-dlp', [
         '--print', '%(url)s|%(title)s|%(uploader)s|%(duration)s|%(thumbnail)s',
         '--no-playlist',
         '--user-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -420,11 +386,6 @@ async function extractViaYtDlp(url) {
 
       ytDlp.stderr.on('data', (data) => {
         errorOutput += data.toString();
-      });
-
-      ytDlp.on('error', (err) => {
-        console.log('❌ yt-dlp spawn error:', err.message);
-        reject(new Error(`yt-dlp not available: ${err.message}`));
       });
 
       ytDlp.on('close', (code) => {
@@ -498,47 +459,44 @@ async function extractInstagramVideo(url) {
     throw new Error('Not an Instagram URL');
   }
   
-  const isReel = url.includes('/reel/');
-  
-  // Список методов для попытки извлечения
-  let extractionMethods = [
-    extractViaYtDlp
-  ];
-  
-  // Если это Reel, добавляем специальный метод в начало
-  if (isReel) {
-    extractionMethods = [
-      extractViaYtDlp
-    ];
+  // Нормализуем: всегда пробуем как Reel
+  let normalizedUrl = url;
+  const pMatch = url.match(/^(https?:\/\/[^/]+)\/(?:p|reel)\/([^\/\?#]+)(.*)$/);
+  if (pMatch) {
+    const base = pMatch[1];
+    const shortcode = pMatch[2];
+    normalizedUrl = `${base}/reel/${shortcode}/`;
+    if (normalizedUrl !== url) {
+      console.log(`🔁 Normalized to Reel URL: ${normalizedUrl}`);
+    }
   }
+  
+  // Используем только Reels метод
+  const extractionMethods = [
+    extractViaReelsAPI
+  ];
   
   let lastError = null;
   
-  // Пробуем каждый метод по очереди
   for (const method of extractionMethods) {
     try {
-      const result = await method(url);
-      
+      const result = await method(normalizedUrl);
       if (result && result.success && result.videoUrl) {
         console.log('✅ Instagram video extraction successful!');
         console.log(`📹 Video URL: ${result.videoUrl}`);
         console.log(`🖼️ Thumbnail: ${result.thumbnailUrl}`);
         console.log(`📝 Title: ${result.title}`);
-        
         return result;
       }
     } catch (error) {
       lastError = error;
       console.log(`⚠️ Method failed: ${error.message}`);
-      // Продолжаем со следующим методом
     }
   }
   
-  // Если все методы не сработали
   console.log('❌ All Instagram extraction methods failed');
   console.log('📝 Note: Instagram may have blocked extraction methods');
   
-  // Возвращаем последнюю ошибку с правильным форматом
   if (lastError && (lastError.message.includes('VIDEO_RESTRICTED_18_PLUS') || lastError.message.includes('VIDEO_REQUIRES_LOGIN'))) {
     throw lastError;
   } else {

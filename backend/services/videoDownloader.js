@@ -448,7 +448,8 @@ class VideoDownloader {
         gifPreviewUrl: generatedThumbnailUrl || null,
         thumbnailFileId: generatedThumbnailFileId || null,
         fileId: driveResult.fileId,
-        originalUrl: url
+        originalUrl: url,
+        description: (videoInfo.description && videoInfo.description.trim()) ? videoInfo.description : (videoInfo.title || '')
       };
 
     } catch (error) {
@@ -522,7 +523,7 @@ class VideoDownloader {
         const { command, argsPrefix } = resolved;
         const ytDlp = spawn(command, [
           ...argsPrefix,
-          '--print', '%(title)s|%(uploader)s|%(duration)s|%(view_count)s',
+          '--print', '%(title)s|%(uploader)s|%(duration)s|%(view_count)s|%(description)s',
           url
         ]);
 
@@ -543,12 +544,19 @@ class VideoDownloader {
 
         ytDlp.on('close', (code) => {
           if (code === 0) {
-            const [title, uploader, duration, viewCount] = output.trim().split('|');
+            const parts = output.trim().split('|');
+            const title = parts[0] || '';
+            const uploader = parts[1] || '';
+            const duration = parts[2] || '';
+            const viewCount = parts[3] || '';
+            // Описание может содержать символы |, поэтому соединяем остаток обратно
+            const description = parts.length > 4 ? parts.slice(4).join('|') : '';
             resolve({
               title: title || 'Unknown Title',
               uploader: uploader || 'Unknown Uploader',
               duration: parseInt(duration) || 0,
-              viewCount: parseInt(viewCount) || 0
+              viewCount: parseInt(viewCount) || 0,
+              description: description || ''
             });
           } else {
             reject(new Error(`yt-dlp failed: ${errorOutput}`));

@@ -12,6 +12,39 @@ const UniversalThumbnailGenerator = require('../utils/universalThumbnailGenerato
 const GoogleDriveFileManager = require('../utils/googleDriveFileManager');
 const { forceCleanupAfterOperation } = require('../utils/tempCleanup');
 
+// Декодирование HTML сущностей и числовых ссылок
+function decodeHtmlEntities(input) {
+  if (!input || typeof input !== 'string') return input;
+  let str = input;
+  // Декодируем числовые сущности: десятичные и шестнадцатеричные
+  str = str.replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => {
+    try { return String.fromCodePoint(parseInt(hex, 16)); } catch { return _; }
+  });
+  str = str.replace(/&#(\d+);/g, (_, dec) => {
+    try { return String.fromCodePoint(parseInt(dec, 10)); } catch { return _; }
+  });
+  // Базовые именованные сущности
+  const map = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+  str = str.replace(/(&amp;|&lt;|&gt;|&quot;|&#39;)/g, m => map[m] || m);
+  // Нормализуем пробелы
+  return str.replace(/[\t\r]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+}
+
+// Нормализация инстаграм-описаний: убираем префикс "<аккаунт> on Instagram:" и внешние кавычки
+function normalizeInstagramDescription(input) {
+  if (!input || typeof input !== 'string') return input;
+  let s = input.trim();
+  // Если строка вида: Something on Instagram: "Caption"
+  let m = s.match(/on Instagram:\s*["“](.+?)["”]\s*$/i);
+  if (m && m[1]) return m[1].trim();
+  // Если строка вида: Something on Instagram: Caption (без кавычек)
+  m = s.match(/on Instagram:\s*(.+)$/i);
+  if (m && m[1]) s = m[1].trim();
+  // Удаляем внешние одинарные/двойные/типографские кавычки
+  s = s.replace(/^(["'“”]+)/, '').replace(/(["'“”]+)$/, '').trim();
+  return s;
+}
+
 console.log('[VIDEO_DOWNLOADER] Using API services + axios for real video downloads');
 
 // @desc    Create a new post
@@ -1024,6 +1057,11 @@ exports.downloadExternalVideo = async (req, res) => {
       
       // Очищаем temp после успешной загрузки
       forceCleanupAfterOperation();
+
+      // Подготовка описания (декодирование HTML сущностей + нормализация Instagram шаблона)
+      const rawDescription = (result.description || result.videoInfo?.title || '').toString();
+      const decoded = decodeHtmlEntities(rawDescription);
+      const safeDescription = normalizeInstagramDescription(decoded).slice(0, 2000);
       
       // Формируем данные для создания поста на фронтенде
       const videoData = {
@@ -1034,6 +1072,7 @@ exports.downloadExternalVideo = async (req, res) => {
         gifPreview: result.gifPreviewUrl, // Добавляем GIF-превью
         googleDriveFileId: result.fileId, // ID файла в Google Drive
         thumbnailFileId: result.thumbnailFileId || null,
+        description: safeDescription,
         youtubeData: {
           platform: result.platform,
           originalUrl: result.originalUrl,
@@ -1054,6 +1093,7 @@ exports.downloadExternalVideo = async (req, res) => {
         gifPreviewUrl: result.gifPreviewUrl || null,
         fileId: result.fileId,
         thumbnailFileId: result.thumbnailFileId || null,
+        description: safeDescription || null,
         originalUrl: result.originalUrl,
         platform: result.platform,
         title: result.videoInfo.title || '',
