@@ -55,9 +55,8 @@ const generateGifThumbnail = async (videoPath) => {
     return new Promise((resolve, reject) => {
       ffmpeg(videoPath)
         .outputOptions([
-          '-vf', 'fps=10,scale=240:-1',  // Уменьшаем fps и размер
-          '-t', '3',  // Максимальная длительность 2 секунды
-          '-compression_level', '9'  // Максимальное сжатие
+          '-vf', 'fps=20,scale=300:-1', 
+          '-t', '3', 
         ])
         .toFormat('gif')
         .on('end', async () => {
